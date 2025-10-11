@@ -13,6 +13,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - DB_DIR=/app/data
     depends_on:
       - redis
     volumes:
@@ -24,6 +25,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - DB_DIR=/app/data
     command: ["python", "manage.py", "listen_progress"]
     depends_on:
       - redis

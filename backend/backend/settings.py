@@ -90,10 +90,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# we use /app/data for database in docker, local path otherwise
+DB_DIR = os.getenv('DB_DIR', str(BASE_DIR))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': Path(DB_DIR) / 'db.sqlite3',
     }
 }
 
