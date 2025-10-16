@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 
+from identity.permissions import IsOfficeUser
 from .models import Subject, Recruitment, Plan, Room, Tag, RoomTag, Meeting
 from .serializers import (
     SubjectSerializer,
@@ -16,7 +17,7 @@ from .serializers import (
 
 
 class BaseCrudView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
     model = None
     serializer_class = None
     lookup_field = None
