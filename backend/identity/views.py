@@ -6,9 +6,8 @@ from django.shortcuts import get_object_or_404
 from .models import Organization, Group, UserGroup
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
-    RegisterSerializer, UserSerializer, OrganizationSerializer, GroupSerializer, UserGroupSerializer
+    RegisterSerializer, UserSerializer, OrganizationSerializer, GroupSerializer, UserGroupSerializer, OfficeCreateUserSerializer, PasswordChangeSerializer
 )
-from scheduling.serializers import MeetingSerializer
 from .services import get_active_meetings_for_user
 from .permissions import IsAdminUser, IsOfficeUser
 
@@ -141,12 +140,51 @@ class UserGroupDeleteView(APIView):
             )
 
 
+class OfficeUserCreateView(APIView):
+    """Create a user within the same organization as the requester.
+
+    - Only users with role 'office' or 'admin' may access this endpoint (enforced by permission).
+    - Created user's role must be one of: 'office', 'host', 'participant' (enforced by serializer).
+    - Created user's organization is automatically set to the creator's organization.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def post(self, request):
+        serializer = OfficeCreateUserSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SetUserPasswordView(APIView):
+    """Set password for a given user — only the user themselves may change their password.
+
+    Notes:
+    - Only the authenticated user whose PK matches `user_pk` may change the password.
+    - If you want admins/offices to be able to change other users' passwords, we can add that exception.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_pk):
+        if str(request.user.pk) != str(user_pk):
+            return Response({"detail": "You may only change your own password."}, status=status.HTTP_403_FORBIDDEN)
+
+        user = request.user
+        serializer = PasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user)
+            return Response({"detail": "Password updated"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ActiveMeetingsByUserView(APIView):
     """Return all meetings where the given user is host_user and the recruitment is active."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_pk):
         get_object_or_404(User, pk=user_pk)
+        from scheduling.serializers import MeetingSerializer
         qs = get_active_meetings_for_user(user_pk)
         serializer = MeetingSerializer(qs, many=True)
         return Response(serializer.data)

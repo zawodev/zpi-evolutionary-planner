@@ -13,6 +13,14 @@ class User(AbstractUser):
         ('participant', 'Participant')
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='participant', null=False)
+    organization = models.ForeignKey(
+        'Organization',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='organizationid',
+        related_name='users'
+    )
 
     class Meta:
         db_table = 'identity_users'

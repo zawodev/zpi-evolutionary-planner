@@ -2,6 +2,7 @@
 #include "utils/Logger.hpp"
 #include <random>
 #include <set>
+#include <algorithm>
 
 Evaluator::Evaluator(const ProblemData& data) : problemData(data) {
     buildMaxValues();

@@ -11,6 +11,7 @@
 #include <memory>
 #include <chrono>
 #include <thread>
+#include <cstdlib>
 
 void processJob(EventReceiver& receiver, EventSender& sender) {
     RawJobData jobData = receiver.receive();
@@ -99,11 +100,21 @@ int main() {
         //return 0;
         Logger::info("Starting Optimizer Service...");
 
-        std::unique_ptr<EventReceiver> receiver = std::make_unique<FileEventReceiver>("data/input");
-        //std::unique_ptr<EventReceiver> receiver = std::make_unique<RedisEventReceiver>("redis://localhost:6379");
-        
-        std::unique_ptr<EventSender> sender = std::make_unique<FileEventSender>("data/output");
-        //std::unique_ptr<EventSender> sender = std::make_unique<RedisEventSender>("redis://localhost:6379");
+        // we use redis if REDIS_HOST environment variable is set (in docker), otherwise use file-based
+        const char* redisHost = std::getenv("REDIS_HOST");
+        std::unique_ptr<EventReceiver> receiver;
+        std::unique_ptr<EventSender> sender;
+
+        if (redisHost) {
+            std::string redisUrl = std::string("redis://") + redisHost + ":6379";
+            Logger::info("Using Redis connection: " + redisUrl);
+            receiver = std::make_unique<RedisEventReceiver>(redisUrl);
+            sender = std::make_unique<RedisEventSender>(redisUrl);
+        } else {
+            Logger::info("Using file-based event system");
+            receiver = std::make_unique<FileEventReceiver>("data/input");
+            sender = std::make_unique<FileEventSender>("data/output");
+        }
 
         Logger::info("Optimizer service started. Waiting for jobs...");
 

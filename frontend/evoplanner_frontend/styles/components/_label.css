@@ -1,0 +1,25 @@
+/* styles/components/_label.css */
+
+.label {
+    display: 'block'; 
+    margin-bottom: '8px'; 
+    font-size: '13px';
+    font-weight: '600';
+    font-family: "'DM Sans', sans-serif";
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: clamp(12px, 1.4vh, 14px);
+    font-weight: 500;
+}
+
+.label.soft-blue {
+  background: rgba(33, 99, 255, 0.1);
+  color: #2163ff;
+  border: 1px solid rgba(33, 99, 255, 0.3);
+}
+
+.label.soft-yellow {
+  background: rgba(234, 179, 8, 0.1);
+  color: #ca8a04;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}

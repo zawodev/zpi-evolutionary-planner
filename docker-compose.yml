@@ -33,5 +33,13 @@ services:
       - db_data:/app/data
     restart: unless-stopped
 
+  optimizer:
+    build: ./optimizer_service
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
 volumes:
   db_data:

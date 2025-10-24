@@ -4,7 +4,7 @@ import Link from 'next/link';
 export default function Navbar() {
   return (
     <header className="header">
-      <div className="logo logo--header">Rekruter+</div>
+      <div className="logo logo--header">OptiSlots</div>
       
       <nav>
         <Link href="/">
@@ -20,7 +20,7 @@ export default function Navbar() {
         <div className="header-icon header-icon--main"></div>
         <div className="login-btn-wrapper">
           <Link href="/login">
-            <button className="btn btn--primary btn--login">Login</button>
+            <button className="btn btn--primary btn--login">Zaloguj się!</button>
           </Link>        
         </div>        
       </div>

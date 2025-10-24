@@ -37,11 +37,11 @@ file(COPY ${HIREDIS_HEADERS} DESTINATION "${hiredis_BINARY_DIR}/include/hiredis"
 set(HIREDIS_INCLUDE_DIR "${hiredis_BINARY_DIR}/include")
 include_directories(${hiredis_BINARY_DIR}/include)
 set(HIREDIS_ROOT "${hiredis_SOURCE_DIR}")
-set(HIREDIS_HEADER "${hiredis_SOURCE_DIR}/hiredis.h")
-set(HIREDIS_LIB "${hiredis_BINARY_DIR}/hiredis.lib")
+set(HIREDIS_HEADER "${hiredis_BINARY_DIR}/include")
+set(HIREDIS_LIB "${hiredis_BINARY_DIR}")
 
 # redis-plus-plus
-set(REDIS_PLUS_PLUS_BUILD_TEST OFF)
+set(REDIS_PLUS_PLUS_BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(REDIS_PLUS_PLUS_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(REDIS_PLUS_PLUS_BUILD_STATIC ON CACHE BOOL "" FORCE)
 FetchContent_Declare(

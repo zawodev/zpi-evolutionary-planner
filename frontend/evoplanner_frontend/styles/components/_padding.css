@@ -1,0 +1,55 @@
+/* style/utilities/padding.css */
+
+/* General padding (all sides) */
+.p-xs { padding: 4px; }
+.p-sm { padding: 8px; }
+.p-md { padding: 12px; }
+.p-lg { padding: 16px; }
+.p-xl { padding: 20px; }
+.p-xxl { padding: 24px; }
+
+/* Horizontal padding (x = left & right) */
+.px-xs { padding-left: 4px;  padding-right: 4px; }
+.px-sm { padding-left: 8px;  padding-right: 8px; }
+.px-md { padding-left: 12px; padding-right: 12px; }
+.px-lg { padding-left: 16px; padding-right: 16px; }
+.px-xl { padding-left: 20px; padding-right: 20px; }
+.px-xxl { padding-left: 24px; padding-right: 24px; }
+
+/* Vertical padding (y = top & bottom) */
+.py-xs { padding-top: 4px;  padding-bottom: 4px; }
+.py-sm { padding-top: 8px;  padding-bottom: 8px; }
+.py-md { padding-top: 12px; padding-bottom: 12px; }
+.py-lg { padding-top: 16px; padding-bottom: 16px; }
+.py-xl { padding-top: 20px; padding-bottom: 20px; }
+.py-xxl { padding-top: 24px; padding-bottom: 24px; }
+
+/* Individual sides */
+.pt-sm { padding-top: 8px; }
+.pt-md { padding-top: 12px; }
+.pt-lg { padding-top: 16px; }
+
+.pb-sm { padding-bottom: 8px; }
+.pb-md { padding-bottom: 12px; }
+.pb-lg { padding-bottom: 16px; }
+
+.pl-sm { padding-left: 8px; }
+.pl-md { padding-left: 12px; }
+.pl-lg { padding-left: 16px; }
+
+.pr-sm { padding-right: 8px; }
+.pr-md { padding-right: 12px; }
+.pr-lg { padding-right: 16px; }
+
+/* Responsive variants */
+@media (max-width: 768px) {
+  .p-md { padding: 10px; }
+  .px-md { padding-left: 10px; padding-right: 10px; }
+  .py-md { padding-top: 10px; padding-bottom: 10px; }
+}
+
+@media (max-width: 640px) {
+  .p-sm { padding: 6px; }
+  .px-sm { padding-left: 6px; padding-right: 6px; }
+  .py-sm { padding-top: 6px; padding-bottom: 6px; }
+}

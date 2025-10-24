@@ -10,7 +10,9 @@ from .views import (
     GroupDeleteView,
     UserGroupAddView,
     UserGroupDeleteView,
-    ActiveMeetingsByUserView
+    ActiveMeetingsByUserView,
+    OfficeUserCreateView,
+    SetUserPasswordView,
 )
 
 urlpatterns = [
@@ -18,8 +20,10 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
 
-    path('user/', UserProfileView.as_view(), name='user'),
-    path('user/<user_pk>/availability/', ActiveMeetingsByUserView.as_view(), name='user-availability'),
+    path('users/', UserProfileView.as_view(), name='user'),
+    path('users/<user_pk>/availability/', ActiveMeetingsByUserView.as_view(), name='user-availability'),
+    path('users/create/', OfficeUserCreateView.as_view(), name='office-user-create'),
+    path('users/<user_pk>/set_password/', SetUserPasswordView.as_view(), name='set-user-password'),
 
     path('organizations/add/', OrganizationAddView.as_view(), name='organization-add'),
     path('organizations/delete/<uuid:organization_id>/', OrganizationDeleteView.as_view(), name='organization-delete'),
