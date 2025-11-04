@@ -1,20 +1,26 @@
 from django.urls import path
 from .views import (
     SubjectView,
+    SubjectGroupView,
     RecruitmentView,
     RoomView,
     TagView,
     RoomTagView,
     MeetingView,
     ActiveMeetingsByRoomView,
+    UsersByRecruitmentView,
 )
 
 urlpatterns = [
     path('subjects/', SubjectView.as_view(), name='subjects'),
     path('subjects/<uuid:pk>/', SubjectView.as_view(), name='subject-detail'),
 
+    path('subject-groups/', SubjectGroupView.as_view(), name='subject-groups'),
+    path('subject-groups/<uuid:pk>/', SubjectGroupView.as_view(), name='subject-group-detail'),
+
     path('recruitments/', RecruitmentView.as_view(), name='recruitments'),
     path('recruitments/<uuid:pk>/', RecruitmentView.as_view(), name='recruitment-detail'),
+    path('recruitments/<uuid:recruitment_pk>/users/', UsersByRecruitmentView.as_view(), name='recruitment-users'),
 
     path('rooms/', RoomView.as_view(), name='rooms'),
     path('rooms/<uuid:pk>/', RoomView.as_view(), name='room-detail'),

@@ -1,0 +1,15 @@
+/* Component: Notifications */
+
+.entries-error-message {
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #e74c3c;
+  background-color: #ffe6e6;
+  border-radius: 4px;
+}
+
+.entries-loading-indicator {
+  padding: 20px;
+  text-align: center;
+}

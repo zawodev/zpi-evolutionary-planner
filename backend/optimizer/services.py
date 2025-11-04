@@ -13,6 +13,44 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 
+def convert_preferences_to_problem_data(recruitment_id: str) -> Dict[str, Any]:
+    """
+    Convert recruitment preferences and constraints to problem_data JSON format.
+    
+    Args:
+        recruitment_id: UUID of the recruitment
+        
+    Returns:
+        Dict containing problem_data in the format expected by the optimizer
+        
+    TODO: Implementation needed
+    - Fetch recruitment data
+    - Parse user preferences
+    - Parse management preferences
+    - Parse constraints
+    - Build problem_data structure
+    """
+    raise NotImplementedError("convert_preferences_to_problem_data not yet implemented")
+
+
+def convert_solution_to_meetings(job_id: str, solution_data: Dict[str, Any]) -> None:
+    """
+    Convert optimizer solution (genotype) to Meeting records in SQL database.
+    
+    Args:
+        job_id: UUID of the completed optimization job
+        solution_data: Solution data containing genotype and fitness
+        
+    TODO: Implementation needed
+    - Parse genotype from solution_data
+    - Map genotype to meeting assignments
+    - Delete existing meetings for this recruitment
+    - Create Meeting records
+    - Update recruitment status to 'active'
+    """
+    raise NotImplementedError("convert_solution_to_meetings not yet implemented")
+
+
 class RedisService:
     """Service for Redis communication with optimizer"""
     
@@ -184,6 +222,15 @@ class ProgressListener:
                 if iteration == -1:
                     job.status = 'completed'
                     job.completed_at = timezone.now()
+                    
+                    # Convert solution to meetings after optimization completes
+                    try:
+                        convert_solution_to_meetings(str(job.id), solution_data)
+                        logger.info(f"Successfully converted solution to meetings for job {job.id}")
+                    except NotImplementedError:
+                        logger.warning(f"convert_solution_to_meetings not yet implemented for job {job.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to convert solution to meetings for job {job.id}: {e}")
                 
                 job.save()
                 
@@ -247,9 +294,11 @@ class OptimizerService:
             # Extract data
             problem_data = validated_data['problem_data']
             max_execution_time = validated_data['max_execution_time']
+            recruitment_id = validated_data['recruitment_id']
             
             # Create job in database
             job = OptimizationJob.objects.create(
+                recruitment_id=recruitment_id,
                 problem_data=problem_data,
                 max_execution_time=max_execution_time
             )
@@ -264,8 +313,8 @@ class OptimizerService:
             # Publish to Redis queue
             self.redis_service.publish_job(job_data)
             
-            logger.info(f"Submitted optimization job {job.id}")
-            print(f"[DJANGO] Submitted job {job.id} with max_execution_time: {max_execution_time}s")
+            logger.info(f"Submitted optimization job {job.id} for recruitment {recruitment_id}")
+            print(f"[DJANGO] Submitted job {job.id} with max_execution_time: {max_execution_time}s for recruitment {recruitment_id}")
             return job
             
         except Exception as e:

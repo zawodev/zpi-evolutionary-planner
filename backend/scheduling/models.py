@@ -7,12 +7,60 @@ import uuid
 class Subject(models.Model):
     subject_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     subject_name = models.CharField(max_length=255)
+    duration_blocks = models.IntegerField(
+        help_text="duration in 15-minute blocks (4 = 1 hour)",
+        default=4
+    )
 
     class Meta:
         db_table = 'scheduling_subjects'
 
     def __str__(self):
         return self.subject_name
+    
+    @property
+    def duration_minutes(self):
+        """Calculate duration in minutes"""
+        return self.duration_blocks * 15
+
+
+class SubjectGroup(models.Model):
+    """
+    Intermediate model between Subject and Meeting.
+    Defines which groups are associated with a subject in a recruitment.
+    """
+    subject_group_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        db_column='subjectid',
+        related_name='subject_groups'
+    )
+    recruitment = models.ForeignKey(
+        'Recruitment',
+        on_delete=models.CASCADE,
+        db_column='recruitmentid',
+        related_name='subject_groups'
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        db_column='groupid',
+        related_name='subject_groups'
+    )
+    host_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_column='hostuserid',
+        related_name='hosted_subject_groups'
+    )
+
+    class Meta:
+        db_table = 'scheduling_subjectgroups'
+        unique_together = ('subject', 'recruitment', 'group')
+
+    def __str__(self):
+        return f"{self.subject.subject_name} - {self.group} - {self.host_user} (Recruitment: {self.recruitment.recruitment_name})"
 
 
 class Recruitment(models.Model):
@@ -24,6 +72,7 @@ class Recruitment(models.Model):
     STATUS_CHOICES = [
         ('archived', 'Archived'),
         ('draft', 'Draft'),
+        ('optimizing', 'Optimizing'),
         ('active', 'Active'),
     ]
 
@@ -33,8 +82,14 @@ class Recruitment(models.Model):
     day_start_time = models.TimeField(blank=True, null=True)
     day_end_time = models.TimeField(blank=True, null=True)
 
-    start_date = models.DateField(blank=True, null=True)
-    end_date = models.DateField(blank=True, null=True)
+    host_prefs_start_date = models.DateField(blank=True, null=True) # zbieranie preferencji hostów
+    user_prefs_start_date = models.DateField(blank=True, null=True) # zbieranie preferencji użytkowników
+    optimization_start_date = models.DateField(blank=True, null=True) # rozpoczęcie optymalizacji
+    optimization_end_date = models.DateField(blank=True, null=True) # zakończenie optymalizacji
+    expiration_date = models.DateField(blank=True, null=True) # data wygaśnięcia rekrutacji
+
+    preference_threshold = models.FloatField(default=0.5)
+    users_submitted_count = models.IntegerField(default=0)
 
     cycle_type = models.CharField(
         max_length=20,
@@ -43,9 +98,8 @@ class Recruitment(models.Model):
         db_column='cycletype'
     )
     plan_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    default_token_count = models.IntegerField(default=40)
-    round_count = models.IntegerField(default=1)
-    round_break_length = models.IntegerField(default=0)
+    default_token_count = models.IntegerField(default=3)
+    max_round_execution_time = models.IntegerField(default=300) # in seconds
 
     class Meta:
         db_table = 'scheduling_recruitments'
@@ -109,10 +163,10 @@ class Meeting(models.Model):
         db_column='recruitmentid',
         related_name='meetings'
     )
-    subject = models.ForeignKey(
-        Subject,
+    subject_group = models.ForeignKey(
+        SubjectGroup,
         on_delete=models.CASCADE,
-        db_column='subjectid',
+        db_column='subjectgroupid',
         related_name='meetings'
     )
     room = models.ForeignKey(
@@ -120,18 +174,6 @@ class Meeting(models.Model):
         on_delete=models.CASCADE,
         db_column='roomid',
         related_name='meetings'
-    )
-    group = models.ForeignKey(
-        Group,
-        on_delete=models.CASCADE,
-        db_column='groupid',
-        related_name='meetings'
-    )
-    host_user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        db_column='teacherid',
-        related_name='taught_meetings'
     )
     required_tag = models.ForeignKey(
         Tag,
@@ -141,7 +183,6 @@ class Meeting(models.Model):
         null=True
     )
     start_hour = models.IntegerField(help_text="Start hour (0-23)")
-    end_hour = models.IntegerField(help_text="End hour (0-23)")
     day_of_week = models.IntegerField(help_text="Day of week (0=Monday, 6=Sunday)")
     day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-30")
 
@@ -149,4 +190,17 @@ class Meeting(models.Model):
         db_table = 'scheduling_meetings'
 
     def __str__(self):
-        return f"Meeting: {self.subject} - {self.group} ({self.day_of_week})"
+        return f"Meeting: {self.subject_group.subject.subject_name} - {self.subject_group.group} - {self.subject_group.host_user} ({self.day_of_week})"
+    
+    @property
+    def end_hour(self):
+        """Calculate end hour based on subject duration"""
+        duration_minutes = self.subject_group.subject.duration_minutes
+        start_minutes = self.start_hour * 60
+        end_minutes = start_minutes + duration_minutes
+        return end_minutes // 60
+    
+    @property
+    def host_user(self):
+        """Access host_user through subject_group"""
+        return self.subject_group.host_user

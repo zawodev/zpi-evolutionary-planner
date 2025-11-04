@@ -21,6 +21,7 @@ DEFAULT_USER_PREFERENCES = {
 DEFAULT_CONSTRAINTS = {
     "TimeslotsDaily": 0, # 4 x hours (15min timeslots)
     "DaysInCycle": 0, # 7, 14 or 28
+    "MinStudentsPerGroup": 0, # for each group, student count requirement (or group no start)
     "GroupsPerSubject": [0, 0, 0], # for each subject, number of groups
     "GroupsSoftCapacity": [0, 0, 0, 0, 0, 0], # for each group, soft capacity
     "StudentsSubjects": [
@@ -144,6 +145,16 @@ def user_preferences_view(request, recruitment_id, user_id):
                 user_id=user_uuid,
                 defaults={'preferences_data': DEFAULT_USER_PREFERENCES.copy()}
             )
+            
+            # increment users_submitted_count if first submission
+            if created:
+                from scheduling.services import should_start_optimization, trigger_optimization
+                recruitment.users_submitted_count += 1
+                recruitment.save()
+                
+                # check if optimization should start
+                if should_start_optimization(recruitment):
+                    trigger_optimization(recruitment)
             
             # check if request contains path and value
             if 'path' in request.data and 'value' in request.data:

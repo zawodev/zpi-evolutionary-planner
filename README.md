@@ -9,5 +9,5 @@ docker compose up -d
 
 frontend:
 ```bash
-cd frontend && npm run dev
+cd frontend/evoplanner_frontend/ && npm run dev
 ```

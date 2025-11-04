@@ -5,18 +5,18 @@ from .models import OptimizationJob, OptimizationProgress
 @admin.register(OptimizationJob)
 class OptimizationJobAdmin(admin.ModelAdmin):
     list_display = [
-        'id', 'status', 'user', 'created_at', 'started_at', 
+        'id', 'status', 'recruitment', 'created_at', 'started_at', 
         'completed_at', 'current_iteration'
     ]
-    list_filter = ['status', 'created_at', 'user']
-    search_fields = ['id', 'user__username']
+    list_filter = ['status', 'created_at']
+    search_fields = ['id', 'recruitment__recruitment_name']
     readonly_fields = [
         'id', 'created_at', 'updated_at', 'started_at', 'completed_at'
     ]
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('id', 'user', 'status', 'max_execution_time')
+            'fields': ('id', 'recruitment', 'status', 'max_execution_time')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at', 'started_at', 'completed_at')
@@ -35,7 +35,7 @@ class OptimizationJobAdmin(admin.ModelAdmin):
     )
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('user')
+        return super().get_queryset(request).select_related('recruitment')
 
 
 @admin.register(OptimizationProgress)

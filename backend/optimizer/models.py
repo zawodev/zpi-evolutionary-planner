@@ -15,7 +15,7 @@ class OptimizationJob(models.Model):
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    recruitment = models.ForeignKey('scheduling.Recruitment', on_delete=models.CASCADE, related_name='optimization_jobs')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     max_execution_time = models.IntegerField(help_text="Maximum execution time in seconds")
     problem_data = models.JSONField()
@@ -41,6 +41,7 @@ class OptimizationProgress(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(OptimizationJob, on_delete=models.CASCADE, related_name='progress_updates')
     iteration = models.IntegerField()
+    # is_final_iteration = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     
     # best solution data (includes fitness and all solution details such as genotype)

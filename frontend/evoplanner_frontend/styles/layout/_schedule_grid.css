@@ -1,0 +1,80 @@
+/* styles/layout/_schedule_grid.css */
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 15px;
+}
+
+.schedule-times {
+  display: flex;
+  flex-direction: column;
+  padding-top: 50px;
+}
+
+.schedule-time {
+  font-size: clamp(11px, 1.3vh, 13px);
+  color: #6b7280;
+  height: 50px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.schedule-week {
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-days {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.schedule-day {
+  text-align: center;
+  font-weight: 600;
+  font-size: clamp(13px, 1.5vh, 15px);
+  color: #000;
+  padding: 12px 10px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.schedule-calendar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  position: relative;
+  min-height: 600px;
+}
+
+.schedule-column {
+  position: relative;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .schedule-grid {
+    grid-template-columns: 45px 1fr;
+  }
+
+  .schedule-calendar {
+    min-height: 500px;
+  }
+}
+
+@media (max-width: 640px) {
+  .schedule-times {
+    display: none;
+  }
+
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+}

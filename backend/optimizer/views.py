@@ -38,18 +38,17 @@ class OptimizationJobListCreateView(generics.ListCreateAPIView):
         return OptimizationJobListSerializer
     
     def get_queryset(self):
-        queryset = OptimizationJob.objects.all()
+        queryset = OptimizationJob.objects.all().select_related('recruitment')
         
         # filter by status
         status_filter = self.request.query_params.get('status')
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # filter by user (if authenticated)
-        if self.request.user.is_authenticated:
-            user_only = self.request.query_params.get('user_only', 'false').lower()
-            if user_only == 'true':
-                queryset = queryset.filter(user=self.request.user)
+        # filter by recruitment_id
+        recruitment_id = self.request.query_params.get('recruitment_id')
+        if recruitment_id:
+            queryset = queryset.filter(recruitment__recruitment_id=recruitment_id)
         
         return queryset.order_by('-created_at')
     
@@ -89,10 +88,10 @@ class OptimizationJobListCreateView(generics.ListCreateAPIView):
                 enum=['queued', 'running', 'completed', 'failed', 'cancelled']
             ),
             OpenApiParameter(
-                name='user_only',
-                type=OpenApiTypes.BOOL,
+                name='recruitment_id',
+                type=OpenApiTypes.UUID,
                 location=OpenApiParameter.QUERY,
-                description='Show only current user jobs (requires authentication)'
+                description='Filter jobs by recruitment ID'
             ),
         ]
     )
@@ -104,7 +103,7 @@ class OptimizationJobDetailView(generics.RetrieveAPIView):
     """
     Retrieve details of a specific optimization job.
     """
-    queryset = OptimizationJob.objects.all()
+    queryset = OptimizationJob.objects.all().select_related('recruitment')
     serializer_class = OptimizationJobSerializer
     lookup_field = 'id'
     

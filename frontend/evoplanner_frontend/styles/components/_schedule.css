@@ -1,0 +1,31 @@
+/* style/components/_schedule.css */
+
+.entries-schedule {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.entries-header {
+  margin-bottom: 30px;
+}
+
+.entries-title {
+  font-size: clamp(18px, 2.2vh, 24px);
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 15px;
+}
+
+.entries-stats {
+  display: flex;
+  gap: 15px;
+}
+
+.schedule-column {
+  cursor: crosshair;
+  user-select: none;
+  position: relative; 
+}

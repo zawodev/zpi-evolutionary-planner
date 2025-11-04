@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import Organization, Group, UserGroup
+from .models import Organization, Group, UserGroup, UserRecruitment
 
 User = get_user_model()
 
@@ -81,6 +81,19 @@ class UserGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserGroup
         fields = ['user', 'group']
+
+
+class UserRecruitmentSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    recruitment_name = serializers.CharField(source='recruitment.recruitment_name', read_only=True)
+    
+    class Meta:
+        model = UserRecruitment
+        fields = '__all__'
+    
+    def get_user_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
 
 
 class OfficeCreateUserSerializer(RegisterSerializer):

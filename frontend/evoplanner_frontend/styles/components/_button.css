@@ -1,10 +1,11 @@
 /* style/components/button.css */
 
+/* BASE BUTTON */
 .btn {
   box-sizing: border-box;
   border-radius: 12px;
   font-family: 'DM Sans', sans-serif;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -13,21 +14,35 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
   padding: 12px 16px;
   font-size: 14px;
   box-shadow: 0 2px 6px rgba(33, 99, 255, 0.2);
   transform: translateY(0px);
 }
+
+/* BASE STATES */
 .btn:hover {
   transform: translateY(-2px);
 }
 
+.btn:active {
+  transform: translateY(0);
+}
+
+/* STRUCTURAL MODIFIERS */
 .btn--filler {
   width: 100%;
 }
 
-/* Button in primary color */
+.btn--form {
+  width: 100%;
+  max-width: clamp(200px, 18.52vw, 300px);
+  height: clamp(44px, 4.41vh, 52px);
+  border-radius: 10px;
+  font-size: clamp(15px, 1.8vh, 18px);
+}
+
+/* THEMATIC MODIFIERS (COLORS) */
 .btn--primary {
   background: #2163ff;
   border: 1px solid #2163ff;
@@ -39,11 +54,6 @@
   border-color: #1952e0;
 }
 
-.btn--primary:active {
-  transform: translateY(0);
-}
-
-/* Button in secondary color */
 .btn--secondary {
   background: rgba(33, 99, 255, 0.08);
   border: 1px solid rgba(33, 99, 255, 0.08);
@@ -56,11 +66,6 @@
   transform: translateY(-1px);
 }
 
-.btn--secondary:active {
-  transform: translateY(0);
-}
-
-/* Button for deleting in red color */
 .btn--delete {
   background-color: #fee2e2;
   border: 2px solid #fecaca;
@@ -72,28 +77,68 @@
   border-color: #ef4444;
 }
 
-/* Button in neutral/grey color */
+/* Specific neutral style for modals */
 .btn--neutral {
-  background-color: '#f3f4f6';
-  color: '#374151';
-  border: '2px solid #e5e7eb';
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s;
 }
 
 .btn--neutral:hover {
-  background-color: '#e5e7eb';
+  background-color: #e5e7eb;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
 }
 
-.btn--form {
+.btn--neutral:active {
+  background-color: #d1d5db;
+  transform: translateY(0);
+}
+
+/* COMPONENT-SPECIFIC OVERRIDES */
+.btn--primary.btn--filler {
   width: 100%;
-  max-width: clamp(200px, 18.52vw, 300px);
-  height: clamp(44px, 4.41vh, 52px);
-  border-radius: 10px;
-  font-size: clamp(15px, 1.8vh, 18px);
-  font-weight: 600;
 }
 
+.btn--primary.btn--filler:hover {
+  box-shadow: 0 6px 20px rgba(33, 99, 255, 0.4);
+}
+
+
+.modal-button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-choice-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f9fafb;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+}
+
+.modal-choice-btn--prefer-active {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 2px solid #22c55e;
+}
+
+.modal-choice-btn--avoid-active {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 2px solid #ef4444;
+}
+
+
+/* 6. MEDIA QUERIES */
 @media (max-width: 768px) {
-  
   .btn--form {
     max-width: 100%;
     height: 48px;

@@ -33,6 +33,21 @@ services:
       - db_data:/app/data
     restart: unless-stopped
 
+  optimization-scheduler:
+    build: ./backend
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_DIR=/app/data
+    command: ["python", "manage.py", "run_scheduler", "--interval", "60"]
+    depends_on:
+      - redis
+      - backend
+    volumes:
+      - db_data:/app/data
+    restart: unless-stopped
+
   optimizer:
     build: ./optimizer_service
     environment:

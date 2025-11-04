@@ -16,7 +16,7 @@ public:
 private:
     void buildMaxValues();
     const ProblemData& problemData;
-    std::vector<int> maxValues; // ACTUAL max values for each gene, if gene i can be 0..k, maxValues[i] = k
+    std::vector<int> maxValues; // ACTUAL max values for each gene, if gene i can be 0..k (including k), maxValues[i] = k
     mutable std::vector<double> lastStudentFitnesses;
     mutable std::vector<double> lastTeacherFitnesses;
     mutable double lastManagementFitness;

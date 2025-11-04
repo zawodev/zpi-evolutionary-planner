@@ -23,3 +23,24 @@
   color: #ca8a04;
   border: 1px solid rgba(234, 179, 8, 0.3);
 }
+
+.modal-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.modal-label--small {
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.modal-range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #9ca3af;
+}
