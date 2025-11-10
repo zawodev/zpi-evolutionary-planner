@@ -13,8 +13,8 @@ urlpatterns = [
         name='constraints'
     ),
     path(
-        'management-preferences/<str:recruitment_id>/',
-        views.management_preferences_view,
-        name='management-preferences'
+        'aggregate-preferred-timeslots/<str:recruitment_id>/',
+        views.aggregate_preferred_timeslots_view,
+        name='aggregate-preferred-timeslots'
     ),
 ]

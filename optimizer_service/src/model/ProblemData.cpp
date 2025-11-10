@@ -5,15 +5,14 @@
 
 ProblemData::ProblemData(const RawProblemData& input_data) : _rawData(input_data) {
     // calculate _total_timeslots
-    _total_timeslots = 0;
-    for (int t : _rawData.timeslots_per_day) _total_timeslots += t;
+    _total_timeslots = _rawData.timeslots_daily * _rawData.days_in_cycle;
 
     // calculate _subject_total_capacity
     _subject_total_capacity.resize(getSubjectsNum(), 0);
     int group_idx = 0;
     for (int p = 0; p < getSubjectsNum(); ++p) {
         for (int g = 0; g < _rawData.groups_per_subject[p]; ++g) {
-            _subject_total_capacity[p] += _rawData.groups_soft_capacity[group_idx++];
+            _subject_total_capacity[p] += _rawData.groups_capacity[group_idx++];
         }
     }
 
@@ -33,31 +32,19 @@ ProblemData::ProblemData(const RawProblemData& input_data) : _rawData(input_data
     _student_weights_sums.resize(getStudentsNum(), 0);
     for (int s = 0; s < getStudentsNum(); ++s) {
         const auto& pref = _rawData.students_preferences[s];
-        // sum free_days
-        for (int val : pref.free_days) {
-            _student_weights_sums[s] += val;
+        // sum width_height_info weight
+        _student_weights_sums[s] += std::abs(pref.width_height_info);
+        // sum gaps_info weight (third element is weight)
+        if (pref.gaps_info.size() >= 3) {
+            _student_weights_sums[s] += std::abs(pref.gaps_info[2]);
         }
-        // sum busy_days
-        for (int val : pref.busy_days) {
-            _student_weights_sums[s] += val;
+        // sum preferred_timeslots weights (absolute values)
+        for (int weight : pref.preferred_timeslots) {
+            _student_weights_sums[s] += std::abs(weight);
         }
-        // sum no_gaps weight
-        _student_weights_sums[s] += pref.no_gaps;
-        // sum preferred_groups values
-        for (const auto& pair : pref.preferred_groups) {
-            _student_weights_sums[s] += pair.second;
-        }
-        // sum avoid_groups values
-        for (const auto& pair : pref.avoid_groups) {
-            _student_weights_sums[s] += pair.second;
-        }
-        // sum preferred_timeslots values
-        for (const auto& pair : pref.preferred_timeslots) {
-            _student_weights_sums[s] += pair.second;
-        }
-        // sum avoid_timeslots values
-        for (const auto& pair : pref.avoid_timeslots) {
-            _student_weights_sums[s] += pair.second;
+        // sum preferred_groups weights (absolute values)
+        for (int weight : pref.preferred_groups) {
+            _student_weights_sums[s] += std::abs(weight);
         }
     }
 
@@ -111,12 +98,11 @@ int ProblemData::getAbsoluteGroupIndex(int idx_genu, int rel_group) const {
 }
 
 int ProblemData::getDayFromTimeslot(int timeslot) const {
-    int cum = 0;
-    for (int d = 0; d < getDaysNum(); ++d) {
-        cum += _rawData.timeslots_per_day[d];
-        if (timeslot < cum) return d;
-    }
-    return -1; // invalid
+    int timeslots_per_day = _rawData.timeslots_daily;
+    if (timeslots_per_day == 0) return -1;
+    int day = timeslot / timeslots_per_day;
+    if (day >= _rawData.days_in_cycle) return -1;
+    return day;
 }
 
 int ProblemData::getSubjectFromGroup(int group) const {
@@ -145,5 +131,112 @@ bool ProblemData::checkFeasibility() const {
         Logger::warn("Total groups (" + std::to_string(total_groups) + ") exceed available timeslots * rooms (" + std::to_string(_total_timeslots) + " * " + std::to_string(num_rooms) + " = " + std::to_string(_total_timeslots * num_rooms) + "). Problem is unsolvable.");
         return false;
     }
+    
+    // additional consistency and bounds checks to avoid runtime crashes later
+    int subjectsNum = getSubjectsNum();
+    int groupsNum = getGroupsNum();
+    int studentsNum = getStudentsNum();
+    int teachersNum = getTeachersNum();
+    int roomsNumCheck = getRoomsNum();
+
+    // check sum(groups_per_subject) equals groups_capacity size (groupsNum)
+    int sum_groups_per_subject = 0;
+    for (int v : _rawData.groups_per_subject) sum_groups_per_subject += v;
+    if (sum_groups_per_subject != groupsNum) {
+        Logger::warn("Inconsistent data: sum(groups_per_subject)=" + std::to_string(sum_groups_per_subject) + " but groups_capacity size=" + std::to_string(groupsNum));
+        // don't return false - warn only
+    }
+
+    // check students_subjects ids are within [0, subjectsNum)
+    for (int s = 0; s < (int)_rawData.students_subjects.size(); ++s) {
+        for (int subj : _rawData.students_subjects[s]) {
+            if (subj < 0 || subj >= subjectsNum) {
+                Logger::warn("Invalid subject id " + std::to_string(subj) + " for student " + std::to_string(s) + " (subjectsNum=" + std::to_string(subjectsNum) + ")");
+                return false;
+            }
+        }
+    }
+
+    // check teachers_groups ids are within [0, groupsNum)
+    for (int t = 0; t < (int)_rawData.teachers_groups.size(); ++t) {
+        for (int gid : _rawData.teachers_groups[t]) {
+            if (gid < 0 || gid >= groupsNum) {
+                Logger::warn("Invalid group id " + std::to_string(gid) + " in teachers_groups for teacher " + std::to_string(t) + " (groupsNum=" + std::to_string(groupsNum) + ")");
+                return false;
+            }
+        }
+    }
+
+    // check groups_tags / rooms_tags ids
+    for (const auto& gt : _rawData.groups_tags) {
+        if (gt.empty()) continue;
+        int gid = gt[0];
+        if (gid < 0 || gid >= groupsNum) {
+            Logger::warn("Invalid group id " + std::to_string(gid) + " in groups_tags (groupsNum=" + std::to_string(groupsNum) + ")");
+            return false;
+        }
+    }
+    for (const auto& rt : _rawData.rooms_tags) {
+        if (rt.empty()) continue;
+        int rid = rt[0];
+        if (rid < 0 || rid >= roomsNumCheck) {
+            Logger::warn("Invalid room id " + std::to_string(rid) + " in rooms_tags (roomsNum=" + std::to_string(roomsNumCheck) + ")");
+            return false;
+        }
+    }
+
+    // check unavailability timeslots bounds
+    for (int r = 0; r < (int)_rawData.rooms_unavailability_timeslots.size(); ++r) {
+        for (int ts : _rawData.rooms_unavailability_timeslots[r]) {
+            if (ts < 0 || ts >= _total_timeslots) {
+                Logger::warn("Invalid timeslot " + std::to_string(ts) + " in rooms_unavailability_timeslots for room " + std::to_string(r) + " (total_timeslots=" + std::to_string(_total_timeslots) + ")");
+                return false;
+            }
+        }
+    }
+    for (int s = 0; s < (int)_rawData.students_unavailability_timeslots.size(); ++s) {
+        for (int ts : _rawData.students_unavailability_timeslots[s]) {
+            if (ts < 0 || ts >= _total_timeslots) {
+                Logger::warn("Invalid timeslot " + std::to_string(ts) + " in students_unavailability_timeslots for student " + std::to_string(s) + " (total_timeslots=" + std::to_string(_total_timeslots) + ")");
+                return false;
+            }
+        }
+    }
+    for (int t = 0; t < (int)_rawData.teachers_unavailability_timeslots.size(); ++t) {
+        for (int ts : _rawData.teachers_unavailability_timeslots[t]) {
+            if (ts < 0 || ts >= _total_timeslots) {
+                Logger::warn("Invalid timeslot " + std::to_string(ts) + " in teachers_unavailability_timeslots for teacher " + std::to_string(t) + " (total_timeslots=" + std::to_string(_total_timeslots) + ")");
+                return false;
+            }
+        }
+    }
+
+    // check preferences sizes vs counts
+    if ((int)_rawData.students_preferences.size() != studentsNum) {
+        Logger::warn("Students preferences count (" + std::to_string((int)_rawData.students_preferences.size()) + ") differs from students count (" + std::to_string(studentsNum) + ")");
+        // not fatal - we allow missing preferences but warn
+    }
+    if ((int)_rawData.teachers_preferences.size() != teachersNum) {
+        Logger::warn("Teachers preferences count (" + std::to_string((int)_rawData.teachers_preferences.size()) + ") differs from teachers count (" + std::to_string(teachersNum) + ")");
+        // not fatal - warn so caller can provide defaults
+    }
+
+    // check preferred_timeslots vector lengths (should be <= total_timeslots, warn otherwise)
+    for (int s = 0; s < (int)_rawData.students_preferences.size(); ++s) {
+        const auto& pref = _rawData.students_preferences[s];
+        if ((int)pref.preferred_timeslots.size() > _total_timeslots) {
+            Logger::warn("Student " + std::to_string(s) + " preferred_timeslots length (" + std::to_string((int)pref.preferred_timeslots.size()) + ") exceeds total_timeslots (" + std::to_string(_total_timeslots) + ")");
+        }
+        if ((int)pref.preferred_groups.size() > groupsNum) {
+            Logger::warn("Student " + std::to_string(s) + " preferred_groups length (" + std::to_string((int)pref.preferred_groups.size()) + ") exceeds groupsNum (" + std::to_string(groupsNum) + ")");
+        }
+    }
+    for (int t = 0; t < (int)_rawData.teachers_preferences.size(); ++t) {
+        const auto& pref = _rawData.teachers_preferences[t];
+        if ((int)pref.preferred_timeslots.size() > _total_timeslots) {
+            Logger::warn("Teacher " + std::to_string(t) + " preferred_timeslots length (" + std::to_string((int)pref.preferred_timeslots.size()) + ") exceeds total_timeslots (" + std::to_string(_total_timeslots) + ")");
+        }
+    }
+
     return true;
 }

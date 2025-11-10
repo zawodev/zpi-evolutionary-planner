@@ -12,12 +12,10 @@ public:
     int getTotalGenes() const { return (int)maxValues.size(); }
     const std::vector<double>& getLastStudentFitnesses() const { return lastStudentFitnesses; }
     const std::vector<double>& getLastTeacherFitnesses() const { return lastTeacherFitnesses; }
-    double getLastManagementFitness() const { return lastManagementFitness; }
 private:
     void buildMaxValues();
     const ProblemData& problemData;
     std::vector<int> maxValues; // ACTUAL max values for each gene, if gene i can be 0..k (including k), maxValues[i] = k
     mutable std::vector<double> lastStudentFitnesses;
     mutable std::vector<double> lastTeacherFitnesses;
-    mutable double lastManagementFitness;
 };

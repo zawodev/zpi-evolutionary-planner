@@ -24,38 +24,6 @@ static std::string formatVectorOfVectors(const json& arr, int indent_level = 6) 
     return result;
 }
 
-static std::vector<std::map<int, int>> parse_pref_array(const json& arr) {
-    std::vector<std::map<int, int>> out;
-    for (const auto& el : arr) {
-        std::map<int, int> m;
-        for (auto it = el.begin(); it != el.end(); ++it) {
-            m[std::stoi(it.key())] = it.value().get<int>();
-        }
-        out.push_back(m);
-    }
-    return out;
-}
-
-static std::map<int, int> parse_pref_map(const json& obj) {
-    std::map<int, int> m;
-    for (auto it = obj.begin(); it != obj.end(); ++it) {
-        m[std::stoi(it.key())] = it.value().get<int>();
-    }
-    return m;
-}
-
-static std::vector<RoomTimeslotPreference> parse_management_room_timeslots(const json& arr) {
-    std::vector<RoomTimeslotPreference> out;
-    for (const auto& m : arr) {
-        RoomTimeslotPreference mp;
-        mp.room = m["room"].get<int>();
-        mp.timeslot = m["timeslot"].get<int>();
-        mp.weight = m["weight"].get<int>();
-        out.push_back(mp);
-    }
-    return out;
-}
-
 
 
 
@@ -69,49 +37,46 @@ RawProblemData JsonParser::toRawProblemData(const nlohmann::json& j) {
         RawProblemData data;
         // constraints
         const auto& c = j.at("constraints");
-        data.timeslots_per_day = c.at("timeslots_per_day").get<std::vector<int>>();
-        data.groups_per_subject = c.at("groups_per_subject").get<std::vector<int>>();
-        data.groups_soft_capacity = c.at("groups_soft_capacity").get<std::vector<int>>();
-        data.students_subjects = c.at("students_subjects").get<std::vector<std::vector<int>>>();
-        data.teachers_groups = c.at("teachers_groups").get<std::vector<std::vector<int>>>();
-        data.rooms_unavailability_timeslots = c.at("rooms_unavailability_timeslots").get<std::vector<std::vector<int>>>();
+        data.timeslots_daily = c.at("TimeslotsDaily").get<int>();
+        data.days_in_cycle = c.at("DaysInCycle").get<int>();
+        data.min_students_per_group = c.at("MinStudentsPerGroup").get<int>();
+        data.groups_per_subject = c.at("GroupsPerSubject").get<std::vector<int>>();
+        data.groups_capacity = c.at("GroupsCapacity").get<std::vector<int>>();
+        data.rooms_capacity = c.at("RoomsCapacity").get<std::vector<int>>();
+        data.groups_tags = c.at("GroupsTags").get<std::vector<std::vector<int>>>();
+        data.rooms_tags = c.at("RoomsTags").get<std::vector<std::vector<int>>>();
+        data.students_subjects = c.at("StudentsSubjects").get<std::vector<std::vector<int>>>();
+        data.teachers_groups = c.at("TeachersGroups").get<std::vector<std::vector<int>>>();
+        data.rooms_unavailability_timeslots = c.at("RoomsUnavailabilityTimeslots").get<std::vector<std::vector<int>>>();
+        data.students_unavailability_timeslots = c.at("StudentsUnavailabilityTimeslots").get<std::vector<std::vector<int>>>();
+        data.teachers_unavailability_timeslots = c.at("TeachersUnavailabilityTimeslots").get<std::vector<std::vector<int>>>();
         
         // preferences
         const auto& p = j.at("preferences");
+        
+        // students preferences - array format: [WidthHeightInfo, [minGaps, maxGaps, weight], [timeslot_weights...], [group_weights...]]
         if (p.contains("students")) {
             for (const auto& s : p.at("students")) {
                 StudentPreference sp;
-                sp.free_days = s.at("free_days").get<std::vector<int>>();
-                sp.busy_days = s.at("busy_days").get<std::vector<int>>();
-                sp.no_gaps = s.at("no_gaps").get<int>();
-                sp.preferred_groups = parse_pref_map(s.at("preferred_groups"));
-                sp.avoid_groups = parse_pref_map(s.at("avoid_groups"));
-                sp.preferred_timeslots = parse_pref_map(s.at("preferred_timeslots"));
-                sp.avoid_timeslots = parse_pref_map(s.at("avoid_timeslots"));
+                sp.width_height_info = s[0].get<int>();
+                sp.gaps_info = s[1].get<std::vector<int>>();
+                sp.preferred_timeslots = s[2].get<std::vector<int>>();
+                sp.preferred_groups = s[3].get<std::vector<int>>();
                 data.students_preferences.push_back(sp);
             }
         }
+        
+        // teachers preferences - array format: [WidthHeightInfo, [minGaps, maxGaps, weight], [timeslot_weights...]]
         if (p.contains("teachers")) {
             for (const auto& t : p.at("teachers")) {
                 TeacherPreference tp;
-                tp.free_days = t.at("free_days").get<std::vector<int>>();
-                tp.busy_days = t.at("busy_days").get<std::vector<int>>();
-                tp.no_gaps = t.at("no_gaps").get<int>();
-                tp.preferred_timeslots = parse_pref_map(t.at("preferred_timeslots"));
-                tp.avoid_timeslots = parse_pref_map(t.at("avoid_timeslots"));
+                tp.width_height_info = t[0].get<int>();
+                tp.gaps_info = t[1].get<std::vector<int>>();
+                tp.preferred_timeslots = t[2].get<std::vector<int>>();
                 data.teachers_preferences.push_back(tp);
             }
         }
-        if (p.contains("management")) {
-            if (p.at("management").contains("preferred_room_timeslots"))
-                data.management_preferences.preferred_room_timeslots = parse_management_room_timeslots(p.at("management").at("preferred_room_timeslots"));
-            if (p.at("management").contains("avoid_room_timeslots"))
-                data.management_preferences.avoid_room_timeslots = parse_management_room_timeslots(p.at("management").at("avoid_room_timeslots"));
-            if (p.at("management").contains("group_max_overflow")) {
-                data.management_preferences.group_max_overflow.value = p.at("management").at("group_max_overflow").at("value").get<int>();
-                data.management_preferences.group_max_overflow.weight = p.at("management").at("group_max_overflow").at("weight").get<int>();
-            }
-        }
+        
         return data;
     } catch (const nlohmann::json::exception& e) {
         throw std::runtime_error(std::string("JSON structure error: ") + e.what());
@@ -123,82 +88,42 @@ RawProblemData JsonParser::toRawProblemData(const nlohmann::json& j) {
 nlohmann::json JsonParser::toJson(const RawProblemData& data) {
     json j;
     // constraints
-    j["constraints"]["timeslots_per_day"] = data.timeslots_per_day;
-    j["constraints"]["groups_per_subject"] = data.groups_per_subject;
-    j["constraints"]["groups_soft_capacity"] = data.groups_soft_capacity;
-    j["constraints"]["students_subjects"] = data.students_subjects;
-    j["constraints"]["teachers_groups"] = data.teachers_groups;
-    j["constraints"]["rooms_unavailability_timeslots"] = data.rooms_unavailability_timeslots;
+    j["constraints"]["TimeslotsDaily"] = data.timeslots_daily;
+    j["constraints"]["DaysInCycle"] = data.days_in_cycle;
+    j["constraints"]["MinStudentsPerGroup"] = data.min_students_per_group;
+    j["constraints"]["GroupsPerSubject"] = data.groups_per_subject;
+    j["constraints"]["GroupsCapacity"] = data.groups_capacity;
+    j["constraints"]["RoomsCapacity"] = data.rooms_capacity;
+    j["constraints"]["GroupsTags"] = data.groups_tags;
+    j["constraints"]["RoomsTags"] = data.rooms_tags;
+    j["constraints"]["StudentsSubjects"] = data.students_subjects;
+    j["constraints"]["TeachersGroups"] = data.teachers_groups;
+    j["constraints"]["RoomsUnavailabilityTimeslots"] = data.rooms_unavailability_timeslots;
+    j["constraints"]["StudentsUnavailabilityTimeslots"] = data.students_unavailability_timeslots;
+    j["constraints"]["TeachersUnavailabilityTimeslots"] = data.teachers_unavailability_timeslots;
     
     // preferences
     if (!data.students_preferences.empty()) {
         for (const auto& sp : data.students_preferences) {
-            json s;
-            s["free_days"] = sp.free_days;
-            s["busy_days"] = sp.busy_days;
-            s["no_gaps"] = sp.no_gaps;
-            s["preferred_groups"] = json::object();
-            for (const auto& p : sp.preferred_groups) {
-                s["preferred_groups"][std::to_string(p.first)] = p.second;
-            }
-            s["avoid_groups"] = json::object();
-            for (const auto& p : sp.avoid_groups) {
-                s["avoid_groups"][std::to_string(p.first)] = p.second;
-            }
-            s["preferred_timeslots"] = json::object();
-            for (const auto& p : sp.preferred_timeslots) {
-                s["preferred_timeslots"][std::to_string(p.first)] = p.second;
-            }
-            s["avoid_timeslots"] = json::object();
-            for (const auto& p : sp.avoid_timeslots) {
-                s["avoid_timeslots"][std::to_string(p.first)] = p.second;
-            }
+            json s = json::array();
+            s.push_back(sp.width_height_info);
+            s.push_back(sp.gaps_info);
+            s.push_back(sp.preferred_timeslots);
+            s.push_back(sp.preferred_groups);
             j["preferences"]["students"].push_back(s);
         }
     }
+    
     if (!data.teachers_preferences.empty()) {
         for (const auto& tp : data.teachers_preferences) {
-            json t;
-            t["free_days"] = tp.free_days;
-            t["busy_days"] = tp.busy_days;
-            t["no_gaps"] = tp.no_gaps;
-            t["preferred_timeslots"] = json::object();
-            for (const auto& p : tp.preferred_timeslots) {
-                t["preferred_timeslots"][std::to_string(p.first)] = p.second;
-            }
-            t["avoid_timeslots"] = json::object();
-            for (const auto& p : tp.avoid_timeslots) {
-                t["avoid_timeslots"][std::to_string(p.first)] = p.second;
-            }
+            json t = json::array();
+            t.push_back(tp.width_height_info);
+            t.push_back(tp.gaps_info);
+            t.push_back(tp.preferred_timeslots);
             j["preferences"]["teachers"].push_back(t);
         }
     }
-    if (!data.management_preferences.preferred_room_timeslots.empty() ||
-        !data.management_preferences.avoid_room_timeslots.empty() ||
-        data.management_preferences.group_max_overflow.weight != 0) {
-        if (!data.management_preferences.preferred_room_timeslots.empty()) {
-            for (const auto& mp : data.management_preferences.preferred_room_timeslots) {
-                json obj;
-                obj["room"] = mp.room;
-                obj["timeslot"] = mp.timeslot;
-                obj["weight"] = mp.weight;
-                j["preferences"]["management"]["preferred_room_timeslots"].push_back(obj);
-            }
-        }
-        if (!data.management_preferences.avoid_room_timeslots.empty()) {
-            for (const auto& mp : data.management_preferences.avoid_room_timeslots) {
-                json obj;
-                obj["room"] = mp.room;
-                obj["timeslot"] = mp.timeslot;
-                obj["weight"] = mp.weight;
-                j["preferences"]["management"]["avoid_room_timeslots"].push_back(obj);
-            }
-        }
-        if (data.management_preferences.group_max_overflow.weight != 0) {
-            j["preferences"]["management"]["group_max_overflow"]["value"] = data.management_preferences.group_max_overflow.value;
-            j["preferences"]["management"]["group_max_overflow"]["weight"] = data.management_preferences.group_max_overflow.weight;
-        }
-    }
+    
     return j;
 }
 
@@ -241,7 +166,7 @@ nlohmann::json JsonParser::toJson(const RawSolutionData& data) {
 RawJobData JsonParser::toRawJobData(const nlohmann::json& jsonData) {
     try {
         RawJobData jobData;
-        jobData.job_id = jsonData.at("job_id").get<std::string>();
+        jobData.recruitment_id = jsonData.at("recruitment_id").get<std::string>();
         jobData.max_execution_time = jsonData.value("max_execution_time", 300);
         jobData.problem_data = toRawProblemData(jsonData.at("problem_data"));
         return jobData;
@@ -252,7 +177,7 @@ RawJobData JsonParser::toRawJobData(const nlohmann::json& jsonData) {
 
 nlohmann::json JsonParser::toJson(const RawJobData& jobData) {
     json j;
-    j["job_id"] = jobData.job_id;
+    j["recruitment_id"] = jobData.recruitment_id;
     j["max_execution_time"] = jobData.max_execution_time;
     j["problem_data"] = toJson(jobData.problem_data);
     return j;
@@ -322,12 +247,19 @@ void JsonParser::writeInput(const std::string& filename, const RawProblemData& d
         //manual pretty print to avoid issues with large arrays in one line
         std::string json_str = "{\n";
         json_str += "  \"constraints\": {\n";
-        json_str += "    \"timeslots_per_day\": " + j["constraints"]["timeslots_per_day"].dump() + ",\n";
-        json_str += "    \"groups_per_subject\": " + j["constraints"]["groups_per_subject"].dump() + ",\n";
-        json_str += "    \"groups_soft_capacity\": " + j["constraints"]["groups_soft_capacity"].dump() + ",\n";
-        json_str += "    \"students_subjects\": " + formatVectorOfVectors(j["constraints"]["students_subjects"]) + ",\n";
-        json_str += "    \"teachers_groups\": " + formatVectorOfVectors(j["constraints"]["teachers_groups"]) + ",\n";
-        json_str += "    \"rooms_unavailability_timeslots\": " + formatVectorOfVectors(j["constraints"]["rooms_unavailability_timeslots"]) + "\n";
+        json_str += "    \"TimeslotsDaily\": " + std::to_string(j["constraints"]["TimeslotsDaily"].get<int>()) + ",\n";
+        json_str += "    \"DaysInCycle\": " + std::to_string(j["constraints"]["DaysInCycle"].get<int>()) + ",\n";
+        json_str += "    \"MinStudentsPerGroup\": " + std::to_string(j["constraints"]["MinStudentsPerGroup"].get<int>()) + ",\n";
+        json_str += "    \"GroupsPerSubject\": " + j["constraints"]["GroupsPerSubject"].dump() + ",\n";
+        json_str += "    \"GroupsCapacity\": " + j["constraints"]["GroupsCapacity"].dump() + ",\n";
+        json_str += "    \"RoomsCapacity\": " + j["constraints"]["RoomsCapacity"].dump() + ",\n";
+        json_str += "    \"GroupsTags\": " + formatVectorOfVectors(j["constraints"]["GroupsTags"]) + ",\n";
+        json_str += "    \"RoomsTags\": " + formatVectorOfVectors(j["constraints"]["RoomsTags"]) + ",\n";
+        json_str += "    \"StudentsSubjects\": " + formatVectorOfVectors(j["constraints"]["StudentsSubjects"]) + ",\n";
+        json_str += "    \"TeachersGroups\": " + formatVectorOfVectors(j["constraints"]["TeachersGroups"]) + ",\n";
+        json_str += "    \"RoomsUnavailabilityTimeslots\": " + formatVectorOfVectors(j["constraints"]["RoomsUnavailabilityTimeslots"]) + ",\n";
+        json_str += "    \"StudentsUnavailabilityTimeslots\": " + formatVectorOfVectors(j["constraints"]["StudentsUnavailabilityTimeslots"]) + ",\n";
+        json_str += "    \"TeachersUnavailabilityTimeslots\": " + formatVectorOfVectors(j["constraints"]["TeachersUnavailabilityTimeslots"]) + "\n";
         json_str += "  }";
         if (j.contains("preferences")) {
             json_str += ",\n  \"preferences\": " + j["preferences"].dump(2);

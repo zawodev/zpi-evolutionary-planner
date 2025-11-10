@@ -1,6 +1,8 @@
 #include "optimization/ExampleGeneticAlgorithm.hpp"
 #include "utils/Logger.hpp"
 #include <random>
+#include <thread>
+#include <chrono>
 
 void ExampleGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& evaluator, int seed) {
     this->problemData = &data;
@@ -25,7 +27,7 @@ Individual ExampleGeneticAlgorithm::RunIteration(int currentIteration) {
     
     // Przykładowa logika: fitness losowy, można dodać mutacje/cross cokolwiek takiego genetycznego później
     Individual individual;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 1; ++i) {
         this->initRandom(individual);
         //Logger::debug("Generated individual fitness: " + std::to_string(individual.fitness));
 
@@ -33,6 +35,9 @@ Individual ExampleGeneticAlgorithm::RunIteration(int currentIteration) {
             bestIndividual = individual;
         }
     }
+
+    // wait for a second
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     return bestIndividual;
 }

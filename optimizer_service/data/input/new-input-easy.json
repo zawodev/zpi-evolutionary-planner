@@ -1,0 +1,88 @@
+{
+    "recruitment_id": "0de58e76-807e-425e-bf19-6fc38b109659",
+    "max_execution_time": 10,
+    "problem_data": {
+        "constraints": {
+            "TimeslotsDaily": 0,
+            "DaysInCycle": 0,
+            "MinStudentsPerGroup": 0,
+            "GroupsPerSubject": [0, 0, 0],
+            "GroupsSoftCapacity": [0, 0, 0, 0, 0, 0],
+            "StudentsSubjects": [
+                [0, 0, 0],
+                [0, 0]
+            ],
+            "TeachersGroups": [
+                [0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0]
+            ],
+            "RoomsUnavailabilityTimeslots": [
+                [],
+                [12]
+            ],
+            "StudentsUnavailabilityTimeslots": [
+                [], 
+                [5, 6, 7]
+            ],
+            "TeachersUnavailabilityTimeslots": [
+                [],
+                [1, 2, 3]
+            ]
+        },
+        "preferences": {
+            "management": {
+                "GroupMaxOverflow": [
+                    [0, 0, 0],
+                    [0, 0, 0]
+                ],
+                "GroupPreferredTags": [
+                    [0, 0, 0],
+                    [0, 0, 0]
+                ]
+            },
+            "students": [
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0]
+            ],
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0]
+            ],
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0]
+            ],
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0]
+            ]
+            ],
+            "teachers": [
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0]
+            ],
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0]
+            ],
+            [
+                0,
+                [0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0]
+            ]
+            ]
+        }
+    }
+}

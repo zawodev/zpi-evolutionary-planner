@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting
+from preferences.models import Constraints
+from preferences.views import DEFAULT_CONSTRAINTS
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -25,6 +27,15 @@ class RecruitmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recruitment
         fields = '__all__'
+    
+    def create(self, validated_data):
+        recruitment = super().create(validated_data)
+        # Create associated Constraints
+        Constraints.objects.create(
+            recruitment=recruitment,
+            constraints_data=DEFAULT_CONSTRAINTS.copy()
+        )
+        return recruitment
 
 
 class RoomSerializer(serializers.ModelSerializer):

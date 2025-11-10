@@ -57,7 +57,7 @@ RawJobData FileEventReceiver::receive() {
     
     RawJobData jobData = JsonParser::toRawJobData(j);
     
-    currentJobId_ = jobData.job_id;
+    currentJobId_ = jobData.recruitment_id;
     return jobData;
 }
 
@@ -165,9 +165,9 @@ RawJobData RedisEventReceiver::receive() {
                 // parse JSON message
                 json j = json::parse(messageBody);
                 RawJobData jobData = JsonParser::toRawJobData(j);
-                currentJobId_ = jobData.job_id;
+                currentJobId_ = jobData.recruitment_id;
                 
-                Logger::info("Successfully received job: " + jobData.job_id);
+                Logger::info("Successfully received job: " + jobData.recruitment_id);
                 return jobData;
             }
             

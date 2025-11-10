@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from scheduling.services import check_and_trigger_optimizations, archive_expired_recruitments
+from optimizer.logger import get_logger
 import time
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Command(BaseCommand):

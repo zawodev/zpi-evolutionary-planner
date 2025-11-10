@@ -15,15 +15,15 @@
 
 void processJob(EventReceiver& receiver, EventSender& sender) {
     RawJobData jobData = receiver.receive();
-    Logger::info("Received job: " + jobData.job_id + ", with max execution time: " + std::to_string(jobData.max_execution_time) + " seconds");
+    Logger::info("Received job: " + jobData.recruitment_id + ", with max execution time: " + std::to_string(jobData.max_execution_time) + " seconds");
 
     ProblemData data(jobData.problem_data);
     if (!data.isFeasible()) {
-        Logger::error("Problem is not solvable for job: " + jobData.job_id);
+        Logger::error("Problem is not solvable for job: " + jobData.recruitment_id);
         return;
     }
 
-    std::string debugMsg = "Job " + jobData.job_id + " - ProblemData with " + 
+    std::string debugMsg = "New job from Recruitment: " + jobData.recruitment_id + " - ProblemData with " + 
                            std::to_string(data.getStudentsNum()) + " students, " +
                            std::to_string(data.getGroupsNum()) + " groups, " +
                            std::to_string(data.getSubjectsNum()) + " subjects, " +
@@ -33,11 +33,12 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     Logger::info(debugMsg);
 
     Evaluator evaluator(data);
-    std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ZawodevGeneticAlgorithm>();
+    std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ExampleGeneticAlgorithm>();
     Logger::info("Using genetic algorithm: " + std::string(typeid(*geneticAlgorithm).name()));
     
     //int seed = 42;
     int seed = std::random_device{}();
+    Logger::info("Initializing genetic algorithm with seed: " + std::to_string(seed));
     geneticAlgorithm->Init(data, evaluator, seed);
     Logger::info("Genetic algorithm initialization complete. Starting iterations...");
 
@@ -53,26 +54,26 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
  
         // check for cancel event
         if (receiver.checkForCancellation()) {
-            Logger::warn("Job " + jobData.job_id + " cancelled at iteration " + std::to_string(iterNum));
+            Logger::warn("Job " + jobData.recruitment_id + " cancelled at iteration " + std::to_string(iterNum));
             shouldBreak = true;
         }
         
         // check max time limit
         auto currentTime = std::chrono::steady_clock::now();
         if (currentTime - startTime >= maxDuration) {
-            Logger::warn("Job " + jobData.job_id + " reached maximum execution time at iteration " + std::to_string(iterNum));
+            Logger::warn("Job " + jobData.recruitment_id + " reached maximum execution time at iteration " + std::to_string(iterNum));
             shouldBreak = true;
         }
 
         // send progress update
         RawSolutionData solutionData(bestIndividual, data, evaluator);
-        RawProgressData progressData(jobData.job_id, shouldBreak ? -1 : iterNum, solutionData);
+        RawProgressData progressData(jobData.recruitment_id, shouldBreak ? -1 : iterNum, solutionData);
         sender.sendProgress(progressData);
 
         if (shouldBreak) break;
     }
 
-    Logger::info("Optimization complete for job: " + jobData.job_id);
+    Logger::info("Optimization complete for job: " + jobData.recruitment_id);
 }
 
 

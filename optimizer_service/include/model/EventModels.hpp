@@ -7,13 +7,13 @@
 
 // job data
 struct RawJobData {
-    std::string job_id;
+    std::string recruitment_id;
     RawProblemData problem_data;
     int max_execution_time = 300;
     
     RawJobData() = default;
-    RawJobData(const std::string& jobId, const RawProblemData& data, int maxTime = 300)
-        : job_id(jobId), problem_data(data), max_execution_time(maxTime) {}
+    RawJobData(const std::string& recruitmentId, const RawProblemData& data, int maxTime = 300)
+        : recruitment_id(recruitmentId), problem_data(data), max_execution_time(maxTime) {}
 };
 
 // control data

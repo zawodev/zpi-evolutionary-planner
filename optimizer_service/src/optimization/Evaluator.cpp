@@ -58,6 +58,7 @@ double Evaluator::evaluate(const Individual& individual) const {
             idx++;
         }
     }
+    
     // decode genotype (group -> timeslot and room)
     std::vector<std::pair<int, int>> group_assignments(problemData.getGroupsNum());
     for (int g = 0; g < problemData.getGroupsNum(); ++g) {
@@ -66,18 +67,26 @@ double Evaluator::evaluate(const Individual& individual) const {
         group_assignments[g] = {timeslot, room};
     }
 
-    // calculate cumulative timeslots for days
+    // calculate cumulative timeslots for days (simplified with uniform timeslots_daily)
+    int timeslots_daily = problemData.getTimeslotsDaily();
     std::vector<int> cum_timeslots(problemData.getDaysNum() + 1, 0);
     for (int d = 1; d <= problemData.getDaysNum(); ++d) {
-        cum_timeslots[d] = cum_timeslots[d - 1] + problemData.getTimeslotsPerDay()[d - 1];
+        cum_timeslots[d] = cum_timeslots[d - 1] + timeslots_daily;
     }
 
     // evaluate students
     double total_student_fitness = 0.0;
     lastStudentFitnesses.clear();
-    for (int s = 0; s < problemData.getStudentsNum(); ++s) {
+    
+    int students_count = problemData.getStudentsNum();
+    if (students_count == 0) {
+        Logger::warn("Evaluator::evaluate - No students in problem data");
+    }
+    
+    for (int s = 0; s < students_count; ++s) {
         double student_fitness = 0.0;
         double student_total_weight = 0.0;
+        
         const auto& pref = problemData.getStudentsPreferences()[s];
 
         // get student timeslots
@@ -87,36 +96,43 @@ double Evaluator::evaluate(const Individual& individual) const {
             student_timeslots.insert(timeslot);
         }
 
-        // free_days
-        for (int d = 0; d < (int)pref.free_days.size(); ++d) {
-            int weight = pref.free_days[d];
-            if (weight > 0) {
+        // width_height_info: positive = prefer wider (more days), negative = prefer taller (longer days)
+        if (pref.width_height_info != 0) {
+            int weight = std::abs(pref.width_height_info);
+            // count days with classes
+            int days_with_classes = 0;
+            for (int d = 0; d < problemData.getDaysNum(); ++d) {
                 bool has_class = false;
                 for (int t = cum_timeslots[d]; t < cum_timeslots[d + 1]; ++t) {
-                    if (student_timeslots.count(t)) has_class = true;
+                    if (student_timeslots.count(t)) {
+                        has_class = true;
+                        break;
+                    }
                 }
-                if (!has_class) student_fitness += weight;
-                student_total_weight += weight;
+                if (has_class) days_with_classes++;
             }
+            
+            // if positive weight, reward more days; if negative, reward fewer days
+            if (pref.width_height_info > 0) {
+                // wider is better - normalize days_with_classes
+                double normalized = (double)days_with_classes / problemData.getDaysNum();
+                student_fitness += weight * normalized;
+            } else {
+                // taller is better - inverse of days
+                double normalized = 1.0 - ((double)days_with_classes / problemData.getDaysNum());
+                student_fitness += weight * normalized;
+            }
+            student_total_weight += weight;
         }
 
-        // busy_days
-        for (int d = 0; d < (int)pref.busy_days.size(); ++d) {
-            int weight = pref.busy_days[d];
-            if (weight > 0) {
-                bool has_class = false;
-                for (int t = cum_timeslots[d]; t < cum_timeslots[d + 1]; ++t) {
-                    if (student_timeslots.count(t)) has_class = true;
-                }
-                if (has_class) student_fitness += weight;
-                student_total_weight += weight;
-            }
-        }
-
-        // no_gaps (simplified: award points if student has no gaps in their schedule)
-        if (pref.no_gaps > 0) {
-            bool has_gaps = false;
-            // check each day for gaps
+        // gaps_info: [minGaps, maxGaps, weight]
+        if (pref.gaps_info.size() >= 3 && pref.gaps_info[2] > 0) {
+            int min_gaps = pref.gaps_info[0];
+            int max_gaps = pref.gaps_info[1];
+            int weight = pref.gaps_info[2];
+            
+            // calculate actual gaps
+            int total_gaps = 0;
             for (int d = 0; d < problemData.getDaysNum(); ++d) {
                 std::vector<int> day_timeslots;
                 for (int t = cum_timeslots[d]; t < cum_timeslots[d + 1]; ++t) {
@@ -124,20 +140,52 @@ double Evaluator::evaluate(const Individual& individual) const {
                         day_timeslots.push_back(t);
                     }
                 }
-                // if student has classes on this day, check for gaps
                 if (day_timeslots.size() > 1) {
                     std::sort(day_timeslots.begin(), day_timeslots.end());
                     for (size_t i = 1; i < day_timeslots.size(); ++i) {
-                        if (day_timeslots[i] - day_timeslots[i-1] > 1) {
-                            has_gaps = true;
-                            break;
-                        }
+                        int gap_size = day_timeslots[i] - day_timeslots[i-1] - 1;
+                        if (gap_size > 0) total_gaps += gap_size;
                     }
                 }
-                if (has_gaps) break;
             }
-            if (!has_gaps) student_fitness += pref.no_gaps;
-            student_total_weight += pref.no_gaps;
+            
+            // reward if gaps are within [min_gaps, max_gaps]
+            if (total_gaps >= min_gaps && total_gaps <= max_gaps) {
+                student_fitness += weight;
+            }
+            student_total_weight += weight;
+        }
+
+        // preferred_timeslots: array of weights (negative = avoid, positive = prefer)
+        for (size_t t = 0; t < pref.preferred_timeslots.size() && t < (size_t)problemData.totalTimeslots(); ++t) {
+            int weight = pref.preferred_timeslots[t];
+            if (weight != 0) {
+                if (weight > 0 && student_timeslots.count(t)) {
+                    // prefer this timeslot and student has it
+                    student_fitness += weight;
+                } else if (weight < 0 && !student_timeslots.count(t)) {
+                    // avoid this timeslot and student doesn't have it
+                    student_fitness += std::abs(weight);
+                }
+                student_total_weight += std::abs(weight);
+            }
+        }
+
+        // preferred_groups: array of weights (negative = avoid, positive = prefer)
+        for (size_t g = 0; g < pref.preferred_groups.size() && g < student_groups[s].size(); ++g) {
+            int weight = pref.preferred_groups[g];
+            if (weight != 0) {
+                int assigned_group = student_groups[s][g];
+                // check if this group index matches (simplified: use absolute group index)
+                if (weight > 0) {
+                    // prefer - just add weight (simplified scoring)
+                    student_fitness += weight;
+                } else if (weight < 0) {
+                    // avoid - add if not assigned (simplified)
+                    student_fitness += std::abs(weight) * 0.5; // partial credit
+                }
+                student_total_weight += std::abs(weight);
+            }
         }
 
         if (student_total_weight > 0) {
@@ -145,12 +193,28 @@ double Evaluator::evaluate(const Individual& individual) const {
         }
         lastStudentFitnesses.push_back((student_total_weight > 0) ? (student_fitness / student_total_weight) : 0.0);
     }
-    double avg_student_fitness = total_student_fitness / problemData.getStudentsNum();
+    
+    double avg_student_fitness = (students_count > 0) ? (total_student_fitness / students_count) : 0.0;
 
     // evaluate teachers
     double total_teacher_fitness = 0.0;
     lastTeacherFitnesses.clear();
-    for (int t = 0; t < problemData.getTeachersNum(); ++t) {
+    
+    int teachers_count = problemData.getTeachersNum();
+    int teachers_prefs_count = problemData.getTeachersPreferences().size();
+    
+    // Check for data inconsistency
+    if (teachers_count != teachers_prefs_count) {
+        Logger::warn("Evaluator::evaluate - Data inconsistency: teachers_groups count=" + 
+                    std::to_string(teachers_count) + " but teachers_preferences count=" + 
+                    std::to_string(teachers_prefs_count));
+    }
+    
+    if (teachers_count == 0) {
+        Logger::warn("Evaluator::evaluate - No teachers in problem data (teachers_groups is empty)");
+    }
+    
+    for (int t = 0; t < teachers_count; ++t) {
         double teacher_fitness = 0.0;
         double teacher_total_weight = 0.0;
         const auto& pref = problemData.getTeachersPreferences()[t];
@@ -162,36 +226,43 @@ double Evaluator::evaluate(const Individual& individual) const {
             teacher_timeslots.insert(timeslot);
         }
 
-        // free_days
-        for (int d = 0; d < (int)pref.free_days.size(); ++d) {
-            int weight = pref.free_days[d];
-            if (weight > 0) {
+        // width_height_info: positive = prefer wider (more days), negative = prefer taller (longer days)
+        if (pref.width_height_info != 0) {
+            int weight = std::abs(pref.width_height_info);
+            // count days with classes
+            int days_with_classes = 0;
+            for (int d = 0; d < problemData.getDaysNum(); ++d) {
                 bool has_class = false;
                 for (int ts = cum_timeslots[d]; ts < cum_timeslots[d + 1]; ++ts) {
-                    if (teacher_timeslots.count(ts)) has_class = true;
+                    if (teacher_timeslots.count(ts)) {
+                        has_class = true;
+                        break;
+                    }
                 }
-                if (!has_class) teacher_fitness += weight;
-                teacher_total_weight += weight;
+                if (has_class) days_with_classes++;
             }
+            
+            // if positive weight, reward more days; if negative, reward fewer days
+            if (pref.width_height_info > 0) {
+                // wider is better
+                double normalized = (double)days_with_classes / problemData.getDaysNum();
+                teacher_fitness += weight * normalized;
+            } else {
+                // taller is better
+                double normalized = 1.0 - ((double)days_with_classes / problemData.getDaysNum());
+                teacher_fitness += weight * normalized;
+            }
+            teacher_total_weight += weight;
         }
 
-        // busy_days
-        for (int d = 0; d < (int)pref.busy_days.size(); ++d) {
-            int weight = pref.busy_days[d];
-            if (weight > 0) {
-                bool has_class = false;
-                for (int ts = cum_timeslots[d]; ts < cum_timeslots[d + 1]; ++ts) {
-                    if (teacher_timeslots.count(ts)) has_class = true;
-                }
-                if (has_class) teacher_fitness += weight;
-                teacher_total_weight += weight;
-            }
-        }
-
-        // no_gaps (simplified: award points if teacher has no gaps in their schedule)
-        if (pref.no_gaps > 0) {
-            bool has_gaps = false;
-            // check each day for gaps
+        // gaps_info: [minGaps, maxGaps, weight]
+        if (pref.gaps_info.size() >= 3 && pref.gaps_info[2] > 0) {
+            int min_gaps = pref.gaps_info[0];
+            int max_gaps = pref.gaps_info[1];
+            int weight = pref.gaps_info[2];
+            
+            // calculate actual gaps
+            int total_gaps = 0;
             for (int d = 0; d < problemData.getDaysNum(); ++d) {
                 std::vector<int> day_timeslots;
                 for (int ts = cum_timeslots[d]; ts < cum_timeslots[d + 1]; ++ts) {
@@ -199,36 +270,35 @@ double Evaluator::evaluate(const Individual& individual) const {
                         day_timeslots.push_back(ts);
                     }
                 }
-                // if teacher has classes on this day, check for gaps
                 if (day_timeslots.size() > 1) {
                     std::sort(day_timeslots.begin(), day_timeslots.end());
                     for (size_t i = 1; i < day_timeslots.size(); ++i) {
-                        if (day_timeslots[i] - day_timeslots[i-1] > 1) {
-                            has_gaps = true;
-                            break;
-                        }
+                        int gap_size = day_timeslots[i] - day_timeslots[i-1] - 1;
+                        if (gap_size > 0) total_gaps += gap_size;
                     }
                 }
-                if (has_gaps) break;
             }
-            if (!has_gaps) teacher_fitness += pref.no_gaps;
-            teacher_total_weight += pref.no_gaps;
-        }
-
-        // preferred_timeslots
-        for (const auto& pair : pref.preferred_timeslots) {
-            int timeslot = pair.first;
-            int weight = pair.second;
-            if (teacher_timeslots.count(timeslot)) teacher_fitness += weight;
+            
+            // reward if gaps are within [min_gaps, max_gaps]
+            if (total_gaps >= min_gaps && total_gaps <= max_gaps) {
+                teacher_fitness += weight;
+            }
             teacher_total_weight += weight;
         }
 
-        // avoid_timeslots
-        for (const auto& pair : pref.avoid_timeslots) {
-            int timeslot = pair.first;
-            int weight = pair.second;
-            if (!teacher_timeslots.count(timeslot)) teacher_fitness += weight;
-            teacher_total_weight += weight;
+        // preferred_timeslots: array of weights (negative = avoid, positive = prefer)
+        for (size_t ts = 0; ts < pref.preferred_timeslots.size() && ts < (size_t)problemData.totalTimeslots(); ++ts) {
+            int weight = pref.preferred_timeslots[ts];
+            if (weight != 0) {
+                if (weight > 0 && teacher_timeslots.count(ts)) {
+                    // prefer this timeslot and teacher has it
+                    teacher_fitness += weight;
+                } else if (weight < 0 && !teacher_timeslots.count(ts)) {
+                    // avoid this timeslot and teacher doesn't have it
+                    teacher_fitness += std::abs(weight);
+                }
+                teacher_total_weight += std::abs(weight);
+            }
         }
 
         if (teacher_total_weight > 0) {
@@ -236,51 +306,11 @@ double Evaluator::evaluate(const Individual& individual) const {
         }
         lastTeacherFitnesses.push_back((teacher_total_weight > 0) ? (teacher_fitness / teacher_total_weight) : 0.0);
     }
-    double avg_teacher_fitness = total_teacher_fitness / problemData.getTeachersNum();
+    
+    double avg_teacher_fitness = (teachers_count > 0) ? (total_teacher_fitness / teachers_count) : 0.0;
 
-    // evaluate management
-    double management_fitness = 0.0;
-    double management_total_weight = 0.0;
-    const auto& pref = problemData.getManagementPreferences();
-
-    // preferred_room_timeslots
-    for (const auto& prt : pref.preferred_room_timeslots) {
-        bool satisfied = false;
-        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
-            if (group_assignments[g].first == prt.timeslot && group_assignments[g].second == prt.room) {
-                satisfied = true;
-                break;
-            }
-        }
-        if (satisfied) management_fitness += prt.weight;
-        management_total_weight += prt.weight;
-    }
-
-    // avoid_room_timeslots
-    for (const auto& art : pref.avoid_room_timeslots) {
-        bool violated = false;
-        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
-            if (group_assignments[g].first == art.timeslot && group_assignments[g].second == art.room) {
-                violated = true;
-                break;
-            }
-        }
-        if (!violated) management_fitness += art.weight;
-        management_total_weight += art.weight;
-    }
-
-    // group_max_overflow (simplified: assume no overflow for now)
-    if (pref.group_max_overflow.weight > 0) {
-        // for simplicity, always add if value == 0 (no overflow preferred)
-        if (pref.group_max_overflow.value == 0) management_fitness += pref.group_max_overflow.weight;
-        management_total_weight += pref.group_max_overflow.weight;
-    }
-
-    double avg_management_fitness = (management_total_weight > 0) ? (management_fitness / management_total_weight) : 1.0;
-    lastManagementFitness = avg_management_fitness;
-
-    // average all
-    double total_fitness = (avg_student_fitness + avg_teacher_fitness + avg_management_fitness) / 3.0;
+    // average students and teachers (no management fitness anymore)
+    double total_fitness = (avg_student_fitness + avg_teacher_fitness) / 2.0;
     return total_fitness;
 }
 
@@ -317,18 +347,18 @@ bool Evaluator::repair(Individual& individual) const {
     idx += problemData.getGroupsNum() * 2;
 
     // repair capacity violations per group
-    const auto& groups_soft_capacity = problemData.getGroupsSoftCapacity();
+    const auto& groups_capacity = problemData.getGroupsCapacity();
     const auto& cumulative_groups = problemData.getCumulativeGroups();
     for (int g = 0; g < problemData.getGroupsNum(); ++g) {
-        if (group_counts[g] > groups_soft_capacity[g]) {
-            int excess = group_counts[g] - groups_soft_capacity[g];
+        if (group_counts[g] > groups_capacity[g]) {
+            int excess = group_counts[g] - groups_capacity[g];
             wasRepaired = true;  // wykryto błąd, będziemy naprawiać
             // find subject for this group
             int p = problemData.getSubjectFromGroup(g);
             // find underfilled groups for this subject
             std::vector<int> available_groups;
             for (int gg = cumulative_groups[p]; gg < cumulative_groups[p + 1]; ++gg) {
-                if (group_counts[gg] < groups_soft_capacity[gg]) {
+                if (group_counts[gg] < groups_capacity[gg]) {
                     available_groups.push_back(gg);
                 }
             }
@@ -346,11 +376,11 @@ bool Evaluator::repair(Individual& individual) const {
                 group_counts[new_abs_group]++;
                 group_to_student_indices[new_abs_group].push_back(student_idx);
                 // if new group is now full, remove from available
-                if (group_counts[new_abs_group] >= groups_soft_capacity[new_abs_group]) {
+                if (group_counts[new_abs_group] >= groups_capacity[new_abs_group]) {
                     available_groups.erase(available_groups.begin());
                 }
             }
-            if (group_counts[g] > groups_soft_capacity[g]) {
+            if (group_counts[g] > groups_capacity[g]) {
                 //should not happen if feasibility check worked
                 Logger::warn("Weird? Could not fully repair group " + std::to_string(g) + " capacity violation.");
             }

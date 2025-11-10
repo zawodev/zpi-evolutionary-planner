@@ -21,7 +21,7 @@ definiują twarde reguły problemu, które muszą być spełnione (albo problem 
 
 - `groups_per_subject`: Lista, np. `[3, 5, 2, 4]`. Dla każdego przedmiotu (subject) mówi, ile grup można utworzyć. Przedmioty są indeksowane od 0. 
 
-- `groups_soft_capacity`: Lista, np. `[30, 30, 30, 50, ...]`. Maksymalna liczba studentów w każdej grupie (soft limit – można przekroczyć, ale to wpływa na ocenę, dlatego dla uproszczenia zamienię pewnie na hard_limit w przyszłości oraz underflow zamiast overflow w management preferences).
+- `groups_capacity`: Lista, np. `[30, 30, 30, 50, ...]`. Maksymalna liczba studentów w każdej grupie (hard limit).
 
 - `students_subjects`: Lista list, np. `[[0, 1, 2], [1, 0, 2, 3], [0, 2, 3]]`. Dla każdego studenta (indeksowane od 0) lista przedmiotów, które studiuje. Przykładowo student o id 1 studiuje przedmioty o id 1, 0, 2, 3
 

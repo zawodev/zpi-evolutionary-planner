@@ -7,20 +7,26 @@ class ColoredFormatter(logging.Formatter):
     
     # ANSI color codes
     COLORS = {
-        'DEBUG': '\033[36m', # cyan
+        'DEBUG': '\033[32m', # green
         'INFO': '\033[33m', # yellow
         'WARNING': '\033[93m', # bright yellow
         'ERROR': '\033[91m', # red
         'CRITICAL': '\033[95m', # magenta
     }
     RESET = '\033[0m'
+    TIME_COLOR = '\033[36m'  # cyan for time
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.datefmt = '%H:%M:%S'
     
     def format(self, record):
         color = self.COLORS.get(record.levelname, '')
         reset = self.RESET
+        time_color = self.TIME_COLOR
         
-        # [LEVEL] Message
-        formatted_message = f"{color}[{record.levelname}]{reset} {record.getMessage()}"
+        asctime = self.formatTime(record, self.datefmt)
+        formatted_message = f"{time_color}[{asctime}]{reset} {color}[{record.levelname}]{reset} {record.getMessage()}"
         return formatted_message
 
 
@@ -34,7 +40,7 @@ def get_logger(name: str = None):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(ColoredFormatter())
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         logger.propagate = False  # prevent duplicate logs
     
     return logger

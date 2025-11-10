@@ -2,6 +2,7 @@ from django.db import models
 from identity.models import User
 from scheduling.models import Recruitment
 import uuid
+from django.utils import timezone
 
 
 class UserPreferences(models.Model):
@@ -18,7 +19,8 @@ class UserPreferences(models.Model):
         db_column='recruitmentid',
         related_name='user_preferences'
     )
-    preferences_data = models.JSONField(default=dict)
+    # preferences_data structure can be viewed in views.py
+    preferences_data = models.JSONField(default=dict) 
 
     class Meta:
         db_table = 'preferences_user_preferences'
@@ -36,6 +38,7 @@ class Constraints(models.Model):
         db_column='recruitmentid',
         related_name='constraints'
     )
+    # constraints_data structure can be viewed in views.py
     constraints_data = models.JSONField(default=dict)
 
     class Meta:
@@ -45,18 +48,26 @@ class Constraints(models.Model):
         return f"Constraints for {self.recruitment}"
 
 
-class ManagementPreferences(models.Model):
+class HeatmapCache(models.Model):
+    """Cache for aggregated preferred timeslots per recruitment.
+
+    Fields:
+    - recruitment: FK to Recruitment (unique) - which recruitment the cache is for
+    - last_updated: DateTime of last calculation
+    - cached_value: JSONField storing the aggregated PreferredTimeslots (list)
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     recruitment = models.OneToOneField(
         Recruitment,
         on_delete=models.CASCADE,
         db_column='recruitmentid',
-        related_name='management_preferences'
+        related_name='heatmap_cache'
     )
-    preferences_data = models.JSONField(default=dict)
+    last_updated = models.DateTimeField(default=timezone.now)
+    cached_value = models.JSONField(null=True, blank=True)
 
     class Meta:
-        db_table = 'preferences_management_preferences'
+        db_table = 'preferences_heatmap_cache'
 
     def __str__(self):
-        return f"ManagementPreferences for {self.recruitment}"
+        return f"HeatmapCache for {self.recruitment} (updated: {self.last_updated})"

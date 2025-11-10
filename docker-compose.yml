@@ -33,7 +33,7 @@ services:
       - db_data:/app/data
     restart: unless-stopped
 
-  optimization-scheduler:
+  scheduler:
     build: ./backend
     environment:
       - REDIS_HOST=redis

@@ -31,24 +31,12 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
         }
         std::discrete_distribution<> dist_weight(weights.begin(), weights.end());
 
-        // timeslots_per_day: 50/50 chance of normal distribution on first 5 days (weekend 0) or all 7 days
-        data.timeslots_per_day.assign(DAYS, 0);
-        bool weekend_free = dist_bool(gen);
-        int days_to_distribute = weekend_free ? 5 : DAYS;
-        double mean_slots = static_cast<double>(numTimeslots) / days_to_distribute;
-        double stddev_slots = mean_slots / 3.0; // adjust for spread
-        std::normal_distribution<> dist_slots(mean_slots, stddev_slots);
-        std::vector<int> temp_slots(days_to_distribute);
-        int total_slots_assigned = 0;
-        for (int d = 0; d < days_to_distribute - 1; ++d) {
-            int slots = std::max(0, static_cast<int>(std::round(dist_slots(gen))));
-            temp_slots[d] = slots;
-            total_slots_assigned += slots;
-        }
-        temp_slots.back() = std::max(0, numTimeslots - total_slots_assigned);
-        for (int d = 0; d < days_to_distribute; ++d) {
-            data.timeslots_per_day[d] = temp_slots[d];
-        }
+        // timeslots_daily and days_in_cycle (simplified uniform model)
+        data.timeslots_daily = numTimeslots / DAYS; // uniform timeslots per day
+        data.days_in_cycle = DAYS;
+        
+        // min_students_per_group (optional, can be 1 or 0)
+        data.min_students_per_group = 1;
 
         std::uniform_int_distribution<> dist_days(0, DAYS - 1);
 
@@ -66,18 +54,18 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
         }
         data.groups_per_subject.back() = std::max(1, numGroups - total_assigned);
 
-        // groups_soft_capacity: distribute totalGroupCapacity among groups with normal distribution
+        // groups_capacity: distribute totalGroupCapacity among groups with normal distribution
         double mean_capacity = static_cast<double>(totalGroupCapacity) / numGroups;
         double stddev_capacity = mean_capacity / 3.0; // adjust for spread
         std::normal_distribution<> dist_capacity(mean_capacity, stddev_capacity);
-        data.groups_soft_capacity.resize(numGroups);
+        data.groups_capacity.resize(numGroups);
         int total_capacity_assigned = 0;
         for (int i = 0; i < numGroups - 1; ++i) {
             int cap = std::max(1, static_cast<int>(std::round(dist_capacity(gen))));
-            data.groups_soft_capacity[i] = cap;
+            data.groups_capacity[i] = cap;
             total_capacity_assigned += cap;
         }
-        data.groups_soft_capacity.back() = std::max(1, totalGroupCapacity - total_capacity_assigned);
+        data.groups_capacity.back() = std::max(1, totalGroupCapacity - total_capacity_assigned);
 
         // students_subjects: for each student, random subset of subjects
         std::uniform_int_distribution<> dist_num_subj(1, numSubjects);
@@ -131,140 +119,80 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
 
         // Preferences
 
-        // Students preferences
+        // Students preferences (new format)
         data.students_preferences.resize(numStudents);
+        std::uniform_int_distribution<> dist_width_height(-50, 50);
+        std::uniform_int_distribution<> dist_gaps(0, 5);
         for (int s = 0; s < numStudents; ++s) {
             auto& sp = data.students_preferences[s];
-            // free_days, busy_days: always size DAYS, mostly 0s, logarithmic weights
-            sp.free_days.assign(DAYS, 0);
-            sp.busy_days.assign(DAYS, 0);
-            for (int d = 0; d < DAYS; ++d) {
-                if (dist_bool(gen)) { // 50% chance to have preference
-                    int weight = dist_weight(gen);
-                    if (dist_bool(gen)) { // 50% free or busy
-                        sp.free_days[d] = weight;
-                    } else {
-                        sp.busy_days[d] = weight;
-                    }
+            
+            // width_height_info: random value between -50 and 50
+            sp.width_height_info = dist_width_height(gen);
+            
+            // gaps_info: [minGaps, maxGaps, weight]
+            int min_gaps = dist_gaps(gen);
+            int max_gaps = min_gaps + dist_gaps(gen);
+            int gaps_weight = dist_weight(gen);
+            sp.gaps_info = {min_gaps, max_gaps, gaps_weight};
+            
+            // preferred_timeslots: array of signed weights (negative = avoid, positive = prefer)
+            sp.preferred_timeslots.resize(numTimeslots, 0);
+            int num_timeslot_prefs = std::uniform_int_distribution<>(0, numTimeslots / 3)(gen);
+            for (int i = 0; i < num_timeslot_prefs; ++i) {
+                int ts = std::uniform_int_distribution<>(0, numTimeslots - 1)(gen);
+                int weight = dist_weight(gen);
+                if (weight > 0) {
+                    // 50% chance positive or negative
+                    sp.preferred_timeslots[ts] = dist_bool(gen) ? weight : -weight;
                 }
             }
-
-            // no_gaps
-            sp.no_gaps = dist_weight(gen);
-
-            // preferred_groups, avoid_groups: for each subject of student
-            int num_subj = static_cast<int>(data.students_subjects[s].size());
-            for (int subj_idx = 0; subj_idx < num_subj; ++subj_idx) {
-                int subj = data.students_subjects[s][subj_idx];
-                // Get groups for this subject
-                int start_group = std::accumulate(data.groups_per_subject.begin(), data.groups_per_subject.begin() + subj, 0);
-                int num_grps = data.groups_per_subject[subj];
-                // preferred: random groups with weights
-                std::uniform_int_distribution<> dist_num_pref(0, num_grps);
-                int num_pref = dist_num_pref(gen);
-                std::vector<int> grps(num_grps);
-                std::iota(grps.begin(), grps.end(), start_group);
-                std::shuffle(grps.begin(), grps.end(), gen);
-                for (int i = 0; i < num_pref; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) sp.preferred_groups[grps[i]] = weight;
-                }
-                // avoid: similar
-                int num_avoid = dist_num_pref(gen);
-                std::shuffle(grps.begin(), grps.end(), gen);
-                for (int i = 0; i < num_avoid; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) sp.avoid_groups[grps[i]] = weight;
-                }
-            }
-
-            // preferred_timeslots, avoid_timeslots: similar
-            for (int subj_idx = 0; subj_idx < num_subj; ++subj_idx) {
-                int num_pref_ts = dist_num_ts(gen) % (numTimeslots / 2);
-                std::vector<int> ts(numTimeslots);
-                std::iota(ts.begin(), ts.end(), 0);
-                std::shuffle(ts.begin(), ts.end(), gen);
-                for (int i = 0; i < num_pref_ts; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) sp.preferred_timeslots[ts[i]] = weight;
-                }
-                int num_avoid_ts = dist_num_ts(gen) % (numTimeslots / 2);
-                std::shuffle(ts.begin(), ts.end(), gen);
-                for (int i = 0; i < num_avoid_ts; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) sp.avoid_timeslots[ts[i]] = weight;
+            
+            // preferred_groups: array of signed weights for groups this student has
+            int num_student_groups = static_cast<int>(data.students_subjects[s].size());
+            sp.preferred_groups.resize(num_student_groups, 0);
+            int num_group_prefs = std::uniform_int_distribution<>(0, num_student_groups)(gen);
+            for (int i = 0; i < num_group_prefs; ++i) {
+                int g = std::uniform_int_distribution<>(0, num_student_groups - 1)(gen);
+                int weight = dist_weight(gen);
+                if (weight > 0) {
+                    sp.preferred_groups[g] = dist_bool(gen) ? weight : -weight;
                 }
             }
         }
 
-        // Teachers preferences
+        // Teachers preferences (new format)
         data.teachers_preferences.resize(numTeachers);
         for (int t = 0; t < numTeachers; ++t) {
             auto& tp = data.teachers_preferences[t];
-            // free_days, busy_days
-            tp.free_days.assign(DAYS, 0);
-            tp.busy_days.assign(DAYS, 0);
-            for (int d = 0; d < DAYS; ++d) {
-                if (dist_bool(gen)) { // 50% chance to have preference
-                    int weight = dist_weight(gen);
-                    if (dist_bool(gen)) { // 50% free or busy
-                        tp.free_days[d] = weight;
-                    } else {
-                        tp.busy_days[d] = weight;
-                    }
-                }
-            }
-
-            // no_gaps
-            tp.no_gaps = dist_weight(gen);
-
-            // preferred_timeslots, avoid_timeslots: for each group they teach
-            int num_grps = static_cast<int>(data.teachers_groups[t].size());
-            for (int grp_idx = 0; grp_idx < num_grps; ++grp_idx) {
-                int num_pref_ts = dist_num_ts(gen) % (numTimeslots / 2);
-                std::vector<int> ts(numTimeslots);
-                std::iota(ts.begin(), ts.end(), 0);
-                std::shuffle(ts.begin(), ts.end(), gen);
-                for (int i = 0; i < num_pref_ts; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) tp.preferred_timeslots[ts[i]] = weight;
-                }
-                int num_avoid_ts = dist_num_ts(gen) % (numTimeslots / 2);
-                std::shuffle(ts.begin(), ts.end(), gen);
-                for (int i = 0; i < num_avoid_ts; ++i) {
-                    int weight = dist_weight(gen);
-                    if (weight > 0) tp.avoid_timeslots[ts[i]] = weight;
+            
+            // width_height_info: random value between -50 and 50
+            tp.width_height_info = dist_width_height(gen);
+            
+            // gaps_info: [minGaps, maxGaps, weight]
+            int min_gaps = dist_gaps(gen);
+            int max_gaps = min_gaps + dist_gaps(gen);
+            int gaps_weight = dist_weight(gen);
+            tp.gaps_info = {min_gaps, max_gaps, gaps_weight};
+            
+            // preferred_timeslots: array of signed weights (negative = avoid, positive = prefer)
+            tp.preferred_timeslots.resize(numTimeslots, 0);
+            int num_timeslot_prefs = std::uniform_int_distribution<>(0, numTimeslots / 3)(gen);
+            for (int i = 0; i < num_timeslot_prefs; ++i) {
+                int ts = std::uniform_int_distribution<>(0, numTimeslots - 1)(gen);
+                int weight = dist_weight(gen);
+                if (weight > 0) {
+                    // 50% chance positive or negative
+                    tp.preferred_timeslots[ts] = dist_bool(gen) ? weight : -weight;
                 }
             }
         }
 
-        // Management preferences
-        // preferred_room_timeslots, avoid_room_timeslots: random
-        int num_pref_rt = dist_num_mgmt(gen);
-        for (int i = 0; i < num_pref_rt; ++i) {
-            RoomTimeslotPreference rp;
-            rp.room = std::uniform_int_distribution<>(0, numRooms - 1)(gen);
-            rp.timeslot = std::uniform_int_distribution<>(0, numTimeslots - 1)(gen);
-            int weight = dist_weight(gen);
-            if (weight > 0) {
-                rp.weight = weight;
-                data.management_preferences.preferred_room_timeslots.push_back(rp);
-            }
-        }
-        int num_avoid_rt = dist_num_mgmt(gen);
-        for (int i = 0; i < num_avoid_rt; ++i) {
-            RoomTimeslotPreference rp;
-            rp.room = std::uniform_int_distribution<>(0, numRooms - 1)(gen);
-            rp.timeslot = std::uniform_int_distribution<>(0, numTimeslots - 1)(gen);
-            int weight = dist_weight(gen);
-            if (weight > 0) {
-                rp.weight = weight;
-                data.management_preferences.avoid_room_timeslots.push_back(rp);
-            }
-        }
-        // group_max_overflow
-        data.management_preferences.group_max_overflow.value = std::uniform_int_distribution<>(0, 10)(gen);
-        data.management_preferences.group_max_overflow.weight = dist_weight(gen);
+        // New constraint fields (initialize as empty for now)
+        data.rooms_capacity.resize(numRooms, 100); // default capacity
+        data.groups_tags.clear(); // empty tags
+        data.rooms_tags.clear(); // empty tags
+        data.students_unavailability_timeslots.resize(numStudents); // empty unavailability
+        data.teachers_unavailability_timeslots.resize(numTeachers); // empty unavailability
 
         Logger::info("Finished TestCaseGenerator::generate successfully");
         return data;

@@ -14,13 +14,13 @@ void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
     rng.seed(seed);
 
     // inicjalizacja genotypu (rozmiar na evaluator.getTotalGenes() oraz wartości na rng() % evaluator.getMaxGeneValue(i))
-    this->initRandom(bestIndividual);
+    InitRandomInd(bestIndividual);
 
     //init population
     population.clear();
     for (int i = 0; i < populationSize; ++i) {
         Individual ind;
-        this->initRandom(ind);
+        InitRandomInd(ind);
         population.push_back(ind);
     }
 
@@ -30,40 +30,49 @@ void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
 
 Individual ZawodevGeneticAlgorithm::RunIteration(int currentIteration) {
     if (!initialized || !problemData || !evaluator) {
-        throw std::runtime_error("SimpleGeneticAlgorithm not initialized properly");
+        Logger::error("zawodev-ga not initialized properly or sth");
     }
-    /*
-    for (int i = 0; i < 1000; ++i) {
-        //this->initRandom(individual);
-        //this->fihc(individual);
 
-        //assert if individual fitness == evaluator.evaluate(individual) (remove rounding errors?)
-        //if (std::abs(individual.fitness - evaluator->evaluate(individual)) > 1e-6) {
-            //Logger::error("Fitness mismatch after FIHC: " + std::to_string(individual.fitness) + " vs " + std::to_string(evaluator->evaluate(individual)));
-            //exit(1);
-        //}
-
-        //exit(1);
-        if (population[0].fitness > bestIndividual.fitness) {
-            bestIndividual = population[0];
-        }
-    }
-    */
-    for (int i = 0; i < 100; ++i) {
-        for (int j = 0; j < populationSize; ++j) {
-            this->fihc(population[j]);
-        }
-        this->selection();
-        if (population[0].fitness > bestIndividual.fitness) {
-            bestIndividual = population[0];
-            Logger::debug("New best fitness: " + std::to_string(bestIndividual.fitness));
-        }
+    for (int i = 0; i < INNER_LOOP_COUNT; ++i) { //inner loop
+        RunInnerIteration(i);
     }
 
     return bestIndividual;
 }
 
-void ZawodevGeneticAlgorithm::initRandom(Individual& individual) const {
+void ZawodevGeneticAlgorithm::UpdateBestIndividual(Individual &contesterInd) {
+    if (contesterInd.fitness > bestIndividual.fitness) {
+        bestIndividual = contesterInd;
+        Logger::debug("New best fitness: " + std::to_string(bestIndividual.fitness));
+    }
+}
+
+void ZawodevGeneticAlgorithm::RunInnerIteration(int currentInnerIteration) {
+    for (int i = 0; i < crossSize; ++i) {
+        int idx_parent1 = rand() % populationSize;
+        int idx_parent2 = rand() % populationSize;
+        int idx_child = rand() % populationSize;
+        Cross(population[idx_parent1], population[idx_parent2], population[idx_child]);
+    }
+    for (int i = 0; i < populationSize; ++i) {
+        MutateInd(population[i]);
+    }
+    for (int i = 0; i < populationSize; ++i) {
+        FihcInd(population[i]);
+    }
+
+    SortSelection();
+    UpdateBestIndividual(population[0]);
+
+    // no fstrings in cpp??? me saddy :c
+    Logger::debug("Iteration: " + currentInnerIteration);
+    population[0].printDebugInfo();
+
+    //idk above need to be fixed looks ugly but i gotta go
+}
+
+void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const
+{
     individual.genotype.clear();
     for (int i = 0; i < evaluator->getTotalGenes(); ++i) {
         std::uniform_int_distribution<int> dist(0, evaluator->getMaxGeneValue(i));
@@ -72,14 +81,14 @@ void ZawodevGeneticAlgorithm::initRandom(Individual& individual) const {
 
     bool wasRepaired = evaluator->repair(individual);
     if (wasRepaired) {
-        //Logger::debug("Individual's genotype was repaired. Now solution is valid.");
+        Logger::debug("Individual's genotype was repaired. Now solution is valid.");
     }
 
     // still debating myself if we should evaluate here or not
     individual.fitness = evaluator->evaluate(individual);
 }
 
-void ZawodevGeneticAlgorithm::fihc(Individual &individual) {
+void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
     // to be improved, very basic very bad definition of FIHC
     // now with random order of genes
     //Logger::debug("Before FIHC: ");
@@ -116,7 +125,7 @@ void ZawodevGeneticAlgorithm::fihc(Individual &individual) {
     //individual.printDebugInfo();
 }
 
-void ZawodevGeneticAlgorithm::selection() {
+void ZawodevGeneticAlgorithm::SortSelection() {
     // sort population by fitness descending
     std::sort(population.begin(), population.end(), [](const Individual& a, const Individual& b) {
         return a.fitness > b.fitness;
@@ -126,7 +135,26 @@ void ZawodevGeneticAlgorithm::selection() {
     population.resize(crossSize);
     while ((int)population.size() < populationSize) {
         Individual ind;
-        this->initRandom(ind);
+        this->InitRandomInd(ind);
         population.push_back(ind);
+    }
+}
+
+void ZawodevGeneticAlgorithm::Cross(Individual &parent1, Individual &parent2, Individual &child) {
+    for(int i = 0; i < evaluator->getTotalGenes(); i++){
+        child.genotype[i] = rng() % 2 ? parent1.genotype[i] : parent2.genotype[i];
+    }
+    child.fitness = evaluator->evaluate(child);
+}
+
+void ZawodevGeneticAlgorithm::MutateInd(Individual &individual) {
+    int mutations = 3;
+    float mutationChance = 0.03f;
+    if (rand() > mutationChance) return;
+
+    for (int i = 0; i < mutations; i++){
+        int idx = rand() % evaluator->getTotalGenes();
+        int val = rand() % evaluator->getMaxGeneValue(idx);
+        individual.genotype[idx] = val;
     }
 }

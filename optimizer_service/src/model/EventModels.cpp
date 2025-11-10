@@ -42,7 +42,6 @@ RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData
     // get last fitness data from evaluator
     student_fitnesses = evaluator.getLastStudentFitnesses();
     teacher_fitnesses = evaluator.getLastTeacherFitnesses();
-    management_fitness = evaluator.getLastManagementFitness();
     
     Logger::debug("RawSolutionData created with fitness: " + std::to_string(fitness));
 }

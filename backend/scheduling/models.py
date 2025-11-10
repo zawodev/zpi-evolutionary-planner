@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from identity.models import User, Group
+from identity.models import User, Group, Organization
 import uuid
 
 
@@ -27,7 +27,7 @@ class Subject(models.Model):
 class SubjectGroup(models.Model):
     """
     Intermediate model between Subject and Meeting.
-    Defines which groups are associated with a subject in a recruitment.
+    Defines subject-host pairs for a recruitment.
     """
     subject_group_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     subject = models.ForeignKey(
@@ -42,12 +42,6 @@ class SubjectGroup(models.Model):
         db_column='recruitmentid',
         related_name='subject_groups'
     )
-    group = models.ForeignKey(
-        Group,
-        on_delete=models.CASCADE,
-        db_column='groupid',
-        related_name='subject_groups'
-    )
     host_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -57,10 +51,9 @@ class SubjectGroup(models.Model):
 
     class Meta:
         db_table = 'scheduling_subjectgroups'
-        unique_together = ('subject', 'recruitment', 'group')
 
     def __str__(self):
-        return f"{self.subject.subject_name} - {self.group} - {self.host_user} (Recruitment: {self.recruitment.recruitment_name})"
+        return f"{self.subject.subject_name} - {self.host_user} (Recruitment: {self.recruitment.recruitment_name})"
 
 
 class Recruitment(models.Model):
@@ -78,15 +71,21 @@ class Recruitment(models.Model):
 
     recruitment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     recruitment_name = models.CharField(max_length=255)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        db_column='organizationid',
+        related_name='recruitments'
+    )
 
     day_start_time = models.TimeField(blank=True, null=True)
     day_end_time = models.TimeField(blank=True, null=True)
 
-    host_prefs_start_date = models.DateField(blank=True, null=True) # zbieranie preferencji hostów
-    user_prefs_start_date = models.DateField(blank=True, null=True) # zbieranie preferencji użytkowników
-    optimization_start_date = models.DateField(blank=True, null=True) # rozpoczęcie optymalizacji
-    optimization_end_date = models.DateField(blank=True, null=True) # zakończenie optymalizacji
-    expiration_date = models.DateField(blank=True, null=True) # data wygaśnięcia rekrutacji
+    host_prefs_start_date = models.DateTimeField(blank=True, null=True) # zbieranie preferencji hostów
+    user_prefs_start_date = models.DateTimeField(blank=True, null=True) # zbieranie preferencji użytkowników
+    optimization_start_date = models.DateTimeField(blank=True, null=True) # rozpoczęcie optymalizacji
+    optimization_end_date = models.DateTimeField(blank=True, null=True) # zakończenie optymalizacji
+    expiration_date = models.DateTimeField(blank=True, null=True) # data wygaśnięcia rekrutacji
 
     preference_threshold = models.FloatField(default=0.5)
     users_submitted_count = models.IntegerField(default=0)
@@ -169,6 +168,13 @@ class Meeting(models.Model):
         db_column='subjectgroupid',
         related_name='meetings'
     )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        db_column='groupid',
+        related_name='meetings',
+        help_text="Identity group containing students assigned to this meeting"
+    )
     room = models.ForeignKey(
         Room,
         on_delete=models.CASCADE,
@@ -182,7 +188,7 @@ class Meeting(models.Model):
         blank=True,
         null=True
     )
-    start_hour = models.IntegerField(help_text="Start hour (0-23)")
+    start_timeslot = models.IntegerField()
     day_of_week = models.IntegerField(help_text="Day of week (0=Monday, 6=Sunday)")
     day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-30")
 
@@ -190,13 +196,21 @@ class Meeting(models.Model):
         db_table = 'scheduling_meetings'
 
     def __str__(self):
-        return f"Meeting: {self.subject_group.subject.subject_name} - {self.subject_group.group} - {self.subject_group.host_user} ({self.day_of_week})"
+        return f"Meeting: {self.subject_group.subject.subject_name} - {self.group} - {self.subject_group.host_user} ({self.day_of_week})"
+    
+    def delete(self, *args, **kwargs):
+        """Override delete to cascade delete the identity group"""
+        group = self.group
+        super().delete(*args, **kwargs)
+        # Delete the identity group after meeting is deleted
+        if group:
+            group.delete()
     
     @property
     def end_hour(self):
         """Calculate end hour based on subject duration"""
         duration_minutes = self.subject_group.subject.duration_minutes
-        start_minutes = self.start_hour * 60
+        start_minutes = self.start_timeslot * 60
         end_minutes = start_minutes + duration_minutes
         return end_minutes // 60
     
