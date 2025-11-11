@@ -134,3 +134,14 @@ class UsersByRecruitmentView(APIView):
         from identity.serializers import UserSerializer
         serializer = UserSerializer(qs, many=True)
         return Response(serializer.data)
+
+
+class TagsByRoomView(APIView):
+    """Return all tags assigned to a given room via RoomTag relations."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, room_pk):
+        get_object_or_404(Room, **{'room_id': room_pk})
+        tags_qs = Tag.objects.filter(tagged_rooms__room_id=room_pk).distinct().order_by('tag_name')
+        serializer = TagSerializer(tags_qs, many=True)
+        return Response(serializer.data)

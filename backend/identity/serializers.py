@@ -157,3 +157,67 @@ class PasswordChangeSerializer(serializers.Serializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user data (no username/password changes).
+
+    Rules:
+    - Fields username and password are not accepted by this serializer.
+    - A user with role 'admin' may change any allowed fields, including organization and role.
+    - A user with role 'office' may edit only users within their organization.
+      * They cannot change the organization to a different one or remove it.
+      * They cannot set role 'admin'.
+    - Other roles are not allowed (the view enforces this), but if the serializer is used directly
+      it will raise ValidationError.
+    """
+    organization_id = serializers.PrimaryKeyRelatedField(
+        queryset=Organization.objects.all(),
+        source='organization',
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'email', 'role', 'organization_id')
+        extra_kwargs = {
+            'role': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'email': {'required': False},
+            'organization_id': {'required': False},
+        }
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        editor = getattr(request, 'user', None)
+        target_user = self.context.get('target_user')
+        if editor is None or target_user is None:
+            raise serializers.ValidationError('Missing serializer context: editor or target_user.')
+
+        new_role = attrs.get('role')
+        new_org = attrs.get('organization') if 'organization' in attrs else None
+
+        if editor.role == 'admin':
+            return attrs
+
+        if editor.role == 'office':
+            if target_user.organization_id != editor.organization_id:
+                raise serializers.ValidationError("You can't edit a user outside of your organization.")
+            if 'organization' in attrs and new_org is not None and new_org.pk != editor.organization.pk:
+                raise serializers.ValidationError("You can't change the user's organization.")
+            if 'organization' in attrs and new_org is None:
+                raise serializers.ValidationError("You can't remove the user's organization.")
+            if new_role == 'admin':
+                raise serializers.ValidationError("You can't assign the 'admin' role.")
+            return attrs
+        raise serializers.ValidationError('You do not have permission to edit users.')
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            if field == 'organization' and value is None:
+                continue
+            setattr(instance, field, value)
+        instance.save()
+        return instance

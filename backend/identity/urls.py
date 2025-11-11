@@ -19,6 +19,7 @@ from .views import (
     TokenRefreshCookieView,
     SetUserPasswordView,
     RecruitmentsByUserView,
+    UserUpdateView,
 )
 
 urlpatterns = [
@@ -33,6 +34,7 @@ urlpatterns = [
     path('users/create/', OfficeUserCreateView.as_view(), name='office-user-create'),
     path('users/create/random/', RandomOfficeUserCreateView.as_view(), name='office-user-create-random'),
     path('users/<user_pk>/set_password/', SetUserPasswordView.as_view(), name='set-user-password'),
+    path('users/<user_pk>/update/', UserUpdateView.as_view(), name='user-update'),
 
     path('organizations/add/', OrganizationAddView.as_view(), name='organization-add'),
     path('organizations/delete/<uuid:organization_id>/', OrganizationDeleteView.as_view(), name='organization-delete'),

@@ -26,6 +26,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         from django.contrib.auth import authenticate
@@ -42,11 +43,6 @@ class LoginView(APIView):
         refresh_token = str(refresh)
         user_data = UserSerializer(user).data
 
-        payload = {
-            'user': user_data,
-        }
-
-        # build response body (still include tokens in body for clients that don't use cookies)
         response = Response({
             'refresh': refresh_token,
             'access': access_token,
@@ -159,8 +155,11 @@ class UserGroupAddView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
 
     def post(self, request):
-        """
-        Dodaj użytkownika do grupy.
+        """Add a user to a group.
+
+        Body fields required:
+        - user: user PK
+        - group: group PK
         """
         serializer = UserGroupSerializer(data=request.data)
         if serializer.is_valid():
@@ -173,8 +172,10 @@ class UserGroupDeleteView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
 
     def delete(self, request):
-        """
-        Usuń użytkownika z grupy (wymaga user i group w body).
+        """Remove a user from a group.
+
+        Body must include: user, group.
+        Returns 404 if the relation does not exist.
         """
         user_id = request.data.get('user')
         group_id = request.data.get('group')
@@ -396,3 +397,37 @@ class TokenRefreshCookieView(APIView):
         )
         return response
 
+
+class UserUpdateView(APIView):
+    """Update user data (no username or password changes).
+
+    Access rules:
+    - Only users with role 'admin' or 'office' (IsOfficeUser also allows admin).
+    - Admin may edit any user.
+    - Office may edit only users within their own organization.
+
+    Payload may include any of: first_name, last_name, email, role, organization_id.
+    organization_id: only admin may change/remove (set to null). Office cannot change or remove it.
+    Role 'admin' cannot be assigned by an office user.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def patch(self, request, user_pk):
+        return self._update(request, user_pk, partial=True)
+
+    def put(self, request, user_pk):
+        return self._update(request, user_pk, partial=False)
+
+    def _update(self, request, user_pk, partial):
+        from .serializers import UserUpdateSerializer, UserSerializer
+        target_user = get_object_or_404(User, pk=user_pk)
+        serializer = UserUpdateSerializer(
+            instance=target_user,
+            data=request.data,
+            partial=partial,
+            context={'request': request, 'target_user': target_user}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(UserSerializer(target_user).data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
