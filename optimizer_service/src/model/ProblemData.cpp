@@ -115,6 +115,28 @@ int ProblemData::getSubjectFromGroup(int group) const {
 }
 
 bool ProblemData::checkFeasibility() const {
+    // check subjects_duration size matches subjects count
+    if (!_rawData.subjects_duration.empty() && (int)_rawData.subjects_duration.size() != getSubjectsNum()) {
+        Logger::warn("SubjectsDuration size (" + std::to_string((int)_rawData.subjects_duration.size()) + 
+                    ") does not match subjects count (" + std::to_string(getSubjectsNum()) + ")");
+        return false;
+    }
+
+    // check if any subject duration exceeds timeslots_daily
+    for (int p = 0; p < (int)_rawData.subjects_duration.size(); ++p) {
+        if (_rawData.subjects_duration[p] > _rawData.timeslots_daily) {
+            Logger::warn("Subject " + std::to_string(p) + " duration (" + 
+                        std::to_string(_rawData.subjects_duration[p]) + 
+                        ") exceeds daily timeslots (" + std::to_string(_rawData.timeslots_daily) + ")");
+            return false;
+        }
+        if (_rawData.subjects_duration[p] <= 0) {
+            Logger::warn("Subject " + std::to_string(p) + " has invalid duration: " + 
+                        std::to_string(_rawData.subjects_duration[p]));
+            return false;
+        }
+    }
+
     // check capacity for each subject
     for (int p = 0; p < getSubjectsNum(); ++p) {
         if (_subject_total_capacity[p] < _subject_student_count[p]) {

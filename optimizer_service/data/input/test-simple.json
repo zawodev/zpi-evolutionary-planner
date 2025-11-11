@@ -6,6 +6,7 @@
             "TimeslotsDaily": 8,
             "DaysInCycle": 7,
             "MinStudentsPerGroup": 5,
+            "SubjectsDuration": [4, 5, 3],
             "GroupsPerSubject": [3, 2, 4],
             "GroupsCapacity": [30, 30, 30, 25, 25, 40, 40, 40, 40],
             "RoomsCapacity": [50, 40, 30],

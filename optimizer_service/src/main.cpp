@@ -79,12 +79,12 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
 
 void testGenerateAndSave() {
     TestCaseGenerator generator;
-    int numStudents = 100;
-    int numGroups = 9;
-    int numSubjects = 3;
-    int numRooms = 1;
-    int numTeachers = 1;
-    int numTimeslots = 25;
+    int numStudents = 200;
+    int numGroups = 14;
+    int numSubjects = 4;
+    int numRooms = 3;
+    int numTeachers = 3;
+    int numTimeslots = 56;
     int totalGroupCapacity = 260;
     int executionTime = 60;
 

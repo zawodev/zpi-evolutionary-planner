@@ -40,6 +40,7 @@ RawProblemData JsonParser::toRawProblemData(const nlohmann::json& j) {
         data.timeslots_daily = c.at("TimeslotsDaily").get<int>();
         data.days_in_cycle = c.at("DaysInCycle").get<int>();
         data.min_students_per_group = c.at("MinStudentsPerGroup").get<int>();
+        data.subjects_duration = c.at("SubjectsDuration").get<std::vector<int>>();
         data.groups_per_subject = c.at("GroupsPerSubject").get<std::vector<int>>();
         data.groups_capacity = c.at("GroupsCapacity").get<std::vector<int>>();
         data.rooms_capacity = c.at("RoomsCapacity").get<std::vector<int>>();
@@ -91,6 +92,7 @@ nlohmann::json JsonParser::toJson(const RawProblemData& data) {
     j["constraints"]["TimeslotsDaily"] = data.timeslots_daily;
     j["constraints"]["DaysInCycle"] = data.days_in_cycle;
     j["constraints"]["MinStudentsPerGroup"] = data.min_students_per_group;
+    j["constraints"]["SubjectsDuration"] = data.subjects_duration;
     j["constraints"]["GroupsPerSubject"] = data.groups_per_subject;
     j["constraints"]["GroupsCapacity"] = data.groups_capacity;
     j["constraints"]["RoomsCapacity"] = data.rooms_capacity;
@@ -250,6 +252,7 @@ void JsonParser::writeInput(const std::string& filename, const RawProblemData& d
         json_str += "    \"TimeslotsDaily\": " + std::to_string(j["constraints"]["TimeslotsDaily"].get<int>()) + ",\n";
         json_str += "    \"DaysInCycle\": " + std::to_string(j["constraints"]["DaysInCycle"].get<int>()) + ",\n";
         json_str += "    \"MinStudentsPerGroup\": " + std::to_string(j["constraints"]["MinStudentsPerGroup"].get<int>()) + ",\n";
+        json_str += "    \"SubjectsDuration\": " + j["constraints"]["SubjectsDuration"].dump() + ",\n";
         json_str += "    \"GroupsPerSubject\": " + j["constraints"]["GroupsPerSubject"].dump() + ",\n";
         json_str += "    \"GroupsCapacity\": " + j["constraints"]["GroupsCapacity"].dump() + ",\n";
         json_str += "    \"RoomsCapacity\": " + j["constraints"]["RoomsCapacity"].dump() + ",\n";

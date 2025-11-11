@@ -23,7 +23,8 @@ DEFAULT_CONSTRAINTS = {
     "TimeslotsDaily": 0, # 4 x hours (15min timeslots)
     "DaysInCycle": 0, # 7, 14 or 28
     "MinStudentsPerGroup": 0, # for each group, student count requirement (or group no start)
-    "GroupsPerSubject": [0, 0, 0], # for each subject, number of groups
+    "SubjectsDuration": [0, 0, 0, 0], # for each subject, duration in timeslots
+    "GroupsPerSubject": [0, 0, 0, 0], # for each subject, number of groups
     "GroupsCapacity": [0, 0, 0, 0, 0, 0], # for each group, capacity
     "RoomsCapacity": [0, 0], # for each room, capacity
     "GroupsTags": [

@@ -222,6 +222,7 @@ def convert_solution_to_meetings(job_id: str) -> None:
             recruitment_id=recruitment_id
         ).select_related('user').order_by('user_id')
         users = [ur.user for ur in user_recruitments]
+        participants = [u for u in users if u.role == 'participant']
         
         # Validate data consistency
         if len(by_group) != len(subject_groups):
@@ -231,10 +232,10 @@ def convert_solution_to_meetings(job_id: str) -> None:
             )
             return
         
-        if len(by_student) != len(users):
+        if len(by_student) != len(participants):
             logger.error(
                 f"Mismatch between by_student length ({len(by_student)}) "
-                f"and users count ({len(users)})"
+                f"and participants count ({len(participants)})"
             )
             return
         

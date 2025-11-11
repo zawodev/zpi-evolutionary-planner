@@ -2,6 +2,7 @@
 #include "utils/Logger.hpp"
 #include <random>
 #include <set>
+#include <map>
 #include <algorithm>
 
 Evaluator::Evaluator(const ProblemData& data) : problemData(data) {
@@ -213,6 +214,56 @@ double Evaluator::evaluate(const Individual& individual) const {
     if (teachers_count == 0) {
         Logger::warn("Evaluator::evaluate - No teachers in problem data (teachers_groups is empty)");
     }
+
+    // Hard constraints check: room conflicts and duration overflow
+    double hard_constraint_penalty = 0.0;
+    const auto& subjects_duration = problemData.getSubjectsDuration();
+    bool has_duration_data = !subjects_duration.empty();
+    
+    if (has_duration_data) {
+        // Check 1: Room conflicts - same room, overlapping timeslots
+        std::map<std::pair<int, int>, int> room_timeslot_usage; // key: (room, timeslot), value: group_id
+        
+        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
+            int start_timeslot = group_assignments[g].first;
+            int room = group_assignments[g].second;
+            int subject = problemData.getSubjectFromGroup(g);
+            int duration = subjects_duration[subject];
+            
+            // Check each timeslot this group occupies
+            for (int t = start_timeslot; t < start_timeslot + duration; ++t) {
+                auto key = std::make_pair(room, t);
+                if (room_timeslot_usage.count(key)) {
+                    // Conflict! Two groups in same room at same time
+                    hard_constraint_penalty += 1.0;
+                } else {
+                    room_timeslot_usage[key] = g;
+                }
+            }
+        }
+        
+        // Check 2: Duration overflow - classes extending beyond daily limit
+        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
+            int start_timeslot = group_assignments[g].first;
+            int subject = problemData.getSubjectFromGroup(g);
+            int duration = subjects_duration[subject];
+            int end_timeslot = start_timeslot + duration - 1;
+            
+            int start_day = start_timeslot / timeslots_daily;
+            int end_day = end_timeslot / timeslots_daily;
+            
+            // Check if class extends to next day
+            if (start_day != end_day) {
+                hard_constraint_penalty += 1.0;
+            }
+            
+            // Check if end timeslot exceeds day limit
+            int day_end = cum_timeslots[start_day + 1] - 1;
+            if (end_timeslot > day_end) {
+                hard_constraint_penalty += 1.0;
+            }
+        }
+    }
     
     for (int t = 0; t < teachers_count; ++t) {
         double teacher_fitness = 0.0;
@@ -311,6 +362,11 @@ double Evaluator::evaluate(const Individual& individual) const {
 
     // average students and teachers (no management fitness anymore)
     double total_fitness = (avg_student_fitness + avg_teacher_fitness) / 2.0;
+    
+    if (hard_constraint_penalty > 0) {
+        total_fitness = -1.0;
+    }
+    
     return total_fitness;
 }
 
@@ -383,6 +439,119 @@ bool Evaluator::repair(Individual& individual) const {
             if (group_counts[g] > groups_capacity[g]) {
                 //should not happen if feasibility check worked
                 Logger::warn("Weird? Could not fully repair group " + std::to_string(g) + " capacity violation.");
+            }
+        }
+    }
+
+    // Repair hard constraints: room conflicts and duration overflow
+    const auto& subjects_duration = problemData.getSubjectsDuration();
+    if (!subjects_duration.empty()) {
+        idx = problemData.getTotalStudentSubjects();
+        int timeslots_daily = problemData.getTimeslotsDaily();
+        int total_timeslots = problemData.totalTimeslots();
+        int num_rooms = problemData.getRoomsNum();
+        
+        // Repair duration overflow first
+        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
+            int timeslot_idx = idx + g * 2;
+            int start_timeslot = individual.genotype[timeslot_idx];
+            int subject = problemData.getSubjectFromGroup(g);
+            int duration = subjects_duration[subject];
+            
+            int start_day = start_timeslot / timeslots_daily;
+            int day_start = start_day * timeslots_daily;
+            int day_end = day_start + timeslots_daily - 1;
+            
+            // Check if class would overflow the day
+            if (start_timeslot + duration - 1 > day_end) {
+                // Move to earlier timeslot in same day
+                int new_start = day_end - duration + 1;
+                if (new_start >= day_start && new_start >= 0) {
+                    individual.genotype[timeslot_idx] = new_start;
+                    wasRepaired = true;
+                } else {
+                    // Can't fit in this day, move to next day
+                    if (start_day + 1 < problemData.getDaysNum()) {
+                        individual.genotype[timeslot_idx] = (start_day + 1) * timeslots_daily;
+                        wasRepaired = true;
+                    } else {
+                        // Move to first day
+                        individual.genotype[timeslot_idx] = 0;
+                        wasRepaired = true;
+                    }
+                }
+            }
+        }
+        
+        // Repair room conflicts
+        std::map<std::pair<int, int>, int> room_timeslot_usage;
+        for (int g = 0; g < problemData.getGroupsNum(); ++g) {
+            int timeslot_idx = idx + g * 2;
+            int room_idx = idx + g * 2 + 1;
+            int start_timeslot = individual.genotype[timeslot_idx];
+            int room = individual.genotype[room_idx];
+            int subject = problemData.getSubjectFromGroup(g);
+            int duration = subjects_duration[subject];
+            
+            bool has_conflict = false;
+            for (int t = start_timeslot; t < start_timeslot + duration && t < total_timeslots; ++t) {
+                auto key = std::make_pair(room, t);
+                if (room_timeslot_usage.count(key)) {
+                    has_conflict = true;
+                    break;
+                }
+            }
+            
+            if (has_conflict) {
+                // Try to find alternative room
+                bool found_room = false;
+                for (int r = 0; r < num_rooms; ++r) {
+                    bool room_ok = true;
+                    for (int t = start_timeslot; t < start_timeslot + duration && t < total_timeslots; ++t) {
+                        auto key = std::make_pair(r, t);
+                        if (room_timeslot_usage.count(key)) {
+                            room_ok = false;
+                            break;
+                        }
+                    }
+                    if (room_ok) {
+                        individual.genotype[room_idx] = r;
+                        room = r;
+                        found_room = true;
+                        wasRepaired = true;
+                        break;
+                    }
+                }
+                
+                // If no room found, try alternative timeslot
+                if (!found_room) {
+                    int start_day = start_timeslot / timeslots_daily;
+                    int day_start = start_day * timeslots_daily;
+                    int day_end = day_start + timeslots_daily - 1;
+                    
+                    for (int new_ts = day_start; new_ts <= day_end - duration + 1; ++new_ts) {
+                        bool slot_ok = true;
+                        for (int t = new_ts; t < new_ts + duration; ++t) {
+                            auto key = std::make_pair(room, t);
+                            if (room_timeslot_usage.count(key)) {
+                                slot_ok = false;
+                                break;
+                            }
+                        }
+                        if (slot_ok) {
+                            individual.genotype[timeslot_idx] = new_ts;
+                            start_timeslot = new_ts;
+                            wasRepaired = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Mark this room-timeslot range as used
+            for (int t = start_timeslot; t < start_timeslot + duration && t < total_timeslots; ++t) {
+                auto key = std::make_pair(room, t);
+                room_timeslot_usage[key] = g;
             }
         }
     }
