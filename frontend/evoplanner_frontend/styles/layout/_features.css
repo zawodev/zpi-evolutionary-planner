@@ -1,0 +1,150 @@
+.features-body {
+  position: relative;
+  z-index: 10;
+}
+
+/* === HERO SECTION === */
+.features-hero {
+  padding: 100px 60px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.features-title {
+  font-size: clamp(42px, 6vw, 64px);
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  letter-spacing: -2px;
+  color: #000;
+}
+
+.features-highlight {
+  background: linear-gradient(120deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.features-description {
+  font-size: clamp(16px, 1.8vw, 20px);
+  line-height: 1.6;
+  color: #374151;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* === FEATURES GRID === */
+.features-section {
+  padding: 60px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 30px;
+}
+
+.features-card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.features-card.hovered {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+.features-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.features-card-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #000;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.features-card-description {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #64748b;
+  margin: 0;
+}
+
+/* === CTA SECTION === */
+.features-cta {
+  padding: 40px 60px 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.features-cta-card {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 24px;
+  padding: 60px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
+}
+
+.features-cta-title {
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 900;
+  color: white;
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+
+.features-cta-description {
+  font-size: clamp(16px, 1.8vw, 20px);
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 auto 32px;
+  max-width: 700px;
+}
+
+.features-cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* === CTA BUTTONS === */
+.features-btn {
+  padding: 16px 40px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.features-btn--primary {
+  background: white;
+  color: #2563eb;
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.features-btn--primary:hover {
+  background: #f8f9ff;
+}
+
+.features-btn--secondary {
+  background: transparent;
+  border: 2px solid white;
+  color: white;
+}
+
+.features-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

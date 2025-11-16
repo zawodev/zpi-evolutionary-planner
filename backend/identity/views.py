@@ -9,7 +9,7 @@ from .serializers import (
     RegisterSerializer, UserSerializer, OrganizationSerializer, GroupSerializer, UserGroupSerializer,
     UserRecruitmentSerializer, OfficeCreateUserSerializer, PasswordChangeSerializer
 )
-from .services import get_active_meetings_for_user, get_recruitments_for_user
+from .services import get_active_meetings_for_user, get_recruitments_for_user, get_groups_for_user
 from .permissions import IsAdminUser, IsOfficeUser
 import secrets
 from django.conf import settings
@@ -343,6 +343,16 @@ class RecruitmentsByUserView(APIView):
         return Response(serializer.data)
 
 
+class GroupsByUserView(APIView):
+    """Return all groups the given user belongs to (via UserGroup relations)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_pk):
+        get_object_or_404(User, pk=user_pk)
+        qs = get_groups_for_user(user_pk)
+        serializer = GroupSerializer(qs, many=True)
+        return Response(serializer.data)
+
 
 class OrganizationUsersView(APIView):
     """Return all users that belong to a given organization.
@@ -362,6 +372,28 @@ class OrganizationUsersView(APIView):
                 return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
         qs = User.objects.filter(organization=org).order_by('username')
+        serializer = UserSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class OrganizationHostsView(APIView):
+    """Return all users with role 'host' that belong to a given organization.
+
+    Access rules:
+    - Must be authenticated.
+    - Allowed if the requesting user is an admin, OR the requesting user's organization matches the requested organization.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, organization_id):
+        from .models import Organization
+        org = get_object_or_404(Organization, pk=organization_id)
+        requester = request.user
+        if not (hasattr(requester, 'role') and requester.role == 'admin'):
+            if requester.organization is None or str(requester.organization.organization_id) != str(organization_id):
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = User.objects.filter(organization=org, role='host').order_by('username')
         serializer = UserSerializer(qs, many=True)
         return Response(serializer.data)
 

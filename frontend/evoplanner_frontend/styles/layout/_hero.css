@@ -1,5 +1,50 @@
 /* hero/layout/hero.css */
 
+.hero {
+  position: relative;
+  z-index: 10;
+  padding: 100px 60px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: clamp(42px, 6vw, 64px);
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  letter-spacing: -2px;
+  color: #000;
+}
+
+.hero h1 span {
+  background: linear-gradient(120deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero p {
+  font-size: clamp(16px, 1.8vw, 20px);
+  line-height: 1.6;
+  color: #374151;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
 .hero-title {
   max-width: clamp(300px, 43.23vw, 900px);
   margin-left: clamp(20px, 15.45vw, 200px);

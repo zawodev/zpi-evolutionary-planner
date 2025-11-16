@@ -54,19 +54,23 @@ void ZawodevGeneticAlgorithm::RunInnerIteration(int currentInnerIteration) {
         int idx_child = rand() % populationSize;
         Cross(population[idx_parent1], population[idx_parent2], population[idx_child]);
     }
+    Logger::debug("1/3 Crossover done.");
     for (int i = 0; i < populationSize; ++i) {
         MutateInd(population[i]);
     }
-    for (int i = 0; i < populationSize; ++i) {
-        FihcInd(population[i]);
+    Logger::debug("2/3 Mutation done.");
+    for (int i = 0; i < fihcSize; ++i) {
+        int idx = rand() % populationSize;
+        FihcInd(population[idx]);
     }
+    Logger::debug("3/3 FIHC done.");
 
     SortSelection();
     UpdateBestIndividual(population[0]);
 
     // no fstrings in cpp??? me saddy :c
-    Logger::debug("Iteration: " + currentInnerIteration);
-    population[0].printDebugInfo();
+    Logger::debug("Iteration: " + std::to_string(currentInnerIteration) + "/" + std::to_string(INNER_LOOP_COUNT) + ", Best fitness: " + std::to_string(bestIndividual.fitness));
+    //population[0].printDebugInfo();
 
     //idk above need to be fixed looks ugly but i gotta go
 }
@@ -81,7 +85,7 @@ void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const
 
     bool wasRepaired = evaluator->repair(individual);
     if (wasRepaired) {
-        Logger::debug("Individual's genotype was repaired. Now solution is valid.");
+        //Logger::debug("Individual's genotype was repaired. Now solution is valid.");
     }
 
     // still debating myself if we should evaluate here or not

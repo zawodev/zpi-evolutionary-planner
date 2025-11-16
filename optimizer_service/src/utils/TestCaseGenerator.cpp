@@ -5,13 +5,13 @@
 #include <sstream>
 #include "utils/Logger.hpp"
 
-RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int numSubjects, int numRooms, int numTeachers, int numTimeslots, int totalGroupCapacity) {
+RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int numSubjects, int numRooms, int numTeachers, int numTimeslots, int extraCapacity) {
     const int DAYS = 7;
     try {
         Logger::info("Starting TestCaseGenerator::generate with numStudents=" + std::to_string(numStudents) +
                      ", numGroups=" + std::to_string(numGroups) + ", numSubjects=" + std::to_string(numSubjects) +
                      ", numRooms=" + std::to_string(numRooms) + ", numTeachers=" + std::to_string(numTeachers) +
-                     ", numTimeslots=" + std::to_string(numTimeslots) + ", totalGroupCapacity=" + std::to_string(totalGroupCapacity));
+                     ", numTimeslots=" + std::to_string(numTimeslots) + ", extraCapacity=" + std::to_string(extraCapacity));
         RawProblemData data;
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -54,19 +54,6 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
         }
         data.groups_per_subject.back() = std::max(1, numGroups - total_assigned);
 
-        // groups_capacity: distribute totalGroupCapacity among groups with normal distribution
-        double mean_capacity = static_cast<double>(totalGroupCapacity) / numGroups;
-        double stddev_capacity = mean_capacity / 3.0; // adjust for spread
-        std::normal_distribution<> dist_capacity(mean_capacity, stddev_capacity);
-        data.groups_capacity.resize(numGroups);
-        int total_capacity_assigned = 0;
-        for (int i = 0; i < numGroups - 1; ++i) {
-            int cap = std::max(1, static_cast<int>(std::round(dist_capacity(gen))));
-            data.groups_capacity[i] = cap;
-            total_capacity_assigned += cap;
-        }
-        data.groups_capacity.back() = std::max(1, totalGroupCapacity - total_capacity_assigned);
-
         // students_subjects: for each student, random subset of subjects
         std::uniform_int_distribution<> dist_num_subj(1, numSubjects);
         data.students_subjects.resize(numStudents);
@@ -76,6 +63,51 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
             std::iota(all_subj.begin(), all_subj.end(), 0);
             std::shuffle(all_subj.begin(), all_subj.end(), gen);
             subs.assign(all_subj.begin(), all_subj.begin() + num);
+        }
+
+        // Calculate student demand per subject
+        std::vector<int> students_per_subject(numSubjects, 0);
+        for (const auto& subs : data.students_subjects) {
+            for (int subj : subs) {
+                students_per_subject[subj]++;
+            }
+        }
+
+        // groups_capacity: allocate capacity based on actual student demand per subject
+        data.groups_capacity.resize(numGroups);
+        int group_idx = 0;
+        for (int subj = 0; subj < numSubjects; ++subj) {
+            int num_groups_for_subj = data.groups_per_subject[subj];
+            int students_for_subj = students_per_subject[subj];
+            
+            // Calculate base capacity per group for this subject (ensures solvability)
+            std::vector<int> capacities(num_groups_for_subj);
+            int base_capacity = students_for_subj / num_groups_for_subj;
+            int remainder = students_for_subj % num_groups_for_subj;
+            
+            // Distribute base capacity
+            for (int i = 0; i < num_groups_for_subj; ++i) {
+                capacities[i] = base_capacity + (i < remainder ? 1 : 0);
+            }
+            
+            // Distribute extra capacity among groups for this subject
+            if (extraCapacity > 0 && num_groups_for_subj > 0) {
+                int extra_for_subject = extraCapacity / numSubjects;
+                int extra_remainder = extraCapacity % numSubjects;
+                if (subj < extra_remainder) extra_for_subject++;
+                
+                // Randomly distribute extra capacity
+                std::uniform_int_distribution<> dist_extra(0, num_groups_for_subj - 1);
+                for (int i = 0; i < extra_for_subject; ++i) {
+                    int random_group = dist_extra(gen);
+                    capacities[random_group]++;
+                }
+            }
+            
+            // Assign capacities to global group indices
+            for (int i = 0; i < num_groups_for_subj; ++i) {
+                data.groups_capacity[group_idx++] = capacities[i];
+            }
         }
 
         // teachers_groups: assign each group to exactly one teacher, with normal distribution of groups per teacher
@@ -203,10 +235,10 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
     }
 }
 
-RawJobData TestCaseGenerator::generateJob(int numStudents, int numGroups, int numSubjects, int numRooms, int numTeachers, int numTimeslots, int totalGroupCapacity, int maxExecutionTime) {
+RawJobData TestCaseGenerator::generateJob(int numStudents, int numGroups, int numSubjects, int numRooms, int numTeachers, int numTimeslots, int extraCapacity, int maxExecutionTime) {
     try {
         // generate problem data
-        RawProblemData problemData = generate(numStudents, numGroups, numSubjects, numRooms, numTeachers, numTimeslots, totalGroupCapacity);
+        RawProblemData problemData = generate(numStudents, numGroups, numSubjects, numRooms, numTeachers, numTimeslots, extraCapacity);
         
         // generate random job id
         std::random_device rd;

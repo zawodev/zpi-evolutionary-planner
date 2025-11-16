@@ -1,0 +1,347 @@
+/* styles.css */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(to bottom right, #e0e7ff, #ffffff, #f3e8ff);
+    min-height: 100vh;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.logo {
+    font-size: clamp(24px, 3vw, 28px);
+    font-weight: 900;
+    color: #000;
+    letter-spacing: -1px;
+}
+
+.hero {
+    position: relative;
+    z-index: 10;
+    padding: clamp(40px, 8vh, 80px) clamp(20px, 5vw, 60px);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.hero.mobile {
+    padding: 40px 20px;
+}
+
+.hero-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(40px, 6vw, 80px);
+    align-items: center;
+}
+
+.hero-content.mobile {
+    display: block;
+}
+
+.hero-left {
+    color: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #dbeafe;
+    padding: clamp(8px, 1vw, 10px) clamp(15px, 2vw, 20px);
+    border-radius: 50px;
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 600;
+    margin-bottom: clamp(20px, 3vh, 30px);
+    color: #1e40af;
+    text-align: left;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+    display: inline-block;
+}
+
+h1 {
+    font-size: clamp(42px, 6vw, 72px);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: clamp(30px, 4vh, 40px);
+    letter-spacing: -2px;
+    color: #000;
+    margin-top: 0;
+    text-align: left;
+}
+
+h1.mobile {
+    font-size: clamp(36px, 10vw, 48px);
+    letter-spacing: -1px;
+}
+
+.highlight {
+    background: linear-gradient(120deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-description {
+    font-size: clamp(16px, 1.8vw, 20px);
+    line-height: 1.6;
+    margin-bottom: clamp(40px, 5vh, 50px);
+    color: #374151;
+    max-width: 600px;
+    text-align: left;
+}
+
+.hero-description.mobile {
+    font-size: clamp(15px, 4vw, 18px);
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 20px;
+    margin-bottom: clamp(50px, 6vh, 60px);
+}
+
+.cta-buttons.mobile {
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 40px;
+}
+
+.btn-primary-big {
+    background: #2563eb;
+    color: white;
+    padding: clamp(14px, 2vw, 18px) clamp(30px, 4vw, 40px);
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: clamp(16px, 1.8vw, 18px);
+    transition: all 0.3s;
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary-big.mobile {
+    width: 100%;
+}
+
+.btn-secondary-big {
+    background: white;
+    color: #000;
+    padding: clamp(14px, 2vw, 18px) clamp(30px, 4vw, 40px);
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: clamp(16px, 1.8vw, 18px);
+    border: 2px solid #000;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.btn-secondary-big.mobile {
+    width: 100%;
+}
+
+.stats {
+    display: flex;
+    gap: clamp(30px, 4vw, 50px);
+}
+
+.stats.mobile {
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    text-align: left;
+}
+
+.stat-number {
+    font-size: clamp(36px, 4vw, 48px);
+    font-weight: 900;
+    margin-bottom: 5px;
+    color: #000;
+}
+
+.stat-number.mobile {
+    font-size: 36px;
+}
+
+.stat-label {
+    font-size: clamp(12px, 1.2vw, 14px);
+    color: #374151;
+    font-weight: 500;
+}
+
+.hero-right {
+    position: relative;
+    height: clamp(500px, 50vh, 600px);
+}
+
+.card {
+    position: absolute;
+    background: white;
+    border-radius: 20px;
+    padding: clamp(20px, 2vw, 25px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s;
+}
+
+.card-1 {
+    width: clamp(280px, 25vw, 320px);
+    top: 0;
+    right: 0;
+    transform: rotate(3deg);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-day {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: clamp(14px, 1.2vw, 16px);
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.schedule-item {
+    padding: clamp(12px, 1.5vw, 15px);
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.schedule-blue {
+    background: #dbeafe;
+}
+
+.schedule-purple {
+    background: #e9d5ff;
+}
+
+.schedule-pink {
+    background: #fce7f3;
+}
+
+.schedule-time {
+    font-size: clamp(11px, 1vw, 12px);
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.schedule-subject {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: clamp(13px, 1.2vw, 14px);
+    margin-bottom: 4px;
+}
+
+.card-2 {
+    width: clamp(240px, 22vw, 280px);
+    top: clamp(120px, 15vh, 150px);
+    left: 0;
+    transform: rotate(-5deg);
+}
+
+.card-2-title {
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 15px;
+    font-size: clamp(14px, 1.2vw, 16px);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+    width: 92%;
+    border-radius: 10px;
+}
+
+.card-2-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-2-label {
+    font-size: clamp(12px, 1vw, 13px);
+    color: #64748b;
+}
+
+.card-2-percentage {
+    font-weight: 700;
+    color: #22c55e;
+    font-size: clamp(13px, 1.2vw, 14px);
+}
+
+.card-3 {
+    width: clamp(260px, 24vw, 300px);
+    bottom: clamp(60px, 8vh, 80px);
+    right: clamp(30px, 4vw, 50px);
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: white;
+    transform: rotate(2deg);
+}
+
+.card-3-title {
+    font-size: clamp(14px, 1.4vw, 16px);
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.card-3-text {
+    font-size: clamp(12px, 1.1vw, 13px);
+    opacity: 0.9;
+    line-height: 1.5;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(30px, -30px) scale(1.05);
+    }
+    66% {
+        transform: translate(-20px, 20px) scale(0.95);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}

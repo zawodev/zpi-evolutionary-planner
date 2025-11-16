@@ -1,0 +1,42 @@
+/* styles/layout/_contact.css */
+
+.contact-section {
+  position: relative;
+  z-index: 10;
+  padding: 40px 60px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 40px;
+}
+
+.contact-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.contact-section__title {
+  font-size: 32px;
+  font-weight: 900;
+  color: #000;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.contact-section__description {
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.methods-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

@@ -14,12 +14,13 @@ private:
     const Evaluator* evaluator = nullptr;
     mutable std::mt19937 rng;
     bool initialized = false;
-    int INNER_LOOP_COUNT = 100;
+    int INNER_LOOP_COUNT = 10;
 
     // algorithm variables
     Individual bestIndividual;
     std::vector<Individual> population;
     int populationSize = 128;
+    int fihcSize = 4;
     int crossSize = 64;
     
     // functions

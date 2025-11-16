@@ -13,14 +13,16 @@
 }
 
 .card--login {
-  width: clamp(300px, 21.99vw, 450px);
+  width: 100%;
+  max-width: 450px;
   min-height: clamp(400px, 59.57vh, 700px);
   padding: clamp(30px, 4vh, 50px) clamp(25px, 3vw, 40px);
 }
 
 @media (max-width: 1024px) {
   .card--login {
-    width: clamp(280px, 30vw, 400px);
+    min-height: auto;
+    padding: clamp(25px, 3vh, 40px) clamp(20px, 2.5vw, 35px);
   }
 }
 
@@ -29,5 +31,75 @@
     width: 100%;
     max-width: 100%;
     min-height: auto;
+    padding: 30px 25px;
   }
+}
+
+.method-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s;
+}
+
+.method-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+.method-icon {
+  font-size: 32px;
+}
+
+.method-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.method-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+}
+
+.method-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Godziny pracy */
+.working-hours {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.hours-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #000;
+  margin-bottom: 16px;
+}
+
+.hours-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.hours-time {
+  font-weight: 700;
+  color: #000;
 }

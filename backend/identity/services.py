@@ -1,7 +1,7 @@
 from typing import Union
 from django.db.models import QuerySet, Q
 from scheduling.models import Meeting, Recruitment
-from .models import User
+from .models import User, Group
 
 
 def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
@@ -15,15 +15,18 @@ def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
     """
     user_id = user_or_id.pk if hasattr(user_or_id, 'pk') else user_or_id
 
+    # Get groups the user belongs to
+    user_groups = Group.objects.filter(group_users__user_id=user_id)
+
     qs = (
         Meeting.objects
         .filter(
             Q(subject_group__host_user_id=user_id) |
-            Q(subject_group__group__group_users__user_id=user_id),
+            Q(group__in=user_groups),
             recruitment__plan_status='active'
         )
-        .select_related('recruitment', 'subject_group__subject', 'subject_group__group', 'subject_group__host_user', 'room')
-        .order_by('day_of_week', 'start_hour')
+        .select_related('recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group')
+        .order_by('day_of_week', 'start_timeslot')
         .distinct()
     )
     return qs
@@ -56,6 +59,27 @@ def get_recruitments_for_user(user_or_id: Union[User, int, str], active_only: bo
         .filter(**filters)
         .prefetch_related('meetings', 'recruitment_users', 'recruitment_users__user')
         .order_by('recruitment_name')
+        .distinct()
+    )
+    return qs
+
+
+def get_groups_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
+    """
+    Return a QuerySet of Group objects that the given user belongs to via UserGroup relations.
+
+    Parameters:
+    - user_or_id: User instance or primary key (UUID/string).
+
+    Returns: QuerySet[Group] containing unique Group records ordered by group_name.
+    """
+    user_id = user_or_id.pk if hasattr(user_or_id, 'pk') else user_or_id
+
+    qs = (
+        Group.objects
+        .filter(group_users__user_id=user_id)
+        .select_related('organization')
+        .order_by('group_name')
         .distinct()
     )
     return qs

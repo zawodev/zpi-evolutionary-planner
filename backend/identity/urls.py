@@ -16,10 +16,12 @@ from .views import (
     OfficeUserCreateView,
     RandomOfficeUserCreateView,
     OrganizationUsersView,
+    OrganizationHostsView,
     TokenRefreshCookieView,
     SetUserPasswordView,
     RecruitmentsByUserView,
     UserUpdateView,
+    GroupsByUserView,
 )
 
 urlpatterns = [
@@ -31,6 +33,7 @@ urlpatterns = [
     path('users/', UserProfileView.as_view(), name='user'),
     path('users/<user_pk>/availability/', ActiveMeetingsByUserView.as_view(), name='user-availability'),
     path('users/<user_pk>/recruitments/', RecruitmentsByUserView.as_view(), name='user-recruitments'),
+    path('users/<user_pk>/groups/', GroupsByUserView.as_view(), name='user-groups'),
     path('users/create/', OfficeUserCreateView.as_view(), name='office-user-create'),
     path('users/create/random/', RandomOfficeUserCreateView.as_view(), name='office-user-create-random'),
     path('users/<user_pk>/set_password/', SetUserPasswordView.as_view(), name='set-user-password'),
@@ -39,6 +42,7 @@ urlpatterns = [
     path('organizations/add/', OrganizationAddView.as_view(), name='organization-add'),
     path('organizations/delete/<uuid:organization_id>/', OrganizationDeleteView.as_view(), name='organization-delete'),
     path('organizations/<uuid:organization_id>/users/', OrganizationUsersView.as_view(), name='organization-users'),
+    path('organizations/<uuid:organization_id>/hosts/', OrganizationHostsView.as_view(), name='organization-hosts'),
 
     path('groups/add/', GroupAddView.as_view(), name='group-add'),
     path('groups/delete/<uuid:group_id>/', GroupDeleteView.as_view(), name='group-delete'),

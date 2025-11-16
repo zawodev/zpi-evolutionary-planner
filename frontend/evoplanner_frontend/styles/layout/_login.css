@@ -1,10 +1,20 @@
 /* style/layout/login.css */
 
+.background {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
 .login-frame {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   width: 90%;
   max-width: 450px;
 }
@@ -19,6 +29,11 @@
   margin-top: clamp(20px, 3vh, 32px);
 }
 
+.login-divider {
+  text-align: center;
+  margin: 24px 0;
+}
+
 .info-text {
   width: 100%;
   font-size: clamp(13px, 1.55vh, 16px);
@@ -27,10 +42,30 @@
   margin-bottom: clamp(8px, 1vh, 12px);
 }
 
+.error-message {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+  color: #c33;
+  font-size: 14px;
+  text-align: center;
+}
+
+.btn--with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .icon-wrapper {
+  position: absolute;
+  left: 20px;
+  margin: 0;
+  padding: 8px;
   flex-shrink: 0;
-  margin-right: 0.5rem;
-  padding: clamp(8px, 1.3vh, 12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,15 +79,25 @@
   transform: scale(1.05);
 }
 
+.logo--login {
+  display: block;
+  text-align: center;
+  font-size: clamp(32px, 4vh, 48px);
+  margin-bottom: 24px;
+}
+
 @media (max-width: 768px) {
   .login-frame {
     width: 95%;
-    top: 55%;
+  }
+  
+  .login-container {
+    padding: 1rem 0;
   }
 }
 
 @media (max-width: 640px) {
   .login-frame {
-    top: 60%;
+    width: 95%;
   }
 }

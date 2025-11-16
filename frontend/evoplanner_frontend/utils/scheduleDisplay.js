@@ -13,7 +13,6 @@ export const calculateSlotPosition = (startTime, endTime) => {
   const gridStart = 7;
   const hourHeight = 50;
   
-  // POPRAWKA: Przywrócono + 5, aby zsynchronizować się z CSS layout
   const top = ((startHour - gridStart) + (startMinutes / 60)) * hourHeight + 5;
   const height = ((endHour - startHour) + ((endMinutes - startMinutes) / 60)) * hourHeight;
   
