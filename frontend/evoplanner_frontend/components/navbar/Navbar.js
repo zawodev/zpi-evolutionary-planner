@@ -13,7 +13,19 @@ export default function Navbar() {
     <header className="header">
       <div className="logo logo--header">OptiSlots</div>
       <nav>
-        {user ? (
+        {user ? (user.role === 'office' ? (
+          <>
+            <Link href="/admin/users">
+              <button className="header-nav nav-home">Użytkownicy</button>
+            </Link>
+            <Link href="/admin/rooms">
+              <button className="header-nav nav-func">Pokoje</button>
+            </Link>
+            <Link href="/admin/createrec">
+              <button className="header-nav nav-contact">Stwórz rejestrację</button>
+            </Link>
+          </>
+        ) : (
           <>
             <Link href="/entries">
               <button className="header-nav nav-entries">Zgłoszenia</button>
@@ -22,6 +34,7 @@ export default function Navbar() {
               <button className="header-nav nav-plans">Plany</button>
             </Link>
           </>
+        )
         ) : (
           <>
             <Link href="/">
@@ -40,8 +53,8 @@ export default function Navbar() {
         <div className="header-icon header-icon--main"></div>
         <div className="login-btn-wrapper">
           {user ? (
-            <button 
-              onClick={handleLogout} 
+            <button
+              onClick={handleLogout}
               className="btn btn--primary btn--neutral"
             >
               Wyloguj
@@ -51,7 +64,7 @@ export default function Navbar() {
               <button className="btn btn--primary btn--login">Zaloguj się!</button>
             </Link>
           )}
-        </div>        
+        </div>
       </div>
     </header>
   );

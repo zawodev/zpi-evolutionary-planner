@@ -1,62 +1,131 @@
 import styles from '@/styles/components/_admin.module.css';
-import NavbarAdmin from '@/components/navbar/NavbarAdmin';
 import { useState } from "react";
+import { useEffect } from 'react';
+import SingleUser from '@/components/adminsubpgs/SingleUser';
 export default function Users() {
     const [selectedCategory, setSelectedCategory] = useState("Users");
-    const [attendees, setAttendees] = useState([]);
-    const [attendants, setAttendants] = useState([]);
+    //data
+    const [participants, setParticipants] = useState([]);
+    const [hosts, setHosts] = useState([]);
     const [groups, setGroups] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Form states
+    // Form states - user
     const [firstName, setFName] = useState("");
     const [surName, setSName] = useState("");
     const [userEmail, setUserEmail] = useState("");
     const [userRole, setUserRole] = useState("participant");
+    // Form states - group
     const [groupName, setGroupName] = useState("");
+    const [groupCat, setGroupCat] = useState("");
+
+    //groupstates
     const [selectedGroup, setSelectedGroup] = useState("");
-    const addUser = () => {
-        if (!firstName|| !surName || !userEmail) return;
-        if (userRole === 'participant') {
-            const newUser = {
-            first_name: firstName,
-            last_name: surName,
-            email: userEmail,
-            role: userRole,
-            group: selectedGroup ? selectedGroup : null,
-            };
-            setAttendees([...attendees, newUser]);
-        } else if (role === 'host') {
-            const newUser = {
-            first_name: firstName,
-            last_name: surName,
-            email: userEmail,
-            role: userRole,
-            };
-            setAttendants([...attendants, newUser]);
+
+    //stupid fucking state
+    const [user, setUser] = useState("");
+
+    const fetchUsers = async () => {
+        setParticipants([]);
+        setHosts([]);
+        const token = localStorage.getItem("access_token");
+        const org_id = localStorage.getItem("org_id");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/organizations/${org_id}/users/`, {
+                method: "GET",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const hostsArr = [];
+                const participantsArr = [];
+                data.forEach(user => {
+                    if (user.role === 'host') {
+                        hostsArr.push(user);
+                    } else if (user.role === 'participant') {
+                        participantsArr.push(user);
+                    }
+                });
+                setHosts(hostsArr);
+                setParticipants(participantsArr);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    const addUser = async () => {
+        if (!firstName || !surName || !userEmail) return;
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/create/random/`, {
+                method: "POST",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    email: userEmail,
+                    first_name: firstName,
+                    last_name: surName,
+                    role: userRole
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.user.role === 'host') {
+                    setHosts([...hosts, data.user]);
+                }
+                if (data.user.role === 'participant') {
+                    setParticipants([...participants, data.user]);
+                }
+
+            }
+        } catch (error) {
+            console.log(error)
         }
 
         setFName("");
-        setFName("");
+        setSName("");
         setUserEmail("");
-        setSelectedGroup("");
     };
 
-    const addGroup = () => {
+    const addGroup = async () => {
         if (!groupName) return;
-        setGroups([...groups, { name: groupName }]);
+        const token = localStorage.getItem("access_token");
+        const org_id = localStorage.getItem("org_id");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/groups/add/`, {
+                method: "POST",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    group_name: groupName,
+                    organization_id: org_id,
+                    category: groupCat
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                console.log(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
         setGroupName("");
     };
 
-    const filteredAttendees = attendees.filter(
+    const filteredParticipants = participants.filter(
         (u) =>
-            (u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        (u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
 
     return (
         <div className={`${styles.background} ${styles.grid}`}>
-            <NavbarAdmin></NavbarAdmin>
             <div className={styles.left}>
                 <div className="login-button-wrapper">
                     <button
@@ -70,7 +139,7 @@ export default function Users() {
                 <div className="login-button-wrapper">
                     <button
                         type="button"
-                        onClick={() => setSelectedCategory("Attendees")}
+                        onClick={() => { setSelectedCategory("participants"); fetchUsers(); }}
                         className="btn btn--secondary btn--form"
                     >
                         Uczestniczący
@@ -79,7 +148,7 @@ export default function Users() {
                 <div className="login-button-wrapper">
                     <button
                         type="button"
-                        onClick={() => setSelectedCategory("Attendants")}
+                        onClick={() => { setSelectedCategory("hosts"); fetchUsers(); }}
                         className="btn btn--secondary btn--form"
                     >
                         Prowadzący
@@ -162,11 +231,10 @@ export default function Users() {
                             </div>
                             {userRole === "attendee" && groups.length > 0 && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">
+                                    <label>
                                         Assign to Group:
                                     </label>
                                     <select
-                                        className="w-full border p-2 rounded"
                                         value={selectedGroup}
                                         onChange={(e) => setSelectedGroup(e.target.value)}
                                     >
@@ -179,7 +247,7 @@ export default function Users() {
                                     </select>
                                 </div>
                             )}
-                            <div style={{ width: '100%',display:'flex',justifyContent:"center", padding:"10vh" }}>
+                            <div style={{ width: '100%', display: 'flex', justifyContent: "center", padding: "10vh" }}>
                                 <button
                                     onClick={addUser}
                                     className={`btn btn--form ${styles.btnadd}`}
@@ -191,51 +259,56 @@ export default function Users() {
                     </div>
                 )}
 
-                {selectedCategory === "Attendees" && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold mb-4">Uczestniczący</h2>
+                {selectedCategory === "participants" && (
+                    <div>
+                        <h2>Uczestniczący</h2>
                         <input
                             type="text"
-                            placeholder="Search attendees..."
-                            className="w-full border p-2 rounded mb-3"
+                            placeholder="Search participants..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                        <ul className="space-y-1">
-                            {filteredAttendees.map((u, i) => (
-                                <li key={i} className="border-b py-1 text-sm">
+                        <ul>
+                            {filteredParticipants.map((u, i) => (
+                                <li key={i} onClick={() => {
+                                    setUser(u);
+                                    setSelectedCategory("EditUser");
+                                }}>
                                     {u.first_name} {u.last_name} ({u.email})
                                 </li>
                             ))}
-                            {filteredAttendees.length === 0 && (
-                                <p className="text-gray-500 text-sm">No attendees found.</p>
+                            {filteredParticipants.length === 0 && (
+                                <p>Nie znaleziono uczestników dla tych parametrów.</p>
                             )}
                         </ul>
                     </div>
                 )}
 
-                {selectedCategory === "Attendants" && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold mb-4">Prowadzący</h2>
-                        <ul className="space-y-1">
-                            {attendants
+                {selectedCategory === "hosts" && (
+                    <div>
+                        <h2>Prowadzący</h2>
+                        <ul>
+                            {hosts
                                 .map((u, i) => (
-                                    <li key={i} className="border-b py-1 text-sm">
+                                    <li key={i} onClick={() => {
+                                        setUser(u);
+                                        setSelectedCategory("EditUser");
+                                    }}>
                                         {u.first_name} {u.last_name} ({u.email})
                                     </li>
                                 ))}
-                            {attendants.length === 0 && (
-                                <p className="text-gray-500 text-sm">No attendants yet.</p>
+                            {hosts.length === 0 && (
+                                <p>Nie ma jeszcze prowadzących.</p>
                             )}
                         </ul>
                     </div>
                 )}
 
                 {selectedCategory === "Groups" && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold mb-4">Dodaj grupę</h2>
-                        <div className="space-y-3">
-                            <div className="login-input-wrapper">
+                    <div>
+                        <h2>Dodaj grupę</h2>
+                        <div>
+                            <div>
                                 <input
                                     type="text"
                                     placeholder="Nazwa grupy"
@@ -243,8 +316,15 @@ export default function Users() {
                                     value={groupName}
                                     onChange={(e) => setGroupName(e.target.value)}
                                 />
+                                <input
+                                    type="text"
+                                    placeholder="Kategoria grupy"
+                                    className="input input--login"
+                                    value={groupCat}
+                                    onChange={(e) => setGroupCat(e.target.value)}
+                                />
                             </div>
-                            <div style={{ width: '100%',display:'flex',justifyContent:"center" }}>
+                            <div style={{ width: '100%', display: 'flex', justifyContent: "center" }}>
                                 <button
                                     onClick={addGroup}
                                     className={`btn btn--form ${styles.btnadd}`}
@@ -255,17 +335,21 @@ export default function Users() {
                         </div>
 
                         {/* Groups list */}
-                        <div className="mt-6">
-                            <h3 className="font-semibold mb-2">All Groups</h3>
-                            <ul className="space-y-1">
+                        <div>
+                            <h3>All Groups</h3>
+                            <ul>
                                 {groups.map((g, i) => (
-                                    <li key={i} className="border-b py-1 text-sm">
+                                    <li key={i}>
                                         {g.name}
                                     </li>
                                 ))}
                             </ul>
                         </div>
                     </div>
+                )}
+
+                {selectedCategory === "EditUser" && (
+                    <SingleUser user={user}></SingleUser>
                 )}
             </div>
         </div>

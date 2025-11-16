@@ -25,7 +25,12 @@ export default function LoginPage() {
         if (data.access) localStorage.setItem("access_token", data.access);
         if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
         if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "/entries";
+        if (data.user.id) localStorage.setItem('id', data.user.id);
+        if (data.user.organization.organization_id) localStorage.setItem('org_id', data.user.organization.organization_id);
+        if (data.user.role == "office") {
+          window.location.href = "admin/users";
+        } else {
+          window.location.href = "/entries"; }
       } else {
         setError(data.message || data.detail || "Nieprawidłowy login lub hasło");
       }
