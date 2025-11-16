@@ -201,13 +201,16 @@ class Meeting(models.Model):
         return f"Meeting: {self.subject_group.subject.subject_name} - {self.group} - {self.subject_group.host_user} ({self.day_of_week})"
     
     def delete(self, *args, **kwargs):
-        """Override delete to cascade delete the identity group"""
-        group = self.group
+        """Override delete to cascade delete the identity group (if it still exists)."""
+        group_instance = None
+        try:
+            group_instance = self.group
+        except Group.DoesNotExist:
+            group_instance = None
         super().delete(*args, **kwargs)
-        # Delete the identity group after meeting is deleted
-        if group:
-            group.delete()
-    
+        if group_instance and getattr(group_instance, 'pk', None):
+            Group.objects.filter(pk=group_instance.pk).delete()
+
     @property
     def end_hour(self):
         """Calculate end hour based on subject duration"""
