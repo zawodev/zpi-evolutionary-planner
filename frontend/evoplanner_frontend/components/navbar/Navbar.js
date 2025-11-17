@@ -18,7 +18,7 @@ export default function Navbar() {
             <Link href="/entries">
               <button className="header-nav nav-entries">Zgłoszenia</button>
             </Link>
-            <Link href="/plans">
+            <Link href="/plan">
               <button className="header-nav nav-plans">Plany</button>
             </Link>
           </>
