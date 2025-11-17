@@ -1,0 +1,60 @@
+.background {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  background: conic-gradient(
+    from -68.9deg at 74.22% 21.83%,
+    #ffffff 0deg,
+    #ffffff 22.5deg,
+    #11EE60 116.83deg,
+    #40F280 211.15deg,
+    #ffffff 360deg
+  );
+  overflow-y: auto;
+}
+
+.btn {
+  background: #0fc630;
+  border: 1px solid #0fc630;
+  color: #000000;
+}
+
+.btn:hover {
+  background: #0fc631d2;
+  border-color: #0fc631d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(33, 99, 255, 0.3);
+}
+.btnselect{
+  background: #4181e9d2;
+  border-color: #4181e9d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(33, 99, 255, 0.3);
+}
+.btnadd{
+  background: #f2c342;
+  border-color: #f2c342;
+  color: #000000;
+  height: 10vh;
+  border-radius: 10px;
+}
+.grid{
+  display: grid;
+  padding: 5%;
+  gap: 30px;
+  grid-template-columns: 300px 1fr;
+}
+.left,.right{
+  padding: 20px;
+  border: 1px solid #fff;
+  background-color: #ffffff;
+  border-radius: 20px;
+}
+.namegrid{
+  display: grid;
+  padding: 1%;
+  gap:1%;
+  grid-template-columns: 1fr 1fr;
+}
