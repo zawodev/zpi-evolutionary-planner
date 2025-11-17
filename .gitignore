@@ -36,3 +36,6 @@ db.sqlite3
 
 # Django migrations (ignore all migrations folders and their contents)
 **/migrations/
+
+# Frontend node modules
+**/node_modules/
