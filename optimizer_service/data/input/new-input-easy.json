@@ -5,7 +5,7 @@
         "constraints": {
             "TimeslotsDaily": 0,
             "DaysInCycle": 0,
-            "MinStudentsPerGroup": 0,
+            "MinStudentsPerGroup": [0, 0, 0, 0, 0, 0],
             "GroupsPerSubject": [0, 0, 0],
             "GroupsSoftCapacity": [0, 0, 0, 0, 0, 0],
             "StudentsSubjects": [

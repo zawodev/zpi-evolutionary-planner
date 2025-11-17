@@ -35,8 +35,8 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
         data.timeslots_daily = numTimeslots / DAYS; // uniform timeslots per day
         data.days_in_cycle = DAYS;
         
-        // min_students_per_group (optional, can be 1 or 0)
-        data.min_students_per_group = 1;
+        // min_students_per_group: array with value 1 for each group
+        data.min_students_per_group.resize(numGroups, 1);
 
         std::uniform_int_distribution<> dist_days(0, DAYS - 1);
 

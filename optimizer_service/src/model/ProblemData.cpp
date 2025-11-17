@@ -169,6 +169,13 @@ bool ProblemData::checkFeasibility() const {
         // don't return false - warn only
     }
 
+    // check min_students_per_group size matches groups count
+    if (!_rawData.min_students_per_group.empty() && (int)_rawData.min_students_per_group.size() != groupsNum) {
+        Logger::warn("MinStudentsPerGroup size (" + std::to_string((int)_rawData.min_students_per_group.size()) + 
+                    ") does not match groups count (" + std::to_string(groupsNum) + ")");
+        // don't return false - warn only, will use default values
+    }
+
     // check students_subjects ids are within [0, subjectsNum)
     for (int s = 0; s < (int)_rawData.students_subjects.size(); ++s) {
         for (int subj : _rawData.students_subjects[s]) {

@@ -88,12 +88,56 @@ def trigger_optimization(recruitment):
             raise
 
 
+def prepare_optimization_constraints(recruitment):
+    """
+    Przygotuj optimization constraints dla danego recruitment poprzez zebranie odpowiednich danych
+    z pól w bazie i zapisanie ich w polu recruitment.constraints_data (json) w modelu Constraint.
+
+    Ta funkcja iteruje przez odpowiednie tabele i pola bazy danych, aby zebrać:
+.
+    a) TimeslotsDaily: Bazując na godzinach rozpoczęcia i zakończenia w rekordzie rekrutacji, oblicz liczbę
+       dostępnych 15-minutowych przedziałów czasowych w ciągu dnia. (zapisz int)
+
+    b) DaysInCycle: Na podstawie typu cyklu (cotygodniowy, co dwutygodniowy, comiesięczny) z rekordu rekrutacji, 
+       określ liczbę dni w cyklu (7, 14 lub 28). (zapisz int)
+
+    c) MinStudentsPerGroup: Dla każdej grupy określ minimalną liczbę studentów wymaganą do uruchomienia grupy.
+
+    d) SubjectsDuration, GroupsPerSubject: Dla każdego przedmiotu pobierz czas trwania i liczbę grup
+       na przedmiot z tabeli przedmiotów.
+
+    e) GroupsCapacity, GroupTags: Dla każdej grupy przedmiotowej zbierz pojemność i tagi z
+       odpowiadających rekordów SQL.
+
+    f) RoomTags, RoomCapacity: Podobnie dla sal, zbierz tagi i pojemność.
+
+    g) StudentSubjects i TeacherSubject: Lista wymaganych przedmiotów z tabeli wiele-do-wielu
+       UserSubjects (kto musi uczęszczać na co) dla studentów, oraz z host_user w SubjectGroup dla nauczycieli.
+
+    h) Unavailability: For each room, student, and teacher, collect unavailability as arrays.
+       If no unavailability exists, use an empty array. Order matters.
+
+    Returns: None
+    (po prostu zapisz do pola constraints które jest jedno dla danego recruitment)
+
+    Zaczyna się jakoś tak:
+        ...
+        constraints = Constraints.objects.get(recruitment_id=recruitment_id)
+        constraints_data = constraints.constraints_data
+        timeslots_daily = constraints_data.get('TimeslotsDaily', 0) #przykładowe pole, dokładny opis masz w preferences/PREFS_STRUCTURE.md lub views.py lub #info na discord
+        ...
+    """
+    pass
+
+
 def check_and_trigger_optimizations():
     """check all draft recruitments and trigger optimization if needed"""
     recruitments = Recruitment.objects.filter(plan_status='draft')
     logger.debug(f"checking {recruitments.count()} draft recruitments for optimization triggers")
     for recruitment in recruitments:
         if should_start_optimization(recruitment):
+            logger.info(f"preparing optimization constraints for recruitment {recruitment.recruitment_id}")
+            prepare_optimization_constraints(recruitment)
             logger.info(f"triggering optimization for recruitment {recruitment.recruitment_id}")
             trigger_optimization(recruitment)
 

@@ -19,7 +19,7 @@ struct RawProblemData {
     //Constraints
     int timeslots_daily;                                    // timeslots per day (e.g., 4 = 1 hour blocks)
     int days_in_cycle;                                      // 7, 14, or 28
-    int min_students_per_group;                             // minimum students required for group to start
+    std::vector<int> min_students_per_group;                // minimum students required for each group to start
     std::vector<int> subjects_duration;                     // duration in timeslots for each subject
     std::vector<int> groups_per_subject;
     std::vector<int> groups_capacity;                       // capacity for each group
@@ -57,7 +57,7 @@ public:
     // getters for raw data
     int getTimeslotsDaily() const { return _rawData.timeslots_daily; }
     int getDaysInCycle() const { return _rawData.days_in_cycle; }
-    int getMinStudentsPerGroup() const { return _rawData.min_students_per_group; }
+    const std::vector<int>& getMinStudentsPerGroup() const { return _rawData.min_students_per_group; }
     const std::vector<int>& getSubjectsDuration() const { return _rawData.subjects_duration; }
     const std::vector<int>& getGroupsPerSubject() const { return _rawData.groups_per_subject; }
     const std::vector<int>& getGroupsCapacity() const { return _rawData.groups_capacity; }

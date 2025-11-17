@@ -301,8 +301,8 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 students_in_group = []
                 for student_idx, student_groups in enumerate(by_student):
                     if group_idx in student_groups:
-                        if student_idx < len(users):
-                            students_in_group.append(users[student_idx])
+                        if student_idx < len(participants):
+                            students_in_group.append(participants[student_idx])
                 
                 # Add students to the identity group
                 for student in students_in_group:
