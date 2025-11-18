@@ -22,6 +22,7 @@ from .views import (
     RecruitmentsByUserView,
     UserUpdateView,
     GroupsByUserView,
+    OrganizationGroupsView,
 )
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
     path('organizations/delete/<uuid:organization_id>/', OrganizationDeleteView.as_view(), name='organization-delete'),
     path('organizations/<uuid:organization_id>/users/', OrganizationUsersView.as_view(), name='organization-users'),
     path('organizations/<uuid:organization_id>/hosts/', OrganizationHostsView.as_view(), name='organization-hosts'),
+    path('organizations/<uuid:organization_id>/groups/', OrganizationGroupsView.as_view(), name='organization-groups'),
 
     path('groups/add/', GroupAddView.as_view(), name='group-add'),
     path('groups/delete/<uuid:group_id>/', GroupDeleteView.as_view(), name='group-delete'),

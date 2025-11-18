@@ -10,16 +10,28 @@ User = get_user_model()
 
 def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
     """
-    Returns a QuerySet of all Meeting objects related to the given Room (instance or PK),
-    where recruitment.plan_status == 'active'.
+    Return a QuerySet of Meeting objects for the given room (instance or PK)
+    where the related recruitment has plan_status == 'active'.
+
+    Notes:
+    - Sorting is by day_of_week then start_timeslot to reflect the current Meeting model.
+    - select_related includes recruitment, room, required_tag, subject_group (with subject and host_user), and group.
     """
     room_id = room_or_id.pk if hasattr(room_or_id, 'pk') else room_or_id
 
     qs = (
         Meeting.objects
         .filter(room_id=room_id, recruitment__plan_status='active')
-        .select_related('recruitment', 'subject_group__subject', 'subject_group__group', 'subject_group__host_user', 'room', 'required_tag')
-        .order_by('day_of_week', 'start_hour')
+        .select_related(
+            'recruitment',
+            'room',
+            'required_tag',
+            'group',
+            'subject_group',
+            'subject_group__subject',
+            'subject_group__host_user',
+        )
+        .order_by('day_of_week', 'start_timeslot')
     )
     return qs
 
