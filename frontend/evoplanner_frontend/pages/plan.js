@@ -1,83 +1,28 @@
-import React, { useState, useMemo } from 'react';
+/* frontend/evoplanner_frontend/pages/plan.js */
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Filter, Calendar, Clock, MapPin, BookOpen, Users, FlaskConical, MessageCircle, FileText } from 'lucide-react';
-
-// --- Hardcoded Data ---
-const allRecruitments = [
-  { id: 'rec1', name: 'Rekrutacja 2025/26 (Zimowa)' },
-  { id: 'rec2', name: 'Rekrutacja 2026 (Letnia)' },
-  { id: 'rec3', name: 'Rekrutacja uzupełniająca 2025' },
-];
-
-const scheduleData = [
-  { 
-    id: 1, 
-    recruitmentId: 'rec1', 
-    title: 'Egzamin z Matematyki Dyskretnej', 
-    type: 'Egzamin', 
-    room: 'Sala 101, C-13', 
-    date: '2025-11-14',
-    startTime: '09:00', 
-    endTime: '11:00' 
-  },
-  { 
-    id: 2, 
-    recruitmentId: 'rec2', 
-    title: 'Spotkanie organizacyjne', 
-    type: 'Spotkanie', 
-    room: 'Online (Zoom)', 
-    date: '2025-11-14',
-    startTime: '13:00', 
-    endTime: '14:00' 
-  },
-  { 
-    id: 3, 
-    recruitmentId: 'rec1', 
-    title: 'Wykład z Algebry', 
-    type: 'Wykład', 
-    room: 'Aula, A-1', 
-    date: '2025-11-12',
-    startTime: '10:00', 
-    endTime: '12:00' 
-  },
-  { 
-    id: 4, 
-    recruitmentId: 'rec1', 
-    title: 'Laboratorium Bazy Danych', 
-    type: 'Laboratorium', 
-    room: 'Lab. 3.2, D-2', 
-    date: '2025-11-13',
-    startTime: '08:00', 
-    endTime: '10:00' 
-  },
-  { 
-    id: 5, 
-    recruitmentId: 'rec3', 
-    title: 'Rozmowa kwalifikacyjna', 
-    type: 'Rozmowa', 
-    room: 'Biuro Rekrutacji', 
-    date: '2025-11-11',
-    startTime: '11:00', 
-    endTime: '11:30' 
-  },
-  { 
-    id: 6, 
-    recruitmentId: 'rec1', 
-    title: 'Egzamin z Programowania', 
-    type: 'Egzamin', 
-    room: 'Sala 202, C-13', 
-    date: '2025-11-15',
-    startTime: '14:00', 
-    endTime: '16:00' 
-  },
-];
+import { useAuth } from '@/contexts/AuthContext';
 
 // --- Helper Functions ---
+
+// Konwersja slotu (int) na godzinę (HH:MM). Zakładamy start dnia o 00:00 i sloty co 15 min.
+const timeslotToTime = (timeslot) => {
+  const totalMinutes = timeslot * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 const getWeekDays = (currDate) => {
   const week = [];
   const date = new Date(currDate);
-  const dayOfWeek = date.getDay();
+  // Ustawienie na poniedziałek
+  const dayOfWeek = date.getDay(); // 0 (Sun) - 6 (Sat)
+  // Oblicz różnicę, aby cofnąć się do poniedziałku (jeśli niedziela (0), to cofnij o 6 dni)
   const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diff));
+  
+  const monday = new Date(date);
+  monday.setDate(diff);
   
   for (let i = 0; i < 7; i++) {
     const day = new Date(monday);
@@ -110,20 +55,15 @@ const getWeekNumber = (date) => {
 };
 
 const getEventVisuals = (type) => {
-  switch (type) {
-    case 'Egzamin':
-      return { className: 'type-egzamin', icon: FileText };
-    case 'Spotkanie':
-      return { className: 'type-spotkanie', icon: Users };
-    case 'Wykład':
-      return { className: 'type-wyklad', icon: BookOpen };
-    case 'Laboratorium':
-      return { className: 'type-laboratorium', icon: FlaskConical };
-    case 'Rozmowa':
-      return { className: 'type-rozmowa', icon: MessageCircle };
-    default:
-      return { className: 'type-default', icon: FileText };
-  }
+  const typeLower = type ? type.toLowerCase() : '';
+  
+  if (typeLower.includes('egzamin')) return { className: 'type-egzamin', icon: FileText };
+  if (typeLower.includes('wykład') || typeLower.includes('wyklad')) return { className: 'type-wyklad', icon: BookOpen };
+  if (typeLower.includes('lab') || typeLower.includes('proj')) return { className: 'type-laboratorium', icon: FlaskConical };
+  if (typeLower.includes('sem') || typeLower.includes('ćw')) return { className: 'type-spotkanie', icon: Users };
+  if (typeLower.includes('rozmowa')) return { className: 'type-rozmowa', icon: MessageCircle };
+  
+  return { className: 'type-default', icon: FileText };
 };
 
 // --- Styles Component ---
@@ -132,14 +72,13 @@ const PlanStyles = () => (
     /* --- Global & Reset --- */
     .plan-container * {
       box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     
     /* --- Main Container --- */
     .plan-container {
       min-height: 100vh;
       padding: 1rem;
-      padding-top: 5rem; /* Extra padding for navbar */
+      padding-top: 6rem;
     }
     
     .plan-wrapper {
@@ -181,13 +120,6 @@ const PlanStyles = () => (
       margin: 0 0 0.25rem 0;
     }
     
-    .plan-header-title p {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #6b7280;
-      margin: 0;
-    }
-    
     .plan-filter-box {
       display: flex;
       align-items: center;
@@ -212,16 +144,6 @@ const PlanStyles = () => (
       transition: all 0.2s;
     }
     
-    .plan-filter-select:hover {
-      background-color: #dbeafe;
-      border-color: #bfdbfe;
-    }
-    
-    .plan-filter-select:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
-
     /* --- Week Navigation --- */
     .plan-nav-wrapper {
       margin-bottom: 1.5rem;
@@ -254,11 +176,6 @@ const PlanStyles = () => (
     
     .plan-nav-button:hover {
       background: #f9fafb;
-      border-color: #d1d5db;
-    }
-    
-    .plan-nav-button-text {
-      display: none;
     }
     
     .plan-nav-center {
@@ -293,28 +210,18 @@ const PlanStyles = () => (
     .day-column {
       border-radius: 0.75rem;
       overflow: hidden;
-      transition: all 0.2s;
       background-color: white;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
-    .day-column:hover {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
     .day-column.today {
       border: 2px solid #3b82f6;
-      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
     }
     
     .day-column-header {
       padding: 1rem;
       background: #f9fafb;
       border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .day-column.today .day-column-header {
-      background: #eff6ff;
     }
     
     .day-column-header-content {
@@ -326,44 +233,14 @@ const PlanStyles = () => (
     .day-column-weekday {
       font-size: 0.75rem;
       font-weight: 600;
-      letter-spacing: 0.05em;
       text-transform: uppercase;
-      margin-bottom: 0.25rem;
       color: #6b7280;
-    }
-    
-    .day-column.today .day-column-weekday {
-      color: #1e40af;
     }
     
     .day-column-day {
       font-size: 1.25rem;
       font-weight: 700;
       color: #1f2937;
-    }
-    
-    .day-column.today .day-column-day {
-      color: #1e40af;
-    }
-    
-    .day-column-month {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #6b7280;
-    }
-    
-    .day-column.today .day-column-month {
-      color: #1e40af;
-    }
-    
-    .day-column-today-badge {
-      margin-top: 0.5rem;
-      background-color: #3b82f6;
-      color: white;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
     }
     
     .day-column-body {
@@ -390,239 +267,63 @@ const PlanStyles = () => (
       margin-bottom: 0.75rem;
       opacity: 0.4;
     }
-    
-    .day-column-empty p {
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin: 0;
-    }
 
     /* --- Schedule Item --- */
     .schedule-item {
       border-radius: 0.5rem;
       padding: 0.75rem;
-      transition: all 0.2s;
       cursor: pointer;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s;
     }
     
     .schedule-item:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     
     .schedule-item-header {
       display: flex;
-      align-items: flex-start;
       justify-content: space-between;
       margin-bottom: 0.5rem;
-    }
-    
-    .schedule-item-icon-wrapper {
-      padding: 0.375rem;
-      border-radius: 0.375rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .schedule-item-icon {
-      width: 16px;
-      height: 16px;
-    }
-    
-    .schedule-item-badge {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
     }
     
     .schedule-item-title {
       font-weight: 600;
       font-size: 0.875rem;
-      margin-bottom: 0.5rem;
-      line-height: 1.3;
-      margin-top: 0;
+      margin: 0 0 0.5rem 0;
     }
     
     .schedule-item-details {
       display: flex;
       flex-direction: column;
-      gap: 0.375rem;
+      gap: 0.25rem;
+      font-size: 0.75rem;
     }
     
     .schedule-item-detail-row {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.75rem;
-    }
-    
-    .schedule-item-detail-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .schedule-item-detail-row span {
-      font-weight: 500;
-    }
-    
-    /* --- Event Type Colors (matching screenshot style) --- */
-    .type-egzamin {
-      background: rgba(254, 202, 202, 1);
-      color: #991b1b;
-    }
-    .type-egzamin .schedule-item-icon-wrapper {
-      background: rgba(252, 165, 165, 1);
-    }
-    .type-egzamin .schedule-item-badge {
-      background: #dc2626;
-      color: white;
-    }
-    
-    .type-spotkanie {
-      background: rgba(219, 234, 254, 1);
-      color: #1e40af;
-    }
-    .type-spotkanie .schedule-item-icon-wrapper {
-      background: rgba(191, 219, 254, 1);
-    }
-    .type-spotkanie .schedule-item-badge {
-      background: #2563eb;
-      color: white;
-    }
-    
-    .type-wyklad {
-      background: rgba(209, 250, 229, 1);
-      color: #065f46;
-    }
-    .type-wyklad .schedule-item-icon-wrapper {
-      background: rgba(167, 243, 208, 1);
-    }
-    .type-wyklad .schedule-item-badge {
-      background: #059669;
-      color: white;
-    }
-    
-    .type-laboratorium {
-      background: rgba(254, 243, 199, 1);
-      color: #92400e;
-    }
-    .type-laboratorium .schedule-item-icon-wrapper {
-      background: rgba(253, 230, 138, 1);
-    }
-    .type-laboratorium .schedule-item-badge {
-      background: #d97706;
-      color: white;
-    }
-    
-    .type-rozmowa {
-      background: rgba(243, 232, 255, 1);
-      color: #6b21a8;
-    }
-    .type-rozmowa .schedule-item-icon-wrapper {
-      background: rgba(233, 213, 255, 1);
-    }
-    .type-rozmowa .schedule-item-badge {
-      background: #9333ea;
-      color: white;
-    }
-    
-    .type-default {
-      background: rgba(243, 244, 246, 1);
-      color: #374151;
-    }
-    .type-default .schedule-item-icon-wrapper {
-      background: rgba(229, 231, 235, 1);
-    }
-    .type-default .schedule-item-badge {
-      background: #6b7280;
-      color: white;
     }
 
-    /* --- Legend --- */
-    .plan-legend-wrapper {
-      margin-top: 1.5rem;
-      background-color: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      padding: 1.5rem;
-    }
-    
-    .plan-legend-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #1f2937;
-      margin-bottom: 1rem;
-      margin-top: 0;
-    }
-    
-    .plan-legend-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.75rem;
-    }
-    
-    .plan-legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem;
-      border-radius: 0.5rem;
-    }
-    
-    .plan-legend-item-icon {
-      padding: 0.5rem;
-      border-radius: 0.375rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .plan-legend-item-text {
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
+    /* --- Colors --- */
+    .type-egzamin { background: #fee2e2; color: #991b1b; }
+    .type-spotkanie { background: #dbeafe; color: #1e40af; }
+    .type-wyklad { background: #d1fae5; color: #065f46; }
+    .type-laboratorium { background: #fef3c7; color: #92400e; }
+    .type-rozmowa { background: #f3e8ff; color: #6b21a8; }
+    .type-default { background: #f3f4f6; color: #374151; }
 
     /* --- Responsive --- */
     @media (min-width: 640px) {
-      .plan-nav-button-text {
-        display: inline;
-      }
-      .calendar-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+      .calendar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    
     @media (min-width: 768px) {
-      .plan-container {
-        padding: 2rem;
-        padding-top: 6rem; /* Extra padding for navbar on larger screens */
-      }
-      .plan-header-gradient {
-        padding: 2rem 2.5rem;
-      }
-      .plan-header-content {
-        flex-direction: row;
-        align-items: center;
-      }
-      .plan-header-title h1 {
-        font-size: 2rem;
-      }
-      .plan-nav-center h2 {
-        font-size: 1.5rem;
-      }
-      .plan-legend-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-      }
+      .plan-header-content { flex-direction: row; }
+      .calendar-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
-    
-    @media (min-width: 1024px) {
-      .calendar-grid {
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-      }
+    @media (min-width: 1200px) {
+      .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
     }
   `}</style>
 );
@@ -635,11 +336,8 @@ const ScheduleItem = ({ item }) => {
     <div className={`schedule-item ${visuals.className}`}>
       <div className="schedule-item-header">
         <div className="schedule-item-icon-wrapper">
-          <IconComponent size={16} className="schedule-item-icon" />
+          <IconComponent size={16} />
         </div>
-        <span className="schedule-item-badge">
-          {item.type}
-        </span>
       </div>
       
       <h3 className="schedule-item-title">
@@ -648,17 +346,19 @@ const ScheduleItem = ({ item }) => {
       
       <div className="schedule-item-details">
         <div className="schedule-item-detail-row">
-          <div className="schedule-item-detail-icon">
-            <Clock size={12} />
-          </div>
+          <Clock size={12} />
           <span>{item.startTime} - {item.endTime}</span>
         </div>
         <div className="schedule-item-detail-row">
-          <div className="schedule-item-detail-icon">
-            <MapPin size={12} />
-          </div>
+          <MapPin size={12} />
           <span>{item.room}</span>
         </div>
+        {item.group && (
+          <div className="schedule-item-detail-row">
+            <Users size={12} />
+            <span>{item.group}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -675,22 +375,12 @@ const DayColumn = ({ day, events }) => {
       <div className={`day-column-header ${isToday ? 'today' : ''}`}>
         <div className="day-column-header-content">
           <div>
-            <div className="day-column-weekday">
-              {weekdayFormat}
-            </div>
-            <div className="day-column-day">
-              {dayFormat}
-            </div>
+            <div className="day-column-weekday">{weekdayFormat}</div>
+            <div className="day-column-day">{dayFormat}</div>
           </div>
-          <div className="day-column-month">
-            {monthFormat}
-          </div>
+          <div className="day-column-month">{monthFormat}</div>
         </div>
-        {isToday && (
-          <div className="day-column-today-badge">
-            DZIŚ
-          </div>
-        )}
+        {isToday && <div style={{marginTop:'5px', fontSize:'0.7rem', color:'#2563eb', fontWeight:'bold'}}>DZIŚ</div>}
       </div>
       
       <div className="day-column-body">
@@ -710,31 +400,107 @@ const DayColumn = ({ day, events }) => {
 };
 
 export default function PlanUzytkownika() {
-  const [currentDate, setCurrentDate] = useState(new Date('2025-11-14T12:00:00'));
+  const { user } = useAuth();
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRecruitmentId, setSelectedRecruitmentId] = useState('all');
+  
+  // Data states
+  const [recruitments, setRecruitments] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 1. Pobierz listę rekrutacji i spotkań przy załadowaniu strony (lub zmianie usera)
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user || !user.id) return;
+      
+      setIsLoading(true);
+      const token = localStorage.getItem('access_token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      try {
+        // A. Pobierz rekrutacje
+        const recRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/recruitments/?active=true`, { headers });
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          setRecruitments(recData);
+        }
+
+        // B. Pobierz wszystkie aktywne spotkania użytkownika
+        const meetRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/`, { headers });
+        if (meetRes.ok) {
+          const meetData = await meetRes.json();
+          setMeetings(meetData);
+        }
+
+      } catch (error) {
+        console.error("Błąd pobierania danych planu:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
+  // 2. Transformacja danych spotkań z backendu na format frontendowy
+  const scheduleEvents = useMemo(() => {
+    if (!meetings.length) return [];
+
+    return meetings.map(meeting => {
+      // Mapowanie day_of_week (0-6) na datę w aktualnie wyświetlanym tygodniu
+      const eventDate = weekDays[meeting.day_of_week];
+      const dateStr = eventDate ? eventDate.toISOString().split('T')[0] : 'Unknown';
+
+      // Obliczanie godziny
+      const startT = timeslotToTime(meeting.start_timeslot);
+      // Backend nie zawsze zwraca duration w tym endpoincie, więc można przyjąć standardowe 90 min (6 slotów)
+      // lub wyliczyć jeśli dostępne
+      const durationBlocks = 6; 
+      const endT = timeslotToTime(meeting.start_timeslot + durationBlocks);
+
+      return {
+        id: meeting.meeting_id,
+        recruitmentId: meeting.recruitment,
+        title: meeting.subject_name || 'Zajęcia',
+        // Prosta detekcja typu na podstawie nazwy grupy
+        type: meeting.group_name && meeting.group_name.toLowerCase().includes('wykład') ? 'Wykład' : 'Zajęcia',
+        group: meeting.group_name,
+        room: meeting.room ? `${meeting.room.building_name} ${meeting.room.room_number}` : 'TBA',
+        date: dateStr,
+        startTime: startT,
+        endTime: endT
+      };
+    });
+  }, [meetings, weekDays]);
+
+  // 3. Filtrowanie
   const filteredSchedule = useMemo(() => {
-    if (selectedRecruitmentId === 'all') {
-      return scheduleData;
+    let data = scheduleEvents;
+    if (selectedRecruitmentId !== 'all') {
+      data = data.filter(item => item.recruitmentId === selectedRecruitmentId);
     }
-    return scheduleData.filter(item => item.recruitmentId === selectedRecruitmentId);
-  }, [selectedRecruitmentId]);
+    return data;
+  }, [scheduleEvents, selectedRecruitmentId]);
 
   const handleNextWeek = () => {
-    setCurrentDate(prevDate => {
-      const nextWeek = new Date(prevDate);
-      nextWeek.setDate(prevDate.getDate() + 7);
-      return nextWeek;
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + 7);
+      return d;
     });
   };
 
   const handlePrevWeek = () => {
-    setCurrentDate(prevDate => {
-      const prevWeek = new Date(prevDate);
-      prevWeek.setDate(prevDate.getDate() - 7);
-      return prevWeek;
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() - 7);
+      return d;
     });
   };
 
@@ -755,6 +521,7 @@ export default function PlanUzytkownika() {
               <div className="plan-header-content">
                 <div className="plan-header-title">
                   <h1>Twój Plan Tygodniowy</h1>
+                  {isLoading && <p style={{fontSize: '0.9rem', color: '#6b7280'}}>Aktualizowanie...</p>}
                 </div>
                 
                 <div className="plan-filter-box">
@@ -765,8 +532,10 @@ export default function PlanUzytkownika() {
                     className="plan-filter-select"
                   >
                     <option value="all">Wszystkie rekrutacje</option>
-                    {allRecruitments.map(rec => (
-                      <option key={rec.id} value={rec.id}>{rec.name}</option>
+                    {recruitments.map(rec => (
+                      <option key={rec.recruitment_id} value={rec.recruitment_id}>
+                        {rec.recruitment_name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -778,27 +547,19 @@ export default function PlanUzytkownika() {
         {/* Week Navigation */}
         <div className="plan-nav-wrapper">
           <div className="plan-nav-content">
-            <button
-              onClick={handlePrevWeek}
-              className="plan-nav-button prev"
-            >
+            <button onClick={handlePrevWeek} className="plan-nav-button prev">
               <ChevronLeft size={16} />
               <span className="plan-nav-button-text">Poprzedni tydzień</span>
             </button>
             
             <div className="plan-nav-center">
-              <h2>
-                {formatWeekHeader(weekDays[0], weekDays[6])}
-              </h2>
+              <h2>{formatWeekHeader(weekDays[0], weekDays[6])}</h2>
               <div className="plan-nav-week-badge">
                 Tydzień {getWeekNumber(weekDays[0])}
               </div>
             </div>
 
-            <button
-              onClick={handleNextWeek}
-              className="plan-nav-button next"
-            >
+            <button onClick={handleNextWeek} className="plan-nav-button next">
               <span className="plan-nav-button-text">Następny tydzień</span>
               <ChevronRight size={16} />
             </button>
@@ -808,41 +569,19 @@ export default function PlanUzytkownika() {
         {/* Calendar Grid */}
         <div className="calendar-grid">
           {weekDays.map(day => {
+            const dateStr = day.toISOString().split('T')[0];
             const eventsForDay = filteredSchedule
-              .filter(item => item.date === day.toISOString().split('T')[0])
+              .filter(item => item.date === dateStr)
               .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
             return (
               <DayColumn
-                key={day.toISOString()}
+                key={dateStr}
                 day={day}
                 events={eventsForDay}
               />
             );
           })}
-        </div>
-
-        {/* Legend */}
-        <div className="plan-legend-wrapper">
-          <h3 className="plan-legend-title">
-            Legenda typów wydarzeń
-          </h3>
-          
-          <div className="plan-legend-grid">
-            {['Egzamin', 'Spotkanie', 'Wykład', 'Laboratorium', 'Rozmowa'].map(type => {
-                const visuals = getEventVisuals(type);
-                const IconComponent = visuals.icon;
-                return (
-                  <div key={type} className={`plan-legend-item ${visuals.className}`}>
-                    <div className="plan-legend-item-icon">
-                      <IconComponent size={18} />
-                    </div>
-                    <span className="plan-legend-item-text">{type}</span>
-                  </div>
-                );
-            })}
-          </div>
-          
         </div>
 
       </div>
