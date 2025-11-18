@@ -398,6 +398,27 @@ class OrganizationHostsView(APIView):
         return Response(serializer.data)
 
 
+class OrganizationGroupsView(APIView):
+    """Return all groups that belong to a given organization.
+
+    Access rules:
+    - Must be authenticated.
+    - Allowed if the requesting user is an admin, OR the requesting user's organization matches the requested organization.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, organization_id):
+        org = get_object_or_404(Organization, pk=organization_id)
+        requester = request.user
+        if not (hasattr(requester, 'role') and requester.role == 'admin'):
+            if requester.organization is None or str(requester.organization.organization_id) != str(organization_id):
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Group.objects.filter(organization=org).order_by('group_name')
+        serializer = GroupSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
 class TokenRefreshCookieView(APIView):
     """Refresh access token using refresh token from cookie (or body) and set new access token in cookie.
 
