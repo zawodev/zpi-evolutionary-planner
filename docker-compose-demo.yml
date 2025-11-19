@@ -1,0 +1,66 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --timeout 0
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.demo
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_DIR=/app/data
+    depends_on:
+      - redis
+    volumes:
+      - db_data_demo:/app/data
+
+  progress-listener:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.demo
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_DIR=/app/data
+    command: ["python", "manage.py", "listen_progress"]
+    depends_on:
+      - redis
+    volumes:
+      - db_data_demo:/app/data
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.demo
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_DIR=/app/data
+    command: ["python", "manage.py", "run_scheduler", "--interval", "60"]
+    depends_on:
+      - redis
+      - backend
+    volumes:
+      - db_data_demo:/app/data
+    restart: unless-stopped
+
+  optimizer:
+    build: ./optimizer_service
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  db_data_demo:
