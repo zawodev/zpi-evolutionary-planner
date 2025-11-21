@@ -5,9 +5,14 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // --- Helper Functions ---
 
-// Konwersja slotu (int) na godzinę (HH:MM). Zakładamy start dnia o 00:00 i sloty co 15 min.
-const timeslotToTime = (timeslot) => {
-  const totalMinutes = timeslot * 15;
+const parseStartTime = (timeString) => {
+  if (!timeString) return 0;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const timeslotToTime = (timeslot, dayStartMinutes = 0) => {
+  const totalMinutes = dayStartMinutes + (timeslot * 15);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
@@ -16,9 +21,7 @@ const timeslotToTime = (timeslot) => {
 const getWeekDays = (currDate) => {
   const week = [];
   const date = new Date(currDate);
-  // Ustawienie na poniedziałek
   const dayOfWeek = date.getDay(); // 0 (Sun) - 6 (Sat)
-  // Oblicz różnicę, aby cofnąć się do poniedziałku (jeśli niedziela (0), to cofnij o 6 dni)
   const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   
   const monday = new Date(date);
@@ -409,7 +412,6 @@ export default function PlanUzytkownika() {
   const [meetings, setMeetings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Pobierz listę rekrutacji i spotkań przy załadowaniu strony (lub zmianie usera)
   useEffect(() => {
     const fetchData = async () => {
       if (!user || !user.id) return;
@@ -422,14 +424,12 @@ export default function PlanUzytkownika() {
       };
 
       try {
-        // A. Pobierz rekrutacje
-        const recRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/recruitments/?active=true`, { headers });
+        const recRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/recruitments/`, { headers });
         if (recRes.ok) {
           const recData = await recRes.json();
           setRecruitments(recData);
         }
 
-        // B. Pobierz wszystkie aktywne spotkania użytkownika
         const meetRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/`, { headers });
         if (meetRes.ok) {
           const meetData = await meetRes.json();
@@ -446,40 +446,86 @@ export default function PlanUzytkownika() {
     fetchData();
   }, [user]);
 
+  useEffect(() => {
+    const fetchWeekData = async () => {
+      if (!user || !user.id) return;
+      
+      const token = localStorage.getItem('access_token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      try {
+        const meetRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/`, { headers });
+        if (meetRes.ok) {
+          const meetData = await meetRes.json();
+          setMeetings(meetData);
+        }
+      } catch (error) {
+        console.error("Błąd odświeżania danych tygodnia:", error);
+      }
+    };
+
+    fetchWeekData();
+  }, [currentDate, user]);
+
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
-  // 2. Transformacja danych spotkań z backendu na format frontendowy
   const scheduleEvents = useMemo(() => {
-    if (!meetings.length) return [];
+    if (!meetings.length || !recruitments.length) return [];
 
     return meetings.map(meeting => {
-      // Mapowanie day_of_week (0-6) na datę w aktualnie wyświetlanym tygodniu
       const eventDate = weekDays[meeting.day_of_week];
       const dateStr = eventDate ? eventDate.toISOString().split('T')[0] : 'Unknown';
 
-      // Obliczanie godziny
-      const startT = timeslotToTime(meeting.start_timeslot);
-      // Backend nie zawsze zwraca duration w tym endpoincie, więc można przyjąć standardowe 90 min (6 slotów)
-      // lub wyliczyć jeśli dostępne
-      const durationBlocks = 6; 
-      const endT = timeslotToTime(meeting.start_timeslot + durationBlocks);
+
+      const recruitment = recruitments.find(r => r.recruitment_id === meeting.recruitment);
+      const dayStartMinutes = parseStartTime(recruitment?.day_start_time);
+
+      const startT = timeslotToTime(meeting.start_timeslot, dayStartMinutes);
+
+      const durationBlocks = meeting.duration || 6; 
+      const endT = timeslotToTime(meeting.start_timeslot + durationBlocks, dayStartMinutes);
+
+      let eventType = 'Zajęcia';
+      if (meeting.group_name) {
+        const groupLower = meeting.group_name.toLowerCase();
+        if (groupLower.includes('wykład') || groupLower.includes('wyklad')) {
+          eventType = 'Wykład';
+        } else if (groupLower.includes('lab')) {
+          eventType = 'Laboratorium';
+        } else if (groupLower.includes('proj')) {
+          eventType = 'Projekt';
+        } else if (groupLower.includes('ćw') || groupLower.includes('cw')) {
+          eventType = 'Ćwiczenia';
+        } else if (groupLower.includes('sem')) {
+          eventType = 'Seminarium';
+        }
+      }
+
+      let roomDisplay = 'TBA';
+      if (meeting.room) {
+        roomDisplay = meeting.room.building_name 
+          ? `${meeting.room.building_name} ${meeting.room.room_number}`
+          : meeting.room.room_number || 'TBA';
+      }
 
       return {
         id: meeting.meeting_id,
         recruitmentId: meeting.recruitment,
         title: meeting.subject_name || 'Zajęcia',
-        // Prosta detekcja typu na podstawie nazwy grupy
-        type: meeting.group_name && meeting.group_name.toLowerCase().includes('wykład') ? 'Wykład' : 'Zajęcia',
-        group: meeting.group_name,
-        room: meeting.room ? `${meeting.room.building_name} ${meeting.room.room_number}` : 'TBA',
+        type: eventType,
+        group: meeting.group_name || '',
+        room: roomDisplay,
         date: dateStr,
         startTime: startT,
         endTime: endT
       };
     });
-  }, [meetings, weekDays]);
+  }, [meetings, weekDays, recruitments]);
 
-  // 3. Filtrowanie
+  // Appying Filters
   const filteredSchedule = useMemo(() => {
     let data = scheduleEvents;
     if (selectedRecruitmentId !== 'all') {
@@ -521,7 +567,7 @@ export default function PlanUzytkownika() {
               <div className="plan-header-content">
                 <div className="plan-header-title">
                   <h1>Twój Plan Tygodniowy</h1>
-                  {isLoading && <p style={{fontSize: '0.9rem', color: '#6b7280'}}>Aktualizowanie...</p>}
+                  {isLoading && <p style={{fontSize: '0.9rem', color: '#6b7280'}}>Ładowanie danych z bazy...</p>}
                 </div>
                 
                 <div className="plan-filter-box">
@@ -530,6 +576,7 @@ export default function PlanUzytkownika() {
                     value={selectedRecruitmentId}
                     onChange={handleRecruitmentChange}
                     className="plan-filter-select"
+                    disabled={isLoading}
                   >
                     <option value="all">Wszystkie rekrutacje</option>
                     {recruitments.map(rec => (
