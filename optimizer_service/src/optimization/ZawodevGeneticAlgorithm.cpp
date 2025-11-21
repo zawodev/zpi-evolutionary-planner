@@ -10,6 +10,21 @@ void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
     bestIndividual = Individual{};
     initialized = true;
 
+    // fihc initialization (from 1 to populationSize based on difficulty)
+    int maxFihcs = populationSize * 1000;
+    int totalGenes = evaluator.getTotalGenes();
+    int maxVal = 0;
+    for (int i = 0; i < totalGenes; ++i) {
+        int v = evaluator.getMaxGeneValue(i);
+        if (v > maxVal) {
+            maxVal = v;
+        }
+    }
+    long long diff = (long long)maxVal * (long long)totalGenes;
+    long long rawSize = maxFihcs / (1 + diff);
+    if (rawSize < 1) rawSize = 1;
+    fihcSize = (int)rawSize;
+
     // inicjalizacja RNG z seed
     rng.seed(seed);
 

@@ -18,6 +18,9 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     Logger::info("Received job: " + jobData.recruitment_id + ", with max execution time: " + std::to_string(jobData.max_execution_time) + " seconds");
 
     ProblemData data(jobData.problem_data);
+
+    data.logProblemDataInfo();
+
     if (!data.isFeasible()) {
         Logger::error("Problem is not solvable for job: " + jobData.recruitment_id);
         return;
@@ -33,7 +36,7 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     Logger::info(debugMsg);
 
     Evaluator evaluator(data);
-    std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ExampleGeneticAlgorithm>();
+    std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ZawodevGeneticAlgorithm>();
     Logger::info("Using genetic algorithm: " + std::string(typeid(*geneticAlgorithm).name()));
     
     //int seed = 42;

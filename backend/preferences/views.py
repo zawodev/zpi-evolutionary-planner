@@ -12,49 +12,116 @@ from datetime import timedelta
 
 
 DEFAULT_USER_PREFERENCES = {
-    "WidthHeightInfo": 0, # weight, positive means prefer wider, negative means prefer taller
+    "FreeDayPreference": 0, # weight, positive means want as much free days as possible, negative means prefer no free days
+    "ShortDayPreference": 0, # weight, positive means want as much short days as possible, negative means prefer no short days
+    "UniformityPreference": 0, # weight, positive means want uniform distribution of workload (every day similar amount of timeslots), negative means prefer concentrated workload (few busy days, few free days)
+    
+    "MinDayLength": 0, # minimal amount of timeslots every day should have
+    "MaxDayLength": 0, # maximal amount of timeslots every day should have
+    "PreferredDayStartTimeslot": 0, # exact day start timeslot when you want to start day work
+    "PreferredDayEndTimeslot": 0, # exact day end timeslot when you want to end day work
     "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
+
+    # --- ABOVE IS ABOUT TO CHANGE ---
+    
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
     "PreferredGroups": [0, 0, 0, 0, 0] # for each group, weight
 }
 
 
+IDEAS_FOR_PREFERENCES = {
+    "FreeDay": {
+      "Value": 2, # preferowana liczba dni wolnych
+      "Weight": 5, # jak bardzo chcemy akurat to mieć
+      "MinAcceptable": 0, # minimalna akceptowalna liczba dni wolnych
+      "MaxAcceptable": 7 # maksymalna akceptowalna liczba dni wolnych (alternatywnie do Value?)
+    },
+
+    "ShortDay": {
+      "Value": 2, # preferowana liczba dni traktowanych jako "short" (<= ShortDayThreshold)
+      "Weight": 3,
+      "ShortDayThresholdHours": 2
+    },
+
+    "Evenness": {
+      "Value": 8, # skala 0..10 (10 = maksymalnie równe długością dni, 0 = wcale nie równe)
+      "Weight": 6
+    },
+
+    "Concentration": {
+      "Value": 3, # skala 0..10 (10 = maksymalnie skupione obok siebie dni wolnych/krótkich, 0 = wcale nie)
+      "Weight": 4
+    },
+
+    "MaxDayLength": {
+      "Value": 10, # preferowana maksymalna liczba godzin w dniu (per dzień? każdego dnia tak samo?)
+      "Weight": 5
+    },
+
+    "MinDayLength": {
+      "Value": 0, # analogicznie minimalna
+      "Weight": 2
+    },
+
+    "PreferredStartTime": {
+      "Value": 9.0, # godzina gdzie co do zasady chcemy zaczynać zajęcia
+      "Weight": 2,
+      "ToleranceHours": 1.5 # dopuszczalne odchylenie
+    },
+
+    "PreferredEndTime": {
+      "Value": 17.0, # analogicznie kończenie zajęć
+      "Weight": 2,
+      "ToleranceHours": 1.5
+    },
+
+    "BlockPreference": {
+      "Value": 5, # 0..10, dodatnie = wolę długie bloki, ujemne (0..5) = wolę rozproszone krótkie sloty
+      "Weight": 2
+    },
+
+    "TransitionCost": {
+      "Value": 5, # 0..10, im większe tym mniej lubię zmiany pomiędzy typami zajęć (np chce mieć ćwiczenia po wykładzie od razu)
+      "Weight": 1
+    },
+
+    "PreferredTimeslots": {
+      "Values": [0,0,0,0,0,0,0], # tutaj nasz faktyczny wektor na podstawie kalendarza tygodnia
+      "Weights": [1,1,1,1,1,1,1]
+    },
+
+    "PreferredGroups": {
+      "Values": [0,0,0,0,0], # tutaj per grupa informacje jakieś
+      "Weights": [1,1,1,1,1]
+    }
+}
+
+
+
+
 DEFAULT_CONSTRAINTS = {
     "TimeslotsDaily": 0, # 4 x hours (15min timeslots)
-    "DaysInCycle": 0, # 7, 14 or 28
-    "MinStudentsPerGroup": [0, 0, 0], # for each group, student count requirement (or group no start)
-    "SubjectsDuration": [0, 0, 0, 0], # for each subject, duration in timeslots
-    "GroupsPerSubject": [0, 0, 0, 0], # for each subject, number of groups
-    "GroupsCapacity": [0, 0, 0, 0, 0, 0], # for each group, capacity
-    "RoomsCapacity": [0, 0], # for each room, capacity
-    "GroupsTags": [
-        [0, 0], # groupId, tagId
-        [0, 0]
-    ],
-    "RoomsTags": [
-        [0, 0], # roomId, tagId
-        [0, 0]
-    ],
-    "StudentsSubjects": [
-        [0, 0, 0], # subjectIds list for student 0
-        [0, 0] # subjectIds list for student 1
-    ],
-    "TeachersGroups": [
-        [0, 0, 0, 0], # groupIds list for teacher 0
-        [0, 0, 0, 0, 0, 0] # groupIds list for teacher 1
-    ],
-    "RoomsUnavailabilityTimeslots": [
-        [], # roomId 0, list of timeslot ids
-        [12], # roomId 1, list of timeslot ids
-    ],
-    "StudentsUnavailabilityTimeslots": [
-        [], # studentId 0, list of timeslot ids
-        [5, 6, 7], # studentId 1, list of timeslot ids
-    ],
-    "TeachersUnavailabilityTimeslots": [
-        [], # teacherId 0, list of timeslot ids
-        [1, 2, 3], # teacherId 1, list of timeslot ids
-    ]
+    "DaysInCycle": 7, # 7, 14 or 28
+    "NumSubjects": 0,
+    "NumGroups": 0,
+    "NumTeachers": 0,
+    "NumStudents": 0,
+    "NumRooms": 0,
+    "NumTags": 0,
+    "StudentWeights": [], # for each student, weight
+    "TeacherWeights": [], # for each teacher, weight
+    "MinStudentsPerGroup": [], # for each group, student count requirement (or group no start)
+    "SubjectsDuration": [], # for each subject, duration in timeslots
+    "GroupsPerSubject": [], # for each subject, number of groups
+    "GroupsCapacity": [], # for each group, capacity
+    "RoomsCapacity": [], # for each room, capacity
+    "GroupsTags": [], # groupId, tagId
+    "RoomsTags": [], # roomId, tagId
+    "StudentsSubjects": [], # subjectIds list for student 0
+    "TeachersGroups": [], # groupIds list for teacher 0
+    "RoomsUnavailabilityTimeslots": [], # roomId 0, list of timeslot ids
+    "StudentsUnavailabilityTimeslots": [], # studentId 0, list of timeslot ids
+    "TeachersUnavailabilityTimeslots": [] # teacherId 0, list of timeslot ids
 }
 
 

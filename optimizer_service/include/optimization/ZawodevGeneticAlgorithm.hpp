@@ -20,7 +20,7 @@ private:
     Individual bestIndividual;
     std::vector<Individual> population;
     int populationSize = 128;
-    int fihcSize = 4;
+    int fihcSize; //defined in init
     int crossSize = 64;
     
     // functions

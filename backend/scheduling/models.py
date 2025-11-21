@@ -192,7 +192,7 @@ class Meeting(models.Model):
     )
     start_timeslot = models.IntegerField()
     day_of_week = models.IntegerField(help_text="Day of week (0=Monday, 6=Sunday)")
-    day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-30")
+    day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-27")
 
     class Meta:
         db_table = 'scheduling_meetings'

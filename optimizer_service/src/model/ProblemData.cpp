@@ -114,11 +114,120 @@ int ProblemData::getSubjectFromGroup(int group) const {
     return -1; // invalid
 }
 
+void ProblemData::logProblemDataInfo() const {
+    Logger::info("ProblemData Info:");
+    Logger::info("  Total Timeslots: " + std::to_string(_total_timeslots));
+    Logger::info("  Total Student Subjects: " + std::to_string(_total_student_subjects));
+    Logger::info("  Subject Total Capacities: ");
+    for (int p = 0; p < getSubjectsNum(); ++p) {
+        Logger::info("    Subject " + std::to_string(p) + ": " + std::to_string(_subject_total_capacity[p]));
+    }
+    Logger::info("  Cumulative Groups: ");
+    for (int p = 0; p <= getSubjectsNum(); ++p) {
+        Logger::info("    Up to Subject " + std::to_string(p) + ": " + std::to_string(_cumulative_groups[p]));
+    }
+    Logger::info("  Student Weights Sums: ");
+    for (int s = 0; s < getStudentsNum(); ++s) {
+        Logger::info("    Student " + std::to_string(s) + ": " + std::to_string(_student_weights_sums[s]));
+    }
+    Logger::info("  Subject Student Counts: ");
+    for (int p = 0; p < getSubjectsNum(); ++p) {
+        Logger::info("    Subject " + std::to_string(p) + ": " + std::to_string(_subject_student_count[p]));
+    }
+
+    // log all values
+    Logger::info("Timeslots Daily: " + std::to_string(_rawData.timeslots_daily));
+    Logger::info("Days In Cycle: " + std::to_string(_rawData.days_in_cycle));
+    Logger::info("Number of Subjects: " + std::to_string(_rawData.num_subjects));
+    Logger::info("Number of Groups: " + std::to_string(_rawData.num_groups));
+    Logger::info("Number of Students: " + std::to_string(_rawData.num_students));
+    Logger::info("Number of Teachers: " + std::to_string(_rawData.num_teachers));
+    Logger::info("Number of Rooms: " + std::to_string(_rawData.num_rooms));
+    Logger::info("Number of Tags: " + std::to_string(_rawData.num_tags));
+
+    // log vector<int> sizes
+    Logger::info("Min Students Per Group size: " + std::to_string((int)_rawData.min_students_per_group.size()));
+    Logger::info("Subjects Duration size: " + std::to_string((int)_rawData.subjects_duration.size()));
+    Logger::info("Groups Per Subject size: " + std::to_string((int)_rawData.groups_per_subject.size()));
+    Logger::info("Groups Capacity size: " + std::to_string((int)_rawData.groups_capacity.size()));
+    Logger::info("Rooms Capacity size: " + std::to_string((int)_rawData.rooms_capacity.size()));
+    
+    // log vector<vector<int>> sizes
+    Logger::info("Groups Tags size: " + std::to_string((int)_rawData.groups_tags.size()));
+    Logger::info("Rooms Tags size: " + std::to_string((int)_rawData.rooms_tags.size()));
+    Logger::info("Students Subjects size: " + std::to_string((int)_rawData.students_subjects.size()));
+    Logger::info("Teachers Groups size: " + std::to_string((int)_rawData.teachers_groups.size()));
+    Logger::info("Rooms Unavailability Timeslots size: " + std::to_string((int)_rawData.rooms_unavailability_timeslots.size()));
+    Logger::info("Students Unavailability Timeslots size: " + std::to_string((int)_rawData.students_unavailability_timeslots.size()));
+    Logger::info("Teachers Unavailability Timeslots size: " + std::to_string((int)_rawData.teachers_unavailability_timeslots.size()));
+
+    // log preferences sizes
+    Logger::info("Students Preferences size: " + std::to_string((int)_rawData.students_preferences.size()));
+    Logger::info("Teachers Preferences size: " + std::to_string((int)_rawData.teachers_preferences.size()));
+}
+
 bool ProblemData::checkFeasibility() const {
-    // check subjects_duration size matches subjects count
-    if (!_rawData.subjects_duration.empty() && (int)_rawData.subjects_duration.size() != getSubjectsNum()) {
+    // check counts consistency
+    if ((int)_rawData.subjects_duration.size() != _rawData.num_subjects) {
         Logger::warn("SubjectsDuration size (" + std::to_string((int)_rawData.subjects_duration.size()) + 
-                    ") does not match subjects count (" + std::to_string(getSubjectsNum()) + ")");
+                    ") does not match NumSubjects (" + std::to_string(_rawData.num_subjects) + ")");
+        return false;
+    }
+    if ((int)_rawData.groups_per_subject.size() != _rawData.num_subjects) {
+        Logger::warn("GroupsPerSubject size (" + std::to_string((int)_rawData.groups_per_subject.size()) + 
+                    ") does not match NumSubjects (" + std::to_string(_rawData.num_subjects) + ")");
+        return false;
+    }
+    if ((int)_rawData.min_students_per_group.size() != _rawData.num_groups) {
+        Logger::warn("MinStudentsPerGroup size (" + std::to_string((int)_rawData.min_students_per_group.size()) + 
+                    ") does not match NumGroups (" + std::to_string(_rawData.num_groups) + ")");
+        return false;
+    }
+    if ((int)_rawData.groups_capacity.size() != _rawData.num_groups) {
+        Logger::warn("GroupsCapacity size (" + std::to_string((int)_rawData.groups_capacity.size()) + 
+                    ") does not match NumGroups (" + std::to_string(_rawData.num_groups) + ")");
+        return false;
+    }
+    if ((int)_rawData.rooms_capacity.size() != _rawData.num_rooms) {
+        Logger::warn("RoomsCapacity size (" + std::to_string((int)_rawData.rooms_capacity.size()) + 
+                    ") does not match NumRooms (" + std::to_string(_rawData.num_rooms) + ")");
+        return false;
+    }
+    if ((int)_rawData.rooms_unavailability_timeslots.size() != _rawData.num_rooms) {
+        Logger::warn("RoomsUnavailabilityTimeslots size (" + std::to_string((int)_rawData.rooms_unavailability_timeslots.size()) + 
+                    ") does not match NumRooms (" + std::to_string(_rawData.num_rooms) + ")");
+        return false;
+    }
+    if ((int)_rawData.students_subjects.size() != _rawData.num_students) {
+        Logger::warn("StudentsSubjects size (" + std::to_string((int)_rawData.students_subjects.size()) + 
+                    ") does not match NumStudents (" + std::to_string(_rawData.num_students) + ")");
+        return false;
+    }
+    if ((int)_rawData.students_unavailability_timeslots.size() != _rawData.num_students) {
+        Logger::warn("StudentsUnavailabilityTimeslots size (" + std::to_string((int)_rawData.students_unavailability_timeslots.size()) + 
+                    ") does not match NumStudents (" + std::to_string(_rawData.num_students) + ")");
+        return false;
+    }
+    if ((int)_rawData.teachers_groups.size() != _rawData.num_teachers) {
+        Logger::warn("TeachersGroups size (" + std::to_string((int)_rawData.teachers_groups.size()) + 
+                    ") does not match NumTeachers (" + std::to_string(_rawData.num_teachers) + ")");
+        return false;
+    }
+    if ((int)_rawData.teachers_unavailability_timeslots.size() != _rawData.num_teachers) {
+        Logger::warn("TeachersUnavailabilityTimeslots size (" + std::to_string((int)_rawData.teachers_unavailability_timeslots.size()) + 
+                    ") does not match NumTeachers (" + std::to_string(_rawData.num_teachers) + ")");
+        return false;
+    }
+
+    // check weights sizes
+    if (!_rawData.student_weights.empty() && (int)_rawData.student_weights.size() != _rawData.num_students) {
+        Logger::warn("StudentWeights size (" + std::to_string((int)_rawData.student_weights.size()) + 
+                    ") does not match NumStudents (" + std::to_string(_rawData.num_students) + ")");
+        return false;
+    }
+    if (!_rawData.teacher_weights.empty() && (int)_rawData.teacher_weights.size() != _rawData.num_teachers) {
+        Logger::warn("TeacherWeights size (" + std::to_string((int)_rawData.teacher_weights.size()) + 
+                    ") does not match NumTeachers (" + std::to_string(_rawData.num_teachers) + ")");
         return false;
     }
 
@@ -160,20 +269,14 @@ bool ProblemData::checkFeasibility() const {
     int studentsNum = getStudentsNum();
     int teachersNum = getTeachersNum();
     int roomsNumCheck = getRoomsNum();
+    int tagsNum = getTagsNum();
 
     // check sum(groups_per_subject) equals groups_capacity size (groupsNum)
     int sum_groups_per_subject = 0;
     for (int v : _rawData.groups_per_subject) sum_groups_per_subject += v;
     if (sum_groups_per_subject != groupsNum) {
-        Logger::warn("Inconsistent data: sum(groups_per_subject)=" + std::to_string(sum_groups_per_subject) + " but groups_capacity size=" + std::to_string(groupsNum));
-        // don't return false - warn only
-    }
-
-    // check min_students_per_group size matches groups count
-    if (!_rawData.min_students_per_group.empty() && (int)_rawData.min_students_per_group.size() != groupsNum) {
-        Logger::warn("MinStudentsPerGroup size (" + std::to_string((int)_rawData.min_students_per_group.size()) + 
-                    ") does not match groups count (" + std::to_string(groupsNum) + ")");
-        // don't return false - warn only, will use default values
+        Logger::warn("Inconsistent data: sum(groups_per_subject)=" + std::to_string(sum_groups_per_subject) + " but NumGroups=" + std::to_string(groupsNum));
+        return false;
     }
 
     // check students_subjects ids are within [0, subjectsNum)
@@ -204,6 +307,13 @@ bool ProblemData::checkFeasibility() const {
             Logger::warn("Invalid group id " + std::to_string(gid) + " in groups_tags (groupsNum=" + std::to_string(groupsNum) + ")");
             return false;
         }
+        if (gt.size() > 1) {
+            int tid = gt[1];
+            if (tid < 0 || tid >= tagsNum) {
+                Logger::warn("Invalid tag id " + std::to_string(tid) + " in groups_tags (tagsNum=" + std::to_string(tagsNum) + ")");
+                return false;
+            }
+        }
     }
     for (const auto& rt : _rawData.rooms_tags) {
         if (rt.empty()) continue;
@@ -211,6 +321,13 @@ bool ProblemData::checkFeasibility() const {
         if (rid < 0 || rid >= roomsNumCheck) {
             Logger::warn("Invalid room id " + std::to_string(rid) + " in rooms_tags (roomsNum=" + std::to_string(roomsNumCheck) + ")");
             return false;
+        }
+        if (rt.size() > 1) {
+            int tid = rt[1];
+            if (tid < 0 || tid >= tagsNum) {
+                Logger::warn("Invalid tag id " + std::to_string(tid) + " in rooms_tags (tagsNum=" + std::to_string(tagsNum) + ")");
+                return false;
+            }
         }
     }
 

@@ -39,6 +39,14 @@ RawProblemData JsonParser::toRawProblemData(const nlohmann::json& j) {
         const auto& c = j.at("constraints");
         data.timeslots_daily = c.at("TimeslotsDaily").get<int>();
         data.days_in_cycle = c.at("DaysInCycle").get<int>();
+        data.num_subjects = c.at("NumSubjects").get<int>();
+        data.num_groups = c.at("NumGroups").get<int>();
+        data.num_teachers = c.at("NumTeachers").get<int>();
+        data.num_students = c.at("NumStudents").get<int>();
+        data.num_rooms = c.at("NumRooms").get<int>();
+        data.num_tags = c.at("NumTags").get<int>();
+        data.student_weights = c.at("StudentWeights").get<std::vector<int>>();
+        data.teacher_weights = c.at("TeacherWeights").get<std::vector<int>>();
         data.min_students_per_group = c.at("MinStudentsPerGroup").get<std::vector<int>>();
         data.subjects_duration = c.at("SubjectsDuration").get<std::vector<int>>();
         data.groups_per_subject = c.at("GroupsPerSubject").get<std::vector<int>>();
@@ -91,6 +99,14 @@ nlohmann::json JsonParser::toJson(const RawProblemData& data) {
     // constraints
     j["constraints"]["TimeslotsDaily"] = data.timeslots_daily;
     j["constraints"]["DaysInCycle"] = data.days_in_cycle;
+    j["constraints"]["NumSubjects"] = data.num_subjects;
+    j["constraints"]["NumGroups"] = data.num_groups;
+    j["constraints"]["NumTeachers"] = data.num_teachers;
+    j["constraints"]["NumStudents"] = data.num_students;
+    j["constraints"]["NumRooms"] = data.num_rooms;
+    j["constraints"]["NumTags"] = data.num_tags;
+    j["constraints"]["StudentWeights"] = data.student_weights;
+    j["constraints"]["TeacherWeights"] = data.teacher_weights;
     j["constraints"]["MinStudentsPerGroup"] = data.min_students_per_group;
     j["constraints"]["SubjectsDuration"] = data.subjects_duration;
     j["constraints"]["GroupsPerSubject"] = data.groups_per_subject;
@@ -251,6 +267,14 @@ void JsonParser::writeInput(const std::string& filename, const RawProblemData& d
         json_str += "  \"constraints\": {\n";
         json_str += "    \"TimeslotsDaily\": " + std::to_string(j["constraints"]["TimeslotsDaily"].get<int>()) + ",\n";
         json_str += "    \"DaysInCycle\": " + std::to_string(j["constraints"]["DaysInCycle"].get<int>()) + ",\n";
+        json_str += "    \"NumSubjects\": " + std::to_string(j["constraints"]["NumSubjects"].get<int>()) + ",\n";
+        json_str += "    \"NumGroups\": " + std::to_string(j["constraints"]["NumGroups"].get<int>()) + ",\n";
+        json_str += "    \"NumTeachers\": " + std::to_string(j["constraints"]["NumTeachers"].get<int>()) + ",\n";
+        json_str += "    \"NumStudents\": " + std::to_string(j["constraints"]["NumStudents"].get<int>()) + ",\n";
+        json_str += "    \"NumRooms\": " + std::to_string(j["constraints"]["NumRooms"].get<int>()) + ",\n";
+        json_str += "    \"NumTags\": " + std::to_string(j["constraints"]["NumTags"].get<int>()) + ",\n";
+        json_str += "    \"StudentWeights\": " + j["constraints"]["StudentWeights"].dump() + ",\n";
+        json_str += "    \"TeacherWeights\": " + j["constraints"]["TeacherWeights"].dump() + ",\n";
         json_str += "    \"MinStudentsPerGroup\": " + j["constraints"]["MinStudentsPerGroup"].dump() + ",\n";
         json_str += "    \"SubjectsDuration\": " + j["constraints"]["SubjectsDuration"].dump() + ",\n";
         json_str += "    \"GroupsPerSubject\": " + j["constraints"]["GroupsPerSubject"].dump() + ",\n";
