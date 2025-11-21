@@ -22,6 +22,10 @@ DEFAULT_USER_PREFERENCES = {
     "PreferredDayEndTimeslot": 0, # exact day end timeslot when you want to end day work
     "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
 
+# pokazac zbiorcze statystyki dla grupy jak fituje dla kazdego usera
+# fitness calc type typu 01 do wyboru
+# porównać do optymalizacji planowej zachłannej (trudne) - albo random searchem + repair??? chyba sie da 
+
     # --- ABOVE IS ABOUT TO CHANGE ---
     
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
