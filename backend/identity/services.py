@@ -1,6 +1,5 @@
 from typing import Union
 from django.db.models import QuerySet, Q
-from scheduling.models import Meeting, Recruitment
 from .models import User, Group
 
 
@@ -13,6 +12,7 @@ def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
     The function accepts a User instance or a user PK (UUID/string) and returns
     meetings ordered by day_of_week and start_hour.
     """
+    from scheduling.models import Meeting
     user_id = user_or_id.pk if hasattr(user_or_id, 'pk') else user_or_id
 
     # Get groups the user belongs to
@@ -25,7 +25,9 @@ def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
             Q(group__in=user_groups),
             recruitment__plan_status='active'
         )
-        .select_related('recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group')
+        .select_related(
+            'recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group', 'required_tag'
+        )
         .order_by('day_of_week', 'start_timeslot')
         .distinct()
     )
@@ -46,6 +48,7 @@ def get_recruitments_for_user(user_or_id: Union[User, int, str], active_only: bo
 
     Returns: QuerySet[Recruitment] containing unique Recruitment records.
     """
+    from scheduling.models import Recruitment
     user_id = user_or_id.pk if hasattr(user_or_id, 'pk') else user_or_id
 
     filters = {
