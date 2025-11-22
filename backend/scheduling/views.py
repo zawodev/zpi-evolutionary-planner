@@ -14,7 +14,8 @@ from .serializers import (
     RoomSerializer,
     TagSerializer,
     RoomTagSerializer,
-    MeetingSerializer
+    MeetingSerializer,
+    MeetingDetailSerializer
 )
 from .services import get_active_meetings_for_room, get_users_for_recruitment
 
@@ -108,13 +109,16 @@ class MeetingView(BaseCrudView):
 User = get_user_model()
 
 class ActiveMeetingsByRoomView(APIView):
-    """Return all meetings for a room whose recruitment has plan_status == 'active'."""
+    """Return all active meetings for a room (recruitment.plan_status == 'active') with full nested objects.
+
+    Uses MeetingDetailSerializer to include nested recruitment, room, group, required_tag,
+    and subject_group (with subject, host_user, recruitment)."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, room_pk):
         get_object_or_404(Room, **{'room_id': room_pk})
         qs = get_active_meetings_for_room(room_pk)
-        serializer = MeetingSerializer(qs, many=True)
+        serializer = MeetingDetailSerializer(qs, many=True)
         return Response(serializer.data)
 
 

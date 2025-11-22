@@ -14,6 +14,7 @@ from .permissions import IsAdminUser, IsOfficeUser
 import secrets
 from django.conf import settings
 import json
+from scheduling.serializers import MeetingDetailSerializer, RecruitmentSerializer
 
 User = get_user_model()
 
@@ -279,14 +280,16 @@ class SetUserPasswordView(APIView):
 
 
 class ActiveMeetingsByUserView(APIView):
-    """Return all meetings where the given user is host_user and the recruitment is active."""
+    """Return all meetings (with full nested objects) where the given user is host_user or belongs to the meeting group and recruitment is active.
+
+    Response now contains nested recruitment, room, group, required_tag, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_pk):
         get_object_or_404(User, pk=user_pk)
-        from scheduling.serializers import MeetingSerializer
         qs = get_active_meetings_for_user(user_pk)
-        serializer = MeetingSerializer(qs, many=True)
+        serializer = MeetingDetailSerializer(qs, many=True)
         return Response(serializer.data)
 
 
@@ -337,7 +340,6 @@ class RecruitmentsByUserView(APIView):
         get_object_or_404(User, pk=user_pk)
         active_q = request.query_params.get('active', 'false').lower()
         active_only = active_q in ('1', 'true', 'yes')
-        from scheduling.serializers import RecruitmentSerializer
         qs = get_recruitments_for_user(user_pk, active_only=active_only)
         serializer = RecruitmentSerializer(qs, many=True)
         return Response(serializer.data)
