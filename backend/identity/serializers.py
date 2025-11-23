@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import Organization, Group, UserGroup, UserRecruitment
+from .models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
 
 User = get_user_model()
 
@@ -92,6 +92,21 @@ class UserRecruitmentSerializer(serializers.ModelSerializer):
         model = UserRecruitment
         fields = '__all__'
     
+    def get_user_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
+
+class UserSubjectsSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    subject_name = serializers.CharField(source='subject.subject_name', read_only=True)
+    recruitment_id = serializers.UUIDField(source='subject.recruitment.recruitment_id', read_only=True)
+    recruitment_name = serializers.CharField(source='subject.recruitment.recruitment_name', read_only=True)
+
+    class Meta:
+        model = UserSubjects
+        fields = '__all__'
+
     def get_user_full_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
 

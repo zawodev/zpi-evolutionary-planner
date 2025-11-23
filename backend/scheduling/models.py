@@ -13,6 +13,15 @@ class Subject(models.Model):
         default=4
     )
     capacity = models.IntegerField(default=1)
+    min_students = models.IntegerField(default=1)
+    recruitment = models.ForeignKey(
+        'Recruitment',
+        on_delete=models.CASCADE,
+        db_column='recruitmentid',
+        related_name='subject_groups'
+    )
+    break_before = models.IntegerField(default=0)
+    break_after = models.IntegerField(default=1)
 
     class Meta:
         db_table = 'scheduling_subjects'
@@ -38,12 +47,6 @@ class SubjectGroup(models.Model):
         db_column='subjectid',
         related_name='subject_groups'
     )
-    recruitment = models.ForeignKey(
-        'Recruitment',
-        on_delete=models.CASCADE,
-        db_column='recruitmentid',
-        related_name='subject_groups'
-    )
     host_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -55,7 +58,7 @@ class SubjectGroup(models.Model):
         db_table = 'scheduling_subjectgroups'
 
     def __str__(self):
-        return f"{self.subject.subject_name} - {self.host_user} (Recruitment: {self.recruitment.recruitment_name})"
+        return f"{self.subject.subject_name} - {self.host_user}"
 
 
 class Recruitment(models.Model):
@@ -111,6 +114,12 @@ class Recruitment(models.Model):
 
 class Room(models.Model):
     room_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        db_column='organizationid',
+        related_name='rooms'
+    )
     building_name = models.CharField(max_length=255)
     room_number = models.CharField(max_length=50)
     capacity = models.IntegerField()
@@ -120,6 +129,29 @@ class Room(models.Model):
 
     def __str__(self):
         return f"{self.building_name} - {self.room_number}"
+
+
+class RoomRecruitment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        db_column='roomid',
+        related_name='room_recruitments'
+    )
+    recruitment = models.ForeignKey(
+        Recruitment,
+        on_delete=models.CASCADE,
+        db_column='recruitmentid',
+        related_name='recruitment_rooms'
+    )
+
+    class Meta:
+        db_table = 'scheduling_roomrecruitments'
+        unique_together = ('room', 'recruitment')
+
+    def __str__(self):
+        return f"{self.room} - {self.recruitment}"
 
 
 class Tag(models.Model):

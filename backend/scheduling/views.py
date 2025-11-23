@@ -4,7 +4,7 @@ from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
 from identity.permissions import IsOfficeUser
 
 from .serializers import (
@@ -14,7 +14,9 @@ from .serializers import (
     RoomSerializer,
     TagSerializer,
     RoomTagSerializer,
-    MeetingSerializer
+    MeetingSerializer,
+    RoomRecruitmentSerializer,
+    MeetingDetailSerializer
 )
 from .services import get_active_meetings_for_room, get_users_for_recruitment
 
@@ -105,16 +107,25 @@ class MeetingView(BaseCrudView):
     lookup_field = 'meeting_id'
 
 
+class RoomRecruitmentView(BaseCrudView):
+    model = RoomRecruitment
+    serializer_class = RoomRecruitmentSerializer
+    lookup_field = 'id'
+
+
 User = get_user_model()
 
 class ActiveMeetingsByRoomView(APIView):
-    """Return all meetings for a room whose recruitment has plan_status == 'active'."""
+    """Return all active meetings for a room (recruitment.plan_status == 'active') with full nested objects.
+
+    Uses MeetingDetailSerializer to include nested recruitment, room, group, required_tag,
+    and subject_group (with subject, host_user, recruitment)."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, room_pk):
         get_object_or_404(Room, **{'room_id': room_pk})
         qs = get_active_meetings_for_room(room_pk)
-        serializer = MeetingSerializer(qs, many=True)
+        serializer = MeetingDetailSerializer(qs, many=True)
         return Response(serializer.data)
 
 

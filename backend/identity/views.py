@@ -3,17 +3,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from .models import Organization, Group, UserGroup, UserRecruitment
+from .models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     RegisterSerializer, UserSerializer, OrganizationSerializer, GroupSerializer, UserGroupSerializer,
-    UserRecruitmentSerializer, OfficeCreateUserSerializer, PasswordChangeSerializer
+    UserRecruitmentSerializer, OfficeCreateUserSerializer, PasswordChangeSerializer, UserSubjectsSerializer
 )
 from .services import get_active_meetings_for_user, get_recruitments_for_user, get_groups_for_user
 from .permissions import IsAdminUser, IsOfficeUser
 import secrets
 from django.conf import settings
 import json
+from scheduling.serializers import MeetingDetailSerializer, RecruitmentSerializer
 
 User = get_user_model()
 
@@ -279,14 +280,16 @@ class SetUserPasswordView(APIView):
 
 
 class ActiveMeetingsByUserView(APIView):
-    """Return all meetings where the given user is host_user and the recruitment is active."""
+    """Return all meetings (with full nested objects) where the given user is host_user or belongs to the meeting group and recruitment is active.
+
+    Response now contains nested recruitment, room, group, required_tag, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_pk):
         get_object_or_404(User, pk=user_pk)
-        from scheduling.serializers import MeetingSerializer
         qs = get_active_meetings_for_user(user_pk)
-        serializer = MeetingSerializer(qs, many=True)
+        serializer = MeetingDetailSerializer(qs, many=True)
         return Response(serializer.data)
 
 
@@ -337,7 +340,6 @@ class RecruitmentsByUserView(APIView):
         get_object_or_404(User, pk=user_pk)
         active_q = request.query_params.get('active', 'false').lower()
         active_only = active_q in ('1', 'true', 'yes')
-        from scheduling.serializers import RecruitmentSerializer
         qs = get_recruitments_for_user(user_pk, active_only=active_only)
         serializer = RecruitmentSerializer(qs, many=True)
         return Response(serializer.data)
@@ -484,3 +486,85 @@ class UserUpdateView(APIView):
             serializer.save()
             return Response(UserSerializer(target_user).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RemoveUserFromOrganizationView(APIView):
+    """Remove (detach) a user from their organization.
+
+    Behavior:
+    - Sets user's organization to null (does not delete the user or organization).
+    - Allowed for admin (any user) or office user belonging to the same organization as the target user.
+
+    Responses:
+    - 204 on success.
+    - 400 if user has no organization.
+    - 403 if requester lacks permission.
+    - 404 if user does not exist.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def delete(self, request, user_pk):
+        target_user = get_object_or_404(User, pk=user_pk)
+        if target_user.organization is None:
+            return Response({"detail": "User is not assigned to any organization"}, status=status.HTTP_400_BAD_REQUEST)
+
+        requester = request.user
+        # Admin always allowed
+        if not (hasattr(requester, 'role') and requester.role == 'admin'):
+            # Office user must belong to same organization
+            if requester.organization is None or requester.organization != target_user.organization:
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user.organization = None
+        target_user.save(update_fields=['organization'])
+        return Response({"detail": "User removed from organization"}, status=status.HTTP_204_NO_CONTENT)
+
+
+class UserSubjectsAddView(APIView):
+    """Add a user-subject relation"""
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def post(self, request):
+        serializer = UserSubjectsSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSubjectsDeleteView(APIView):
+    """Remove a user-subject relation"""
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def delete(self, request):
+        user_id = request.data.get('user')
+        subject_id = request.data.get('subject')
+        if not user_id or not subject_id:
+            return Response({"detail": "Both user and subject are required"}, status=status.HTTP_400_BAD_REQUEST)
+        relation = get_object_or_404(UserSubjects, user_id=user_id, subject_id=subject_id)
+        relation.delete()
+        return Response({"detail": "User removed from subject"}, status=status.HTTP_204_NO_CONTENT)
+
+
+class SubjectsByUserView(APIView):
+    """Return all subject relations (UserSubjects) for a given user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_pk):
+        get_object_or_404(User, pk=user_pk)
+        relations = UserSubjects.objects.filter(user_id=user_pk).select_related('subject', 'subject__recruitment', 'user')
+        serializer = UserSubjectsSerializer(relations, many=True)
+        return Response(serializer.data)
+
+
+class UsersBySubjectView(APIView):
+    """Return all user relations (UserSubjects) for a given subject."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, subject_pk):
+        from scheduling.models import Subject
+        get_object_or_404(Subject, pk=subject_pk)
+        relations = UserSubjects.objects.filter(subject_id=subject_pk).select_related('subject', 'subject__recruitment', 'user')
+        serializer = UserSubjectsSerializer(relations, many=True)
+        return Response(serializer.data)
+

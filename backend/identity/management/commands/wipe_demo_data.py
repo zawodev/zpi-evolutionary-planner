@@ -3,7 +3,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 
 from identity.models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
-from scheduling.models import Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag
+from scheduling.models import Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment
 from preferences.models import UserPreferences, Constraints, HeatmapCache
 from optimizer.models import OptimizationJob, OptimizationProgress
 
@@ -30,14 +30,17 @@ class Command(BaseCommand):
         Constraints.objects.all().delete()
         UserPreferences.objects.all().delete()
 
-        # 3) Scheduling — meetings must be deleted instance-by-instance to trigger custom delete()
+        # 3) Scheduling relations (order matters)
+        # Meetings first (custom delete), then RoomRecruitment, then SubjectGroup, Subject, RoomTag, Tag, Recruitment, Room
         for m in Meeting.objects.all():
             m.delete()
+        RoomRecruitment.objects.all().delete()
         SubjectGroup.objects.all().delete()
-        Recruitment.objects.all().delete()
+        Subject.objects.all().delete()
         RoomTag.objects.all().delete()
-        Room.objects.all().delete()
         Tag.objects.all().delete()
+        Recruitment.objects.all().delete()
+        Room.objects.all().delete()
 
         # 4) Identity relations
         UserRecruitment.objects.all().delete()
@@ -54,5 +57,4 @@ class Command(BaseCommand):
         else:
             User.objects.all().delete()
 
-        self.stdout.write(self.style.SUCCESS('Data wipe complete.'))
-
+        self.stdout.write(self.style.SUCCESS('Data wipe complete (updated models).'))
