@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, SubjectTag
 
 
 @admin.register(Subject)
@@ -52,4 +52,10 @@ class MeetingAdmin(admin.ModelAdmin):
         'subject_group__host_user__first_name',
         'subject_group__host_user__last_name',
     )
-    raw_id_fields = ('recruitment', 'subject_group', 'group', 'room', 'required_tag')
+    raw_id_fields = ('recruitment', 'subject_group', 'group', 'room')
+
+@admin.register(SubjectTag)
+class SubjectTagAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in SubjectTag._meta.fields]
+    list_filter = ('subject', 'tag')
+    search_fields = ('subject__subject_name', 'tag__tag_name')

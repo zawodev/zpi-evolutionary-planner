@@ -21,6 +21,7 @@ class User(AbstractUser):
         db_column='organizationid',
         related_name='users'
     )
+    weight = models.IntegerField(default=5)
 
     class Meta:
         db_table = 'identity_users'

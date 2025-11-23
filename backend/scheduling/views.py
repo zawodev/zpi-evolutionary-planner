@@ -4,7 +4,7 @@ from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment, SubjectTag
 from identity.permissions import IsOfficeUser
 
 from .serializers import (
@@ -16,7 +16,8 @@ from .serializers import (
     RoomTagSerializer,
     MeetingSerializer,
     RoomRecruitmentSerializer,
-    MeetingDetailSerializer
+    MeetingDetailSerializer,
+    SubjectTagSerializer,
 )
 from .services import get_active_meetings_for_room, get_users_for_recruitment
 
@@ -113,6 +114,12 @@ class RoomRecruitmentView(BaseCrudView):
     lookup_field = 'id'
 
 
+class SubjectTagView(BaseCrudView):
+    model = SubjectTag
+    serializer_class = SubjectTagSerializer
+    lookup_field = 'id'
+
+
 User = get_user_model()
 
 class ActiveMeetingsByRoomView(APIView):
@@ -154,5 +161,16 @@ class TagsByRoomView(APIView):
     def get(self, request, room_pk):
         get_object_or_404(Room, **{'room_id': room_pk})
         tags_qs = Tag.objects.filter(tagged_rooms__room_id=room_pk).distinct().order_by('tag_name')
+        serializer = TagSerializer(tags_qs, many=True)
+        return Response(serializer.data)
+
+
+class TagsBySubjectView(APIView):
+    """Return all tags assigned to a given subject via SubjectTag relations."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, subject_pk):
+        get_object_or_404(Subject, **{'subject_id': subject_pk})
+        tags_qs = Tag.objects.filter(tagged_subjects__subject_id=subject_pk).distinct().order_by('tag_name')
         serializer = TagSerializer(tags_qs, many=True)
         return Response(serializer.data)

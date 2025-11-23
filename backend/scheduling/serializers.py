@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment, SubjectTag
 from preferences.models import Constraints
 from preferences.views import DEFAULT_CONSTRAINTS
 
@@ -72,6 +72,15 @@ class RoomRecruitmentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class SubjectTagSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='subject.subject_name', read_only=True)
+    tag_name = serializers.CharField(source='tag.tag_name', read_only=True)
+
+    class Meta:
+        model = SubjectTag
+        fields = '__all__'
+
+
 
 # DODANE: szczegółowe serializery do pełnego widoku spotkań
 try:
@@ -98,13 +107,12 @@ class MeetingDetailSerializer(serializers.ModelSerializer):
     recruitment = RecruitmentSerializer(read_only=True)
     room = RoomSerializer(read_only=True)
     group = GroupSerializer(read_only=True)
-    required_tag = TagSerializer(read_only=True)
     subject_group = SubjectGroupDetailSerializer(read_only=True)
     end_hour = serializers.ReadOnlyField()
 
     class Meta:
         model = Meeting
         fields = [
-            'meeting_id', 'recruitment', 'subject_group', 'group', 'room', 'required_tag',
+            'meeting_id', 'recruitment', 'subject_group', 'group', 'room',
             'start_timeslot', 'day_of_week', 'day_of_cycle', 'end_hour'
         ]

@@ -3,7 +3,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 
 from identity.models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
-from scheduling.models import Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment
+from scheduling.models import Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment, SubjectTag
 from preferences.models import UserPreferences, Constraints, HeatmapCache
 from optimizer.models import OptimizationJob, OptimizationProgress
 
@@ -36,6 +36,7 @@ class Command(BaseCommand):
             m.delete()
         RoomRecruitment.objects.all().delete()
         SubjectGroup.objects.all().delete()
+        SubjectTag.objects.all().delete()
         Subject.objects.all().delete()
         RoomTag.objects.all().delete()
         Tag.objects.all().delete()
