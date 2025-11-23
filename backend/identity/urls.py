@@ -23,6 +23,11 @@ from .views import (
     UserUpdateView,
     GroupsByUserView,
     OrganizationGroupsView,
+    RemoveUserFromOrganizationView,
+    UserSubjectsAddView,
+    UserSubjectsDeleteView,
+    SubjectsByUserView,
+    UsersBySubjectView,
 )
 
 urlpatterns = [
@@ -39,6 +44,7 @@ urlpatterns = [
     path('users/create/random/', RandomOfficeUserCreateView.as_view(), name='office-user-create-random'),
     path('users/<user_pk>/set_password/', SetUserPasswordView.as_view(), name='set-user-password'),
     path('users/<user_pk>/update/', UserUpdateView.as_view(), name='user-update'),
+    path('users/<user_pk>/remove_from_organization/', RemoveUserFromOrganizationView.as_view(), name='user-remove-from-organization'),
 
     path('organizations/add/', OrganizationAddView.as_view(), name='organization-add'),
     path('organizations/delete/<uuid:organization_id>/', OrganizationDeleteView.as_view(), name='organization-delete'),
@@ -54,4 +60,9 @@ urlpatterns = [
 
     path('user-recruitments/add/', UserRecruitmentAddView.as_view(), name='user-recruitment-add'),
     path('user-recruitments/delete/', UserRecruitmentDeleteView.as_view(), name='user-recruitment-delete'),
+
+    path('user-subjects/add/', UserSubjectsAddView.as_view(), name='user-subject-add'),
+    path('user-subjects/delete/', UserSubjectsDeleteView.as_view(), name='user-subject-delete'),
+    path('users/<user_pk>/subjects/', SubjectsByUserView.as_view(), name='subjects-by-user'),
+    path('subjects/<uuid:subject_pk>/users/', UsersBySubjectView.as_view(), name='users-by-subject'),
 ]

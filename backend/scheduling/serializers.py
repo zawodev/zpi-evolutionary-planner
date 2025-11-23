@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
 from preferences.models import Constraints
 from preferences.views import DEFAULT_CONSTRAINTS
 
@@ -64,6 +64,13 @@ class MeetingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Meeting
         fields = '__all__'
+
+
+class RoomRecruitmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomRecruitment
+        fields = '__all__'
+
 
 
 # DODANE: szczegółowe serializery do pełnego widoku spotkań

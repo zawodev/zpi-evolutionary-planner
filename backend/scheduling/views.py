@@ -4,7 +4,7 @@ from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
 from identity.permissions import IsOfficeUser
 
 from .serializers import (
@@ -15,6 +15,7 @@ from .serializers import (
     TagSerializer,
     RoomTagSerializer,
     MeetingSerializer,
+    RoomRecruitmentSerializer,
     MeetingDetailSerializer
 )
 from .services import get_active_meetings_for_room, get_users_for_recruitment
@@ -104,6 +105,12 @@ class MeetingView(BaseCrudView):
     model = Meeting
     serializer_class = MeetingSerializer
     lookup_field = 'meeting_id'
+
+
+class RoomRecruitmentView(BaseCrudView):
+    model = RoomRecruitment
+    serializer_class = RoomRecruitmentSerializer
+    lookup_field = 'id'
 
 
 User = get_user_model()
