@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 
 from identity.models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
 from scheduling.models import (
-    Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag
+    Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment
 )
 from preferences.models import UserPreferences, Constraints, HeatmapCache
 from optimizer.models import OptimizationJob, OptimizationProgress
@@ -105,26 +105,7 @@ class Command(BaseCommand):
         attach_users_to_groups(participants_alpha, groups_alpha)
         attach_users_to_groups(participants_beta, groups_beta)
 
-        # 5) Subjects
-        def ensure_subject(name, duration_blocks=4, capacity=3):
-            sub, _ = Subject.objects.get_or_create(subject_name=name, defaults={
-                'duration_blocks': duration_blocks,
-                'capacity': capacity,
-            })
-            return sub
-
-        subjects_alpha = [
-            ensure_subject('Math 101'),
-            ensure_subject('Physics 101'),
-            ensure_subject('Chemistry 101'),
-        ]
-        subjects_beta = [
-            ensure_subject('Biology 101'),
-            ensure_subject('History 101'),
-            ensure_subject('Literature 101'),
-        ]
-
-        # 6) Recruitments per organization
+        # 5) Recruitments per organization (tworzymy przed Subject, bo Subject ma FK recruitment)
         def ensure_recruitment(org, name, status='active'):
             rec, _ = Recruitment.objects.get_or_create(
                 organization=org,
@@ -145,10 +126,12 @@ class Command(BaseCommand):
         rec_alpha_draft = ensure_recruitment(org_alpha, 'Alpha Draft Recruitment', 'draft')
         rec_beta_active = ensure_recruitment(org_beta, 'Beta Spring Recruitment', 'active')
 
-        # 7) Rooms and Tags per org
-        def ensure_room(building, number, capacity):
+        # 6) Rooms (wymagają organization FK)
+        def ensure_room(org, building, number, capacity):
             room, _ = Room.objects.get_or_create(
-                building_name=building, room_number=number,
+                organization=org,
+                building_name=building,
+                room_number=number,
                 defaults={'capacity': capacity}
             )
             if room.capacity != capacity:
@@ -157,14 +140,15 @@ class Command(BaseCommand):
             return room
 
         rooms_alpha = [
-            ensure_room('Alpha Building', 'A101', 20),
-            ensure_room('Alpha Building', 'A102', 15),
+            ensure_room(org_alpha, 'Alpha Building', 'A101', 20),
+            ensure_room(org_alpha, 'Alpha Building', 'A102', 15),
         ]
         rooms_beta = [
-            ensure_room('Beta Building', 'B201', 25),
-            ensure_room('Beta Building', 'B202', 18),
+            ensure_room(org_beta, 'Beta Building', 'B201', 25),
+            ensure_room(org_beta, 'Beta Building', 'B202', 18),
         ]
 
+        # 7) Tags
         tag_project, _ = Tag.objects.get_or_create(tag_name='projector')
         tag_lab, _ = Tag.objects.get_or_create(tag_name='lab')
 
@@ -174,36 +158,72 @@ class Command(BaseCommand):
         for room in (rooms_alpha + rooms_beta)[::2]:
             RoomTag.objects.get_or_create(room=room, tag=tag_lab)
 
-        # 8) SubjectGroups (subject + recruitment + host)
-        def ensure_subject_groups(subjects, recruitment, hosts):
+        # 8) Subjects per recruitment (Subject wymaga recruitment)
+        def ensure_subject(recruitment, name, duration_blocks=4, capacity=3, min_students=1):
+            sub, _ = Subject.objects.get_or_create(
+                recruitment=recruitment,
+                subject_name=name,
+                defaults={
+                    'duration_blocks': duration_blocks,
+                    'capacity': capacity,
+                    'min_students': min_students,
+                }
+            )
+            # aktualizacja wartości jeśli się zmieniły
+            changed = False
+            if sub.duration_blocks != duration_blocks:
+                sub.duration_blocks = duration_blocks; changed = True
+            if sub.capacity != capacity:
+                sub.capacity = capacity; changed = True
+            if sub.min_students != min_students:
+                sub.min_students = min_students; changed = True
+            if changed:
+                sub.save(update_fields=['duration_blocks', 'capacity', 'min_students'])
+            return sub
+
+        subjects_alpha_active = [
+            ensure_subject(rec_alpha_active, 'Math 101'),
+            ensure_subject(rec_alpha_active, 'Physics 101'),
+            ensure_subject(rec_alpha_active, 'Chemistry 101'),
+        ]
+        subjects_alpha_draft = [
+            ensure_subject(rec_alpha_draft, 'Math 101 Draft'),
+            ensure_subject(rec_alpha_draft, 'Physics 101 Draft'),
+        ]
+        subjects_beta_active = [
+            ensure_subject(rec_beta_active, 'Biology 101'),
+            ensure_subject(rec_beta_active, 'History 101'),
+            ensure_subject(rec_beta_active, 'Literature 101'),
+        ]
+
+        # 9) SubjectGroups (model już nie zawiera recruitment FK; relacja przez Subject.recruitment)
+        def ensure_subject_groups(subjects, hosts):
             sgroups = []
             for i, sub in enumerate(subjects):
                 host = hosts[i % len(hosts)]
                 sg, _ = SubjectGroup.objects.get_or_create(
                     subject=sub,
-                    recruitment=recruitment,
                     host_user=host
                 )
                 sgroups.append(sg)
             return sgroups
 
-        sgroups_alpha_active = ensure_subject_groups(subjects_alpha, rec_alpha_active, hosts_alpha)
-        sgroups_alpha_draft = ensure_subject_groups(subjects_alpha, rec_alpha_draft, hosts_alpha)
-        sgroups_beta_active = ensure_subject_groups(subjects_beta, rec_beta_active, hosts_beta)
+        sgroups_alpha_active = ensure_subject_groups(subjects_alpha_active, hosts_alpha)
+        sgroups_alpha_draft = ensure_subject_groups(subjects_alpha_draft, hosts_alpha)
+        sgroups_beta_active = ensure_subject_groups(subjects_beta_active, hosts_beta)
 
-        # 9) Meetings: create simple weekly meetings linking subject_group + group + room
+        # 10) Meetings
         def ensure_meetings(recruitment, sgroups, groups, rooms, base_day_start=9):
             meetings = []
             for i, sg in enumerate(sgroups):
                 for j, grp in enumerate(groups):
                     room = rooms[(i + j) % len(rooms)]
-                    # unique tuple to avoid duplicates on re-run
                     mtg, _ = Meeting.objects.get_or_create(
                         recruitment=recruitment,
                         subject_group=sg,
                         group=grp,
                         room=room,
-                        start_timeslot=base_day_start + j,  # hour-styled timeslot
+                        start_timeslot=base_day_start + j,
                         day_of_week=(i + j) % 5,
                         day_of_cycle=(i + j) % 7,
                         defaults={'required_tag': tag_project if (i + j) % 2 == 0 else tag_lab}
@@ -215,7 +235,14 @@ class Command(BaseCommand):
         meetings_alpha_draft = ensure_meetings(rec_alpha_draft, sgroups_alpha_draft, groups_alpha, rooms_alpha)
         meetings_beta_active = ensure_meetings(rec_beta_active, sgroups_beta_active, groups_beta, rooms_beta)
 
-        # 10) Link users to recruitments (participants + hosts)
+        # 11) RoomRecruitment relacje (powiązanie pomieszczeń z rekrutacjami w organizacji)
+        for room in rooms_alpha:
+            for rec in [rec_alpha_active, rec_alpha_draft]:
+                RoomRecruitment.objects.get_or_create(room=room, recruitment=rec)
+        for room in rooms_beta:
+            RoomRecruitment.objects.get_or_create(room=room, recruitment=rec_beta_active)
+
+        # 12) Link users to recruitments (participants + hosts)
         def attach_users_to_recruitment(users, recruitment):
             for u in users:
                 UserRecruitment.objects.get_or_create(user=u, recruitment=recruitment)
@@ -224,9 +251,8 @@ class Command(BaseCommand):
         attach_users_to_recruitment(participants_alpha[:10], rec_alpha_draft)
         attach_users_to_recruitment(participants_beta + hosts_beta, rec_beta_active)
 
-        # 11) Preferences: create JSONs matching DEFAULT_USER_PREFERENCES and DEFAULT_HOST_PREFERENCES
+        # 13) Preferences (sample structures)
         def sample_user_preferences(user, recruitment, groups_for_rec):
-            # Lengths per provided defaults: 7 timeslots in cycle, len(groups) groups
             timeslots_in_cycle = 7
             preferred_timeslots = [0 for _ in range(timeslots_in_cycle)]
             preferred_groups = [0 for _ in range(len(groups_for_rec))]
@@ -246,7 +272,6 @@ class Command(BaseCommand):
                 'PreferredTimeslots': preferred_timeslots,
             }
 
-        # store participants' user preferences
         for u in participants_alpha[:5]:
             UserPreferences.objects.get_or_create(
                 user=u, recruitment=rec_alpha_active,
@@ -257,7 +282,6 @@ class Command(BaseCommand):
                 user=u, recruitment=rec_beta_active,
                 defaults={'preferences_data': sample_user_preferences(u, rec_beta_active, groups_beta)}
             )
-        # optionally store hosts' preferences as well (using host schema)
         for h in hosts_alpha[:2]:
             UserPreferences.objects.get_or_create(
                 user=h, recruitment=rec_alpha_active,
@@ -269,12 +293,10 @@ class Command(BaseCommand):
                 defaults={'preferences_data': sample_host_preferences(h, rec_beta_active)}
             )
 
-        # 12) Constraints and HeatmapCache — match DEFAULT_CONSTRAINTS structure
+        # 14) Constraints & HeatmapCache
         def build_constraints_for_recruitment(recruitment, groups_for_rec, rooms_for_rec, subjects_for_rec, students_for_rec, teachers_for_rec):
-            # basic sizes
-            timeslots_daily = 32  # 8 hours * 4 (15min)
+            timeslots_daily = 32
             days_in_cycle = 7
-            # indices maps
             subj_index = {s.subject_id: idx for idx, s in enumerate(subjects_for_rec)}
             room_index = {r.room_id: idx for idx, r in enumerate(rooms_for_rec)}
             group_index = {g.group_id: idx for idx, g in enumerate(groups_for_rec)}
@@ -284,33 +306,24 @@ class Command(BaseCommand):
             groups_capacity = [20 for _ in groups_for_rec]
             rooms_capacity = [r.capacity for r in rooms_for_rec]
 
-            # Tags universe for indexing (limit to known demo tags)
-            tag_list = []
-            for t in Tag.objects.filter(tag_name__in=['projector', 'lab']).order_by('tag_name'):
-                tag_list.append(t)
+            tag_list = list(Tag.objects.filter(tag_name__in=['projector', 'lab']).order_by('tag_name'))
             tag_index = {t.tag_id: idx for idx, t in enumerate(tag_list)}
 
-            # RoomsTags pairs (room_idx, tag_idx)
             rooms_tags_pairs = []
             for r in rooms_for_rec:
                 for rt in r.room_tags.select_related('tag').all():
                     if rt.tag_id in tag_index:
                         rooms_tags_pairs.append([room_index[r.room_id], tag_index[rt.tag.tag_id]])
 
-            # GroupsTags: not modeled; keep empty or infer from meetings' required_tag
             groups_tags_pairs = []
 
-            # StudentsSubjects: per student list of subject indices they take (based on UserSubjects)
             students_subjects = []
             for stu in students_for_rec:
                 subject_ids = list(UserSubjects.objects.filter(user=stu).values_list('subject__subject_id', flat=True))
                 idxs = [subj_index[sid] for sid in subject_ids if sid in subj_index]
                 students_subjects.append(idxs)
 
-            # TeachersGroups: per teacher list of all group indices
             teachers_groups = [[i for i in range(len(groups_for_rec))] for _ in teachers_for_rec]
-
-            # Unavailability placeholders
             rooms_unavailability = [[] for _ in rooms_for_rec]
             students_unavailability = [[] for _ in students_for_rec]
             teachers_unavailability = [[] for _ in teachers_for_rec]
@@ -318,7 +331,7 @@ class Command(BaseCommand):
             return {
                 'TimeslotsDaily': timeslots_daily,
                 'DaysInCycle': days_in_cycle,
-                'MinStudentsPerGroup': groups_capacity,  # using capacity as minimal requirement demo
+                'MinStudentsPerGroup': groups_capacity,
                 'SubjectsDuration': subjects_duration,
                 'GroupsPerSubject': groups_per_subject,
                 'GroupsCapacity': groups_capacity,
@@ -332,11 +345,17 @@ class Command(BaseCommand):
                 'TeachersUnavailabilityTimeslots': teachers_unavailability,
             }
 
-        for rec, groups_for_rec, rooms_for_rec, subjects_for_rec, students_for_rec, teachers_for_rec in [
-            (rec_alpha_active, groups_alpha, rooms_alpha, subjects_alpha, participants_alpha, hosts_alpha),
-            (rec_beta_active, groups_beta, rooms_beta, subjects_beta, participants_beta, hosts_beta),
-            (rec_alpha_draft, groups_alpha, rooms_alpha, subjects_alpha, participants_alpha, hosts_alpha),
+        recruitment_subject_map = {
+            rec_alpha_active: subjects_alpha_active,
+            rec_alpha_draft: subjects_alpha_draft,
+            rec_beta_active: subjects_beta_active,
+        }
+        for rec, groups_for_rec, rooms_for_rec, students_for_rec, teachers_for_rec in [
+            (rec_alpha_active, groups_alpha, rooms_alpha, participants_alpha, hosts_alpha),
+            (rec_beta_active, groups_beta, rooms_beta, participants_beta, hosts_beta),
+            (rec_alpha_draft, groups_alpha, rooms_alpha, participants_alpha, hosts_alpha),
         ]:
+            subjects_for_rec = recruitment_subject_map[rec]
             Constraints.objects.get_or_create(
                 recruitment=rec,
                 defaults={'constraints_data': build_constraints_for_recruitment(
@@ -347,12 +366,16 @@ class Command(BaseCommand):
                 recruitment=rec,
                 defaults={
                     'last_updated': timezone.now(),
-                    'cached_value': [{'day_of_week': d, 'hour': 9 + d % 3, 'score': round(0.5 + d * 0.1, 2)} for d in range(5)]
+                    'cached_value': [
+                        {'day_of_week': d, 'hour': 9 + d % 3, 'score': round(0.5 + d * 0.1, 2)}
+                        for d in range(5)
+                    ]
                 }
             )
 
-        # 13) Optimizer: create a job and progress for each active recruitment
+        # 15) Optimizer jobs (tylko aktywne rekrutacje)
         for rec in [rec_alpha_active, rec_beta_active]:
+            subjects_for_rec = recruitment_subject_map[rec]
             job, _ = OptimizationJob.objects.get_or_create(
                 recruitment=rec,
                 status='queued',
@@ -360,7 +383,7 @@ class Command(BaseCommand):
                     'max_execution_time': 1200,
                     'problem_data': {
                         'recruitment_id': str(rec.recruitment_id),
-                        'subjects': [s.subject_name for s in subjects_alpha] if rec.organization == org_alpha else [s.subject_name for s in subjects_beta],
+                        'subjects': [s.subject_name for s in subjects_for_rec],
                         'groups': [g.group_name for g in (groups_alpha if rec.organization == org_alpha else groups_beta)],
                     },
                 }
@@ -371,14 +394,14 @@ class Command(BaseCommand):
                 defaults={'best_solution': {'fitness': 0.0, 'details': 'initial'}}
             )
 
-        # 14) UserSubjects: assign 2 random subjects to a subset of participants in each org
+        # 16) UserSubjects: przypisz 2 losowe przedmioty z aktywnej rekrutacji organizacji
         for user in participants_alpha[:10]:
-            subs = random.sample(subjects_alpha, k=min(2, len(subjects_alpha)))
+            subs = random.sample(subjects_alpha_active, k=min(2, len(subjects_alpha_active)))
             for sub in subs:
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
         for user in participants_beta[:10]:
-            subs = random.sample(subjects_beta, k=min(2, len(subjects_beta)))
+            subs = random.sample(subjects_beta_active, k=min(2, len(subjects_beta_active)))
             for sub in subs:
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
 
-        self.stdout.write(self.style.SUCCESS('Demo data seeding complete.'))
+        self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models).'))

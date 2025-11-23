@@ -10,6 +10,7 @@ from .views import (
     ActiveMeetingsByRoomView,
     UsersByRecruitmentView,
     TagsByRoomView,
+    RoomRecruitmentView,
 )
 
 urlpatterns = [
@@ -36,4 +37,7 @@ urlpatterns = [
 
     path('meetings/', MeetingView.as_view(), name='meetings'),
     path('meetings/<uuid:pk>/', MeetingView.as_view(), name='meeting-detail'),
+
+    path('room-recruitments/', RoomRecruitmentView.as_view(), name='room-recruitments'),
+    path('room-recruitments/<uuid:pk>/', RoomRecruitmentView.as_view(), name='room-recruitment-detail'),
 ]

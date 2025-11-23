@@ -11,9 +11,9 @@ class SubjectAdmin(admin.ModelAdmin):
 @admin.register(SubjectGroup)
 class SubjectGroupAdmin(admin.ModelAdmin):
     list_display = [field.name for field in SubjectGroup._meta.fields]
-    list_filter = ('recruitment', 'subject', 'host_user')
-    search_fields = ('subject__subject_name', 'host_user__username', 'recruitment__recruitment_name')
-    raw_id_fields = ('subject', 'recruitment', 'host_user')
+    list_filter = ('subject', 'host_user')
+    search_fields = ('subject__subject_name', 'host_user__username')
+    raw_id_fields = ('subject', 'host_user')
 
 
 @admin.register(Recruitment)
