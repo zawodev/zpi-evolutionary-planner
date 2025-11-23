@@ -11,96 +11,38 @@ from django.utils import timezone
 from datetime import timedelta
 
 
-DEFAULT_USER_PREFERENCES = {
-    "FreeDayPreference": 0, # weight, positive means want as much free days as possible, negative means prefer no free days
-    "ShortDayPreference": 0, # weight, positive means want as much short days as possible, negative means prefer no short days
-    "UniformityPreference": 0, # weight, positive means want uniform distribution of workload (every day similar amount of timeslots), negative means prefer concentrated workload (few busy days, few free days)
-    
-    "MinDayLength": 0, # minimal amount of timeslots every day should have
-    "MaxDayLength": 0, # maximal amount of timeslots every day should have
-    "PreferredDayStartTimeslot": 0, # exact day start timeslot when you want to start day work
-    "PreferredDayEndTimeslot": 0, # exact day end timeslot when you want to end day work
-    "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
-
 # pokazac zbiorcze statystyki dla grupy jak fituje dla kazdego usera
 # fitness calc type typu 01 do wyboru
-# porównać do optymalizacji planowej zachłannej (trudne) - albo random searchem + repair??? chyba sie da 
+# porównać do optymalizacji planowej zachłannej (trudne) - albo random searchem + repair??? chyba sie da
 
-    # --- ABOVE IS ABOUT TO CHANGE ---
+DEFAULT_USER_PREFERENCES = {
+    # INFO:
+    # - wagi we wszystkich mogą być dodatnie lub ujemne, 
+    # - wielkość wartości bezwglęzdnej określa siłę preferencji
+
+    # --- optional ---
+
+    "FreeDays": 0, # wolne dni (jak bardzo) - lub pracowite dni
+    "ShortDays": 0, # krótkie dni (jak bardzo) - lub długie dni
+    "UniformDays": 0, # równe dni długością względem innych dni - lub nierówne
+    "ConcentratedDays": 0, # skupienie roboty obok roboty a wolnego obok wolnego (jako całe dni) - pomieszane między sobą
+    
+    "MinGapsLength": [0, 0], # [value, weight]
+    "MaxGapsLength": [0, 0], # [value, weight]
+
+    "MinDayLength": [0, 0], # [value, weight]
+    "MaxDayLength": [0, 0], # [value, weight]
+
+    "PreferredDayStartTimeslot": [0, 0], # [value, weight]
+    "PreferredDayEndTimeslot": [0, 0], # [value, weight]
+
+    "TagOrder": [], # chce żeby tag A był od razu po tagu B (albo przynajmniej tego samego dnia) [[tagAId, tagBId, weight], ...]
+
+    # --- normal ---
     
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
     "PreferredGroups": [0, 0, 0, 0, 0] # for each group, weight
 }
-
-
-IDEAS_FOR_PREFERENCES = {
-    "FreeDay": {
-      "Value": 2, # preferowana liczba dni wolnych
-      "Weight": 5, # jak bardzo chcemy akurat to mieć
-      "MinAcceptable": 0, # minimalna akceptowalna liczba dni wolnych
-      "MaxAcceptable": 7 # maksymalna akceptowalna liczba dni wolnych (alternatywnie do Value?)
-    },
-
-    "ShortDay": {
-      "Value": 2, # preferowana liczba dni traktowanych jako "short" (<= ShortDayThreshold)
-      "Weight": 3,
-      "ShortDayThresholdHours": 2
-    },
-
-    "Evenness": {
-      "Value": 8, # skala 0..10 (10 = maksymalnie równe długością dni, 0 = wcale nie równe)
-      "Weight": 6
-    },
-
-    "Concentration": {
-      "Value": 3, # skala 0..10 (10 = maksymalnie skupione obok siebie dni wolnych/krótkich, 0 = wcale nie)
-      "Weight": 4
-    },
-
-    "MaxDayLength": {
-      "Value": 10, # preferowana maksymalna liczba godzin w dniu (per dzień? każdego dnia tak samo?)
-      "Weight": 5
-    },
-
-    "MinDayLength": {
-      "Value": 0, # analogicznie minimalna
-      "Weight": 2
-    },
-
-    "PreferredStartTime": {
-      "Value": 9.0, # godzina gdzie co do zasady chcemy zaczynać zajęcia
-      "Weight": 2,
-      "ToleranceHours": 1.5 # dopuszczalne odchylenie
-    },
-
-    "PreferredEndTime": {
-      "Value": 17.0, # analogicznie kończenie zajęć
-      "Weight": 2,
-      "ToleranceHours": 1.5
-    },
-
-    "BlockPreference": {
-      "Value": 5, # 0..10, dodatnie = wolę długie bloki, ujemne (0..5) = wolę rozproszone krótkie sloty
-      "Weight": 2
-    },
-
-    "TransitionCost": {
-      "Value": 5, # 0..10, im większe tym mniej lubię zmiany pomiędzy typami zajęć (np chce mieć ćwiczenia po wykładzie od razu)
-      "Weight": 1
-    },
-
-    "PreferredTimeslots": {
-      "Values": [0,0,0,0,0,0,0], # tutaj nasz faktyczny wektor na podstawie kalendarza tygodnia
-      "Weights": [1,1,1,1,1,1,1]
-    },
-
-    "PreferredGroups": {
-      "Values": [0,0,0,0,0], # tutaj per grupa informacje jakieś
-      "Weights": [1,1,1,1,1]
-    }
-}
-
-
 
 
 DEFAULT_CONSTRAINTS = {

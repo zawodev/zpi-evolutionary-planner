@@ -63,25 +63,78 @@ RawProblemData JsonParser::toRawProblemData(const nlohmann::json& j) {
         // preferences
         const auto& p = j.at("preferences");
         
-        // students preferences - array format: [WidthHeightInfo, [minGaps, maxGaps, weight], [timeslot_weights...], [group_weights...]]
+        // students preferences
         if (p.contains("students")) {
             for (const auto& s : p.at("students")) {
                 StudentPreference sp;
-                sp.width_height_info = s[0].get<int>();
-                sp.gaps_info = s[1].get<std::vector<int>>();
-                sp.preferred_timeslots = s[2].get<std::vector<int>>();
-                sp.preferred_groups = s[3].get<std::vector<int>>();
+                if (s.is_array()) {
+                    // Handle array format (positional)
+                    if (s.size() > 0) sp.free_days = s[0].get<int>();
+                    if (s.size() > 1) sp.short_days = s[1].get<int>();
+                    if (s.size() > 2) sp.uniform_days = s[2].get<int>();
+                    if (s.size() > 3) sp.concentrated_days = s[3].get<int>();
+                    if (s.size() > 4) sp.min_gaps_length = s[4].get<std::vector<int>>();
+                    if (s.size() > 5) sp.max_gaps_length = s[5].get<std::vector<int>>();
+                    if (s.size() > 6) sp.min_day_length = s[6].get<std::vector<int>>();
+                    if (s.size() > 7) sp.max_day_length = s[7].get<std::vector<int>>();
+                    if (s.size() > 8) sp.preferred_day_start_timeslot = s[8].get<std::vector<int>>();
+                    if (s.size() > 9) sp.preferred_day_end_timeslot = s[9].get<std::vector<int>>();
+                    if (s.size() > 10) sp.tag_order = s[10].get<std::vector<std::vector<int>>>();
+                    if (s.size() > 11) sp.preferred_timeslots = s[11].get<std::vector<int>>();
+                    if (s.size() > 12) sp.preferred_groups = s[12].get<std::vector<int>>();
+                } else {
+                    // Handle object format (named keys)
+                    sp.free_days = s.value("FreeDays", 0);
+                    sp.short_days = s.value("ShortDays", 0);
+                    sp.uniform_days = s.value("UniformDays", 0);
+                    sp.concentrated_days = s.value("ConcentratedDays", 0);
+                    sp.min_gaps_length = s.value("MinGapsLength", std::vector<int>{0, 0});
+                    sp.max_gaps_length = s.value("MaxGapsLength", std::vector<int>{0, 0});
+                    sp.min_day_length = s.value("MinDayLength", std::vector<int>{0, 0});
+                    sp.max_day_length = s.value("MaxDayLength", std::vector<int>{0, 0});
+                    sp.preferred_day_start_timeslot = s.value("PreferredDayStartTimeslot", std::vector<int>{0, 0});
+                    sp.preferred_day_end_timeslot = s.value("PreferredDayEndTimeslot", std::vector<int>{0, 0});
+                    sp.tag_order = s.value("TagOrder", std::vector<std::vector<int>>());
+                    sp.preferred_timeslots = s.value("PreferredTimeslots", std::vector<int>());
+                    sp.preferred_groups = s.value("PreferredGroups", std::vector<int>());
+                }
                 data.students_preferences.push_back(sp);
             }
         }
         
-        // teachers preferences - array format: [WidthHeightInfo, [minGaps, maxGaps, weight], [timeslot_weights...]]
+        // teachers preferences
         if (p.contains("teachers")) {
             for (const auto& t : p.at("teachers")) {
                 TeacherPreference tp;
-                tp.width_height_info = t[0].get<int>();
-                tp.gaps_info = t[1].get<std::vector<int>>();
-                tp.preferred_timeslots = t[2].get<std::vector<int>>();
+                if (t.is_array()) {
+                    // Handle array format (positional)
+                    if (t.size() > 0) tp.free_days = t[0].get<int>();
+                    if (t.size() > 1) tp.short_days = t[1].get<int>();
+                    if (t.size() > 2) tp.uniform_days = t[2].get<int>();
+                    if (t.size() > 3) tp.concentrated_days = t[3].get<int>();
+                    if (t.size() > 4) tp.min_gaps_length = t[4].get<std::vector<int>>();
+                    if (t.size() > 5) tp.max_gaps_length = t[5].get<std::vector<int>>();
+                    if (t.size() > 6) tp.min_day_length = t[6].get<std::vector<int>>();
+                    if (t.size() > 7) tp.max_day_length = t[7].get<std::vector<int>>();
+                    if (t.size() > 8) tp.preferred_day_start_timeslot = t[8].get<std::vector<int>>();
+                    if (t.size() > 9) tp.preferred_day_end_timeslot = t[9].get<std::vector<int>>();
+                    if (t.size() > 10) tp.tag_order = t[10].get<std::vector<std::vector<int>>>();
+                    if (t.size() > 11) tp.preferred_timeslots = t[11].get<std::vector<int>>();
+                } else {
+                    // Handle object format (named keys)
+                    tp.free_days = t.value("FreeDays", 0);
+                    tp.short_days = t.value("ShortDays", 0);
+                    tp.uniform_days = t.value("UniformDays", 0);
+                    tp.concentrated_days = t.value("ConcentratedDays", 0);
+                    tp.min_gaps_length = t.value("MinGapsLength", std::vector<int>{0, 0});
+                    tp.max_gaps_length = t.value("MaxGapsLength", std::vector<int>{0, 0});
+                    tp.min_day_length = t.value("MinDayLength", std::vector<int>{0, 0});
+                    tp.max_day_length = t.value("MaxDayLength", std::vector<int>{0, 0});
+                    tp.preferred_day_start_timeslot = t.value("PreferredDayStartTimeslot", std::vector<int>{0, 0});
+                    tp.preferred_day_end_timeslot = t.value("PreferredDayEndTimeslot", std::vector<int>{0, 0});
+                    tp.tag_order = t.value("TagOrder", std::vector<std::vector<int>>());
+                    tp.preferred_timeslots = t.value("PreferredTimeslots", std::vector<int>());
+                }
                 data.teachers_preferences.push_back(tp);
             }
         }
@@ -123,21 +176,39 @@ nlohmann::json JsonParser::toJson(const RawProblemData& data) {
     // preferences
     if (!data.students_preferences.empty()) {
         for (const auto& sp : data.students_preferences) {
-            json s = json::array();
-            s.push_back(sp.width_height_info);
-            s.push_back(sp.gaps_info);
-            s.push_back(sp.preferred_timeslots);
-            s.push_back(sp.preferred_groups);
+            json s;
+            s["FreeDays"] = sp.free_days;
+            s["ShortDays"] = sp.short_days;
+            s["UniformDays"] = sp.uniform_days;
+            s["ConcentratedDays"] = sp.concentrated_days;
+            s["MinGapsLength"] = sp.min_gaps_length;
+            s["MaxGapsLength"] = sp.max_gaps_length;
+            s["MinDayLength"] = sp.min_day_length;
+            s["MaxDayLength"] = sp.max_day_length;
+            s["PreferredDayStartTimeslot"] = sp.preferred_day_start_timeslot;
+            s["PreferredDayEndTimeslot"] = sp.preferred_day_end_timeslot;
+            s["TagOrder"] = sp.tag_order;
+            s["PreferredTimeslots"] = sp.preferred_timeslots;
+            s["PreferredGroups"] = sp.preferred_groups;
             j["preferences"]["students"].push_back(s);
         }
     }
     
     if (!data.teachers_preferences.empty()) {
         for (const auto& tp : data.teachers_preferences) {
-            json t = json::array();
-            t.push_back(tp.width_height_info);
-            t.push_back(tp.gaps_info);
-            t.push_back(tp.preferred_timeslots);
+            json t;
+            t["FreeDays"] = tp.free_days;
+            t["ShortDays"] = tp.short_days;
+            t["UniformDays"] = tp.uniform_days;
+            t["ConcentratedDays"] = tp.concentrated_days;
+            t["MinGapsLength"] = tp.min_gaps_length;
+            t["MaxGapsLength"] = tp.max_gaps_length;
+            t["MinDayLength"] = tp.min_day_length;
+            t["MaxDayLength"] = tp.max_day_length;
+            t["PreferredDayStartTimeslot"] = tp.preferred_day_start_timeslot;
+            t["PreferredDayEndTimeslot"] = tp.preferred_day_end_timeslot;
+            t["TagOrder"] = tp.tag_order;
+            t["PreferredTimeslots"] = tp.preferred_timeslots;
             j["preferences"]["teachers"].push_back(t);
         }
     }
@@ -154,7 +225,20 @@ RawSolutionData JsonParser::toRawSolutionData(const nlohmann::json& jsonData) {
         solutionData.by_group = jsonData.at("by_group").get<std::vector<std::vector<int>>>();
         solutionData.student_fitnesses = jsonData.at("student_fitnesses").get<std::vector<double>>();
         solutionData.teacher_fitnesses = jsonData.at("teacher_fitnesses").get<std::vector<double>>();
-        solutionData.management_fitness = jsonData.at("management_fitness").get<double>();
+        solutionData.student_detailed_fitnesses = jsonData.at("student_detailed_fitnesses").get<std::vector<std::vector<std::pair<double, double>>>>();
+        solutionData.teacher_detailed_fitnesses = jsonData.at("teacher_detailed_fitnesses").get<std::vector<std::vector<std::pair<double, double>>>>();
+        if (jsonData.contains("student_weighted_fitnesses")) {
+            solutionData.student_weighted_fitnesses = jsonData.at("student_weighted_fitnesses").get<std::vector<double>>();
+        }
+        if (jsonData.contains("teacher_weighted_fitnesses")) {
+            solutionData.teacher_weighted_fitnesses = jsonData.at("teacher_weighted_fitnesses").get<std::vector<double>>();
+        }
+        if (jsonData.contains("total_student_weight")) {
+            solutionData.total_student_weight = jsonData.at("total_student_weight").get<double>();
+        }
+        if (jsonData.contains("total_teacher_weight")) {
+            solutionData.total_teacher_weight = jsonData.at("total_teacher_weight").get<double>();
+        }
         return solutionData;
     } catch (const std::exception& e) {
         throw std::runtime_error("Failed to parse solution data: " + std::string(e.what()));
@@ -169,7 +253,12 @@ nlohmann::json JsonParser::toJson(const RawSolutionData& data) {
     j["by_group"] = data.by_group;
     j["student_fitnesses"] = data.student_fitnesses;
     j["teacher_fitnesses"] = data.teacher_fitnesses;
-    j["management_fitness"] = data.management_fitness;
+    j["student_detailed_fitnesses"] = data.student_detailed_fitnesses;
+    j["teacher_detailed_fitnesses"] = data.teacher_detailed_fitnesses;
+    j["student_weighted_fitnesses"] = data.student_weighted_fitnesses;
+    j["teacher_weighted_fitnesses"] = data.teacher_weighted_fitnesses;
+    j["total_student_weight"] = data.total_student_weight;
+    j["total_teacher_weight"] = data.total_teacher_weight;
     return j;
 }
 
@@ -340,7 +429,12 @@ void JsonParser::writeOutput(const std::string& filename, const Individual& indi
         json_str += "  \"by_group\": " + formatVectorOfVectors(j["by_group"], 4) + ",\n";
         json_str += "  \"student_fitnesses\": " + j["student_fitnesses"].dump() + ",\n";
         json_str += "  \"teacher_fitnesses\": " + j["teacher_fitnesses"].dump() + ",\n";
-        json_str += "  \"management_fitness\": " + std::to_string(j["management_fitness"].get<double>()) + "\n";
+        json_str += "  \"student_weighted_fitnesses\": " + j["student_weighted_fitnesses"].dump() + ",\n";
+        json_str += "  \"teacher_weighted_fitnesses\": " + j["teacher_weighted_fitnesses"].dump() + ",\n";
+        json_str += "  \"total_student_weight\": " + std::to_string(j["total_student_weight"].get<double>()) + ",\n";
+        json_str += "  \"total_teacher_weight\": " + std::to_string(j["total_teacher_weight"].get<double>()) + ",\n";
+        json_str += "  \"student_detailed_fitnesses\": " + j["student_detailed_fitnesses"].dump() + ",\n";
+        json_str += "  \"teacher_detailed_fitnesses\": " + j["teacher_detailed_fitnesses"].dump() + "\n";
         json_str += "}\n";
         out << json_str;
     } catch (const std::exception& e) {

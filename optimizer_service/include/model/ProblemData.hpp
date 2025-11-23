@@ -3,16 +3,34 @@
 #include <map>
 
 struct StudentPreference {
-    int width_height_info;              // positive = prefer wider, negative = prefer taller
-    std::vector<int> gaps_info;         // [minGaps, maxGaps, weight]
-    std::vector<int> preferred_timeslots;  // weight for each timeslot (negative = avoid, positive = prefer)
-    std::vector<int> preferred_groups;     // weight for each group (negative = avoid, positive = prefer)
+    int free_days;                      // weight
+    int short_days;                     // weight
+    int uniform_days;                   // weight
+    int concentrated_days;              // weight
+    std::vector<int> min_gaps_length;   // [value, weight]
+    std::vector<int> max_gaps_length;   // [value, weight]
+    std::vector<int> min_day_length;    // [value, weight]
+    std::vector<int> max_day_length;    // [value, weight]
+    std::vector<int> preferred_day_start_timeslot; // [value, weight]
+    std::vector<int> preferred_day_end_timeslot;   // [value, weight]
+    std::vector<std::vector<int>> tag_order;       // [[tagAId, tagBId, weight], ...]
+    std::vector<int> preferred_timeslots;  // weight for each timeslot
+    std::vector<int> preferred_groups;     // weight for each group
 };
 
 struct TeacherPreference {
-    int width_height_info;              // positive = prefer wider, negative = prefer taller
-    std::vector<int> gaps_info;         // [minGaps, maxGaps, weight]
-    std::vector<int> preferred_timeslots;  // weight for each timeslot (negative = avoid, positive = prefer)
+    int free_days;                      // weight
+    int short_days;                     // weight
+    int uniform_days;                   // weight
+    int concentrated_days;              // weight
+    std::vector<int> min_gaps_length;   // [value, weight]
+    std::vector<int> max_gaps_length;   // [value, weight]
+    std::vector<int> min_day_length;    // [value, weight]
+    std::vector<int> max_day_length;    // [value, weight]
+    std::vector<int> preferred_day_start_timeslot; // [value, weight]
+    std::vector<int> preferred_day_end_timeslot;   // [value, weight]
+    std::vector<std::vector<int>> tag_order;       // [[tagAId, tagBId, weight], ...]
+    std::vector<int> preferred_timeslots;  // weight for each timeslot
 };
 
 struct RawProblemData {
@@ -55,6 +73,8 @@ private:
     std::vector<int> _cumulative_groups;
     std::vector<int> _student_weights_sums;
     std::vector<int> _subject_student_count;
+    std::vector<std::vector<int>> _groups_tags_indexed;
+    std::vector<std::vector<int>> _rooms_tags_indexed;
     
     bool _isFeasible;
     bool checkFeasibility() const;
@@ -72,6 +92,8 @@ public:
     const std::vector<int>& getRoomsCapacity() const { return _rawData.rooms_capacity; }
     const std::vector<std::vector<int>>& getGroupsTags() const { return _rawData.groups_tags; }
     const std::vector<std::vector<int>>& getRoomsTags() const { return _rawData.rooms_tags; }
+    const std::vector<std::vector<int>>& getGroupsTagsIndexed() const { return _groups_tags_indexed; }
+    const std::vector<std::vector<int>>& getRoomsTagsIndexed() const { return _rooms_tags_indexed; }
     const std::vector<std::vector<int>>& getStudentsSubjects() const { return _rawData.students_subjects; }
     const std::vector<std::vector<int>>& getTeachersGroups() const { return _rawData.teachers_groups; }
     const std::vector<std::vector<int>>& getRoomsUnavailabilityTimeslots() const { return _rawData.rooms_unavailability_timeslots; }

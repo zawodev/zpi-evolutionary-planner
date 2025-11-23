@@ -52,4 +52,4 @@ class MeetingAdmin(admin.ModelAdmin):
         'subject_group__host_user__first_name',
         'subject_group__host_user__last_name',
     )
-    raw_id_fields = ('recruitment', 'subject_group', 'group', 'room', 'required_tag')
+    raw_id_fields = ('recruitment', 'subject_group', 'group', 'room')

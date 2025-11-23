@@ -215,14 +215,10 @@ class Meeting(models.Model):
         db_column='roomid',
         related_name='meetings'
     )
-    required_tag = models.ForeignKey(
-        Tag,
-        on_delete=models.CASCADE,
-        db_column='requiredtagid',
-        blank=True,
-        null=True
-    )
-    start_timeslot = models.IntegerField()
+    start_timeslot = models.IntegerField(default=0)
+    duration = models.IntegerField(default=4, help_text="Duration in 15-minute blocks")
+    start_time = models.TimeField(default='00:00:00')
+    end_time = models.TimeField(default='00:15:00')
     day_of_week = models.IntegerField(help_text="Day of week (0=Monday, 6=Sunday)")
     day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-27")
 

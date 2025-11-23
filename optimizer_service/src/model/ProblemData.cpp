@@ -32,16 +32,25 @@ ProblemData::ProblemData(const RawProblemData& input_data) : _rawData(input_data
     _student_weights_sums.resize(getStudentsNum(), 0);
     for (int s = 0; s < getStudentsNum(); ++s) {
         const auto& pref = _rawData.students_preferences[s];
-        // sum width_height_info weight
-        _student_weights_sums[s] += std::abs(pref.width_height_info);
-        // sum gaps_info weight (third element is weight)
-        if (pref.gaps_info.size() >= 3) {
-            _student_weights_sums[s] += std::abs(pref.gaps_info[2]);
+        
+        _student_weights_sums[s] += std::abs(pref.free_days);
+        _student_weights_sums[s] += std::abs(pref.short_days);
+        _student_weights_sums[s] += std::abs(pref.uniform_days);
+        _student_weights_sums[s] += std::abs(pref.concentrated_days);
+        
+        if (pref.min_gaps_length.size() >= 2) _student_weights_sums[s] += std::abs(pref.min_gaps_length[1]);
+        if (pref.max_gaps_length.size() >= 2) _student_weights_sums[s] += std::abs(pref.max_gaps_length[1]);
+        if (pref.min_day_length.size() >= 2) _student_weights_sums[s] += std::abs(pref.min_day_length[1]);
+        if (pref.max_day_length.size() >= 2) _student_weights_sums[s] += std::abs(pref.max_day_length[1]);
+        if (pref.preferred_day_start_timeslot.size() >= 2) _student_weights_sums[s] += std::abs(pref.preferred_day_start_timeslot[1]);
+        if (pref.preferred_day_end_timeslot.size() >= 2) _student_weights_sums[s] += std::abs(pref.preferred_day_end_timeslot[1]);
+        
+        for (const auto& rule : pref.tag_order) {
+            if (rule.size() >= 3) _student_weights_sums[s] += std::abs(rule[2]);
         }
-        // sum preferred_timeslots weights (absolute values)
-        for (int weight : pref.preferred_timeslots) {
-            _student_weights_sums[s] += std::abs(weight);
-        }
+        
+        if (!pref.preferred_timeslots.empty()) _student_weights_sums[s] += 1;
+
         // sum preferred_groups weights (absolute values)
         for (int weight : pref.preferred_groups) {
             _student_weights_sums[s] += std::abs(weight);
@@ -68,6 +77,30 @@ ProblemData::ProblemData(const RawProblemData& input_data) : _rawData(input_data
     str += "]";
     str2 += "]";
     Logger::info("Subject student counts: " + str + ", capacities: " + str2);
+
+    // calculate _groups_tags_indexed
+    _groups_tags_indexed.resize(getGroupsNum());
+    for (const auto& gt : _rawData.groups_tags) {
+        if (gt.size() >= 2) {
+            int gid = gt[0];
+            int tid = gt[1];
+            if (gid >= 0 && gid < getGroupsNum()) {
+                _groups_tags_indexed[gid].push_back(tid);
+            }
+        }
+    }
+
+    // calculate _rooms_tags_indexed
+    _rooms_tags_indexed.resize(getRoomsNum());
+    for (const auto& rt : _rawData.rooms_tags) {
+        if (rt.size() >= 2) {
+            int rid = rt[0];
+            int tid = rt[1];
+            if (rid >= 0 && rid < getRoomsNum()) {
+                _rooms_tags_indexed[rid].push_back(tid);
+            }
+        }
+    }
 
     _isFeasible = checkFeasibility();
 }

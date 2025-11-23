@@ -37,10 +37,12 @@ void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
         Individual ind;
         InitRandomInd(ind);
         population.push_back(ind);
+        //std::cout << i << ": " << ind.fitness << "\n";
     }
 
     // debug info
     Logger::debug("Start fitness: " + std::to_string(bestIndividual.fitness));
+    // exit(1);
 }
 
 Individual ZawodevGeneticAlgorithm::RunIteration(int currentIteration) {
@@ -90,21 +92,24 @@ void ZawodevGeneticAlgorithm::RunInnerIteration(int currentInnerIteration) {
     //idk above need to be fixed looks ugly but i gotta go
 }
 
-void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const
-{
-    individual.genotype.clear();
-    for (int i = 0; i < evaluator->getTotalGenes(); ++i) {
-        std::uniform_int_distribution<int> dist(0, evaluator->getMaxGeneValue(i));
-        individual.genotype.push_back(dist(rng));
+void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const {
+    int count = 0;
+    individual.fitness = -1.0;
+    while (individual.fitness < 0) {
+        individual.genotype.clear();
+        for (int i = 0; i < evaluator->getTotalGenes(); ++i) {
+            std::uniform_int_distribution<int> dist(0, evaluator->getMaxGeneValue(i));
+            individual.genotype.push_back(dist(rng));
+        }
+        individual.fitness = evaluator->evaluate(individual);
+        count++;
+        if (count > 1000) {
+            Logger::error("Failed to initialize a valid individual after 1000 attempts.");
+            break;
+        }
     }
-
-    bool wasRepaired = evaluator->repair(individual);
-    if (wasRepaired) {
-        //Logger::debug("Individual's genotype was repaired. Now solution is valid.");
-    }
-
-    // still debating myself if we should evaluate here or not
-    individual.fitness = evaluator->evaluate(individual);
+    // Logger::debug("Initialized random individual after " + std::to_string(count) + " attempts with fitness: " + std::to_string(individual.fitness));
+    // exit(1);
 }
 
 void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
@@ -120,25 +125,26 @@ void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
 
     for (size_t geneIdx : geneIndices) {
         int originalValue = individual.genotype[geneIdx];
-        double originalFitness = individual.fitness;
+        // double originalFitness = individual.fitness; // unused
 
-        int bestVal = originalValue;
-        double bestFitness = originalFitness;
+        Individual bestInd = individual;
+        double bestFitness = individual.fitness;
 
         for (int val = 0; val <= evaluator->getMaxGeneValue((int)geneIdx); ++val) {
             if (val == originalValue) continue;
 
-            individual.genotype[geneIdx] = val;
-            double newFitness = evaluator->evaluate(individual);
+            Individual tempInd = individual;
+            tempInd.genotype[geneIdx] = val;
+            double newFitness = evaluator->evaluate(tempInd);
+            
             if (newFitness > bestFitness) {
                 bestFitness = newFitness;
-                bestVal = val;
+                bestInd = tempInd;
             }
         }
 
-        // Set to the best found value
-        individual.genotype[geneIdx] = bestVal;
-        individual.fitness = bestFitness;
+        // Set to the best found individual (which might be repaired)
+        individual = bestInd;
     }
     //Logger::debug("After FIHC: ");
     //individual.printDebugInfo();
@@ -176,4 +182,5 @@ void ZawodevGeneticAlgorithm::MutateInd(Individual &individual) {
         int val = rand() % evaluator->getMaxGeneValue(idx);
         individual.genotype[idx] = val;
     }
+    individual.fitness = evaluator->evaluate(individual);
 }

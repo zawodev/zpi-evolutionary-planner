@@ -3,6 +3,7 @@ import redis
 import threading
 import time
 from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
 from channels.layers import get_channel_layer
@@ -86,39 +87,66 @@ def convert_preferences_to_problem_data(recruitment_id: str) -> Dict[str, Any]:
                 )
                 prefs_data = user_prefs.preferences_data
                 
-                # extract preference fields (new format with capital case)
-                width_height_info = prefs_data.get('WidthHeightInfo', 0)
-                gaps_info = prefs_data.get('GapsInfo', [0, 0, 0])
-                preferred_timeslots = prefs_data.get('PreferredTimeslots', [])
-                preferred_groups = prefs_data.get('PreferredGroups', [])
+                # Extract all fields for positional format (matching C++ JsonParser)
+                # 0: FreeDays (int)
+                # 1: ShortDays (int)
+                # 2: UniformDays (int)
+                # 3: ConcentratedDays (int)
+                # 4: MinGapsLength ([val, weight])
+                # 5: MaxGapsLength ([val, weight])
+                # 6: MinDayLength ([val, weight])
+                # 7: MaxDayLength ([val, weight])
+                # 8: PreferredDayStartTimeslot ([val, weight])
+                # 9: PreferredDayEndTimeslot ([val, weight])
+                # 10: TagOrder ([[tagA, tagB, weight], ...])
+                # 11: PreferredTimeslots ([weight, ...])
+                # 12: PreferredGroups ([weight, ...]) - Students only
+                
+                free_days = prefs_data.get('FreeDays', 0)
+                short_days = prefs_data.get('ShortDays', 0)
+                uniform_days = prefs_data.get('UniformDays', 0)
+                concentrated_days = prefs_data.get('ConcentratedDays', 0)
+                min_gaps_length = prefs_data.get('MinGapsLength', [0, 0])
+                max_gaps_length = prefs_data.get('MaxGapsLength', [0, 0])
+                min_day_length = prefs_data.get('MinDayLength', [0, 0])
+                max_day_length = prefs_data.get('MaxDayLength', [0, 0])
+                pref_day_start = prefs_data.get('PreferredDayStartTimeslot', [0, 0])
+                pref_day_end = prefs_data.get('PreferredDayEndTimeslot', [0, 0])
+                tag_order = prefs_data.get('TagOrder', [])
+                pref_timeslots = prefs_data.get('PreferredTimeslots', [])
+                
+                # Common part
+                common_pref = [
+                    free_days,
+                    short_days,
+                    uniform_days,
+                    concentrated_days,
+                    min_gaps_length,
+                    max_gaps_length,
+                    min_day_length,
+                    max_day_length,
+                    pref_day_start,
+                    pref_day_end,
+                    tag_order,
+                    pref_timeslots
+                ]
                 
                 if user.role == 'participant':
-                    # students: [WidthHeightInfo, GapsInfo, PreferredTimeslots, PreferredGroups]
-                    student_pref = [
-                        width_height_info,
-                        gaps_info,
-                        preferred_timeslots,
-                        preferred_groups
-                    ]
-                    students_preferences.append(student_pref)
+                    pref_groups = prefs_data.get('PreferredGroups', [])
+                    students_preferences.append(common_pref + [pref_groups])
                     
                 elif user.role == 'host':
-                    # teachers: [WidthHeightInfo, GapsInfo, PreferredTimeslots]
-                    # without PreferredGroups
-                    teacher_pref = [
-                        width_height_info,
-                        gaps_info,
-                        preferred_timeslots
-                    ]
-                    teachers_preferences.append(teacher_pref)
+                    teachers_preferences.append(common_pref)
                     
             except UserPreferences.DoesNotExist:
                 logger.warning(f"No preferences found for user {user.id} in recruitment {recruitment_id}")
-                # default preferences based on role
+                # default preferences based on role (matching the structure above with 0s)
+                default_pref = [0, 0, 0, 0, [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [], []]
+                
                 if user.role == 'participant':
-                    students_preferences.append([0, [0, 0, 0], [], []])
+                    students_preferences.append(default_pref + [[]])
                 elif user.role == 'host':
-                    teachers_preferences.append([0, [0, 0, 0], []])
+                    teachers_preferences.append(default_pref)
         
         # build problem_data structure (with constraints and preferences separation)
         problem_data = {
@@ -205,13 +233,15 @@ def convert_solution_to_meetings(job_id: str) -> None:
             constraints_data = constraints.constraints_data
             timeslots_daily = constraints_data.get('TimeslotsDaily', 0)
             days_in_cycle = constraints_data.get('DaysInCycle', 0)
+            students_subjects = constraints_data.get('StudentsSubjects', [])
+            groups_per_subject = constraints_data.get('GroupsPerSubject', [])
         except Constraints.DoesNotExist:
             logger.error(f"No constraints found for recruitment {recruitment_id}")
             return
         
         # Get ordered lists of subject groups, rooms, and users for this recruitment
         subject_groups = list(
-            SubjectGroup.objects.filter(recruitment_id=recruitment_id)
+            SubjectGroup.objects.filter(subject__recruitment_id=recruitment_id)
             .order_by('subject_group_id')
         )
         
@@ -238,6 +268,30 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 f"and participants count ({len(participants)})"
             )
             return
+        
+        # Convert by_student from relative to global group indices
+        # Calculate subject group offsets (prefix sums)
+        subject_group_offsets = [0] * len(groups_per_subject)
+        current_offset = 0
+        for i, count in enumerate(groups_per_subject):
+            subject_group_offsets[i] = current_offset
+            current_offset += count
+
+        global_by_student = []
+        for s_idx, rel_groups in enumerate(by_student):
+            if s_idx < len(students_subjects):
+                subj_indices = students_subjects[s_idx]
+                global_groups = []
+                for i, rel_group in enumerate(rel_groups):
+                    if i < len(subj_indices):
+                        subj_idx = subj_indices[i]
+                        if subj_idx < len(subject_group_offsets):
+                            global_groups.append(subject_group_offsets[subj_idx] + rel_group)
+                global_by_student.append(global_groups)
+            else:
+                global_by_student.append([])
+        
+        by_student = global_by_student
         
         # Use transaction to ensure atomicity
         with transaction.atomic():
@@ -277,11 +331,39 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 # Calculate day_of_week and day_of_cycle from timeslot
                 if timeslots_daily > 0:
                     day_of_cycle = start_timeslot // timeslots_daily
+                    timeslot_in_day = start_timeslot % timeslots_daily
                     day_of_week = day_of_cycle % 7
                 else:
                     day_of_cycle = 0
+                    timeslot_in_day = 0
                     day_of_week = 0
                 
+                # Calculate start_time and end_time
+                # Default to 00:00 AM if not set
+                day_start = recruitment.day_start_time or datetime.strptime("00:00", "%H:%M").time()
+                
+                # We need a dummy date to combine with time for arithmetic
+                dummy_date = datetime.today().date()
+                base_dt = datetime.combine(dummy_date, day_start)
+                
+                start_dt = base_dt + timedelta(minutes=timeslot_in_day * 15)
+                end_dt = start_dt + timedelta(minutes=subject_group.subject.duration_blocks * 15)
+                
+                start_time = start_dt.time()
+                end_time = end_dt.time()
+                
+                # Find students assigned to this subject group from by_student
+                students_in_group = []
+                for student_idx, student_groups in enumerate(by_student):
+                    if group_idx in student_groups:
+                        if student_idx < len(participants):
+                            students_in_group.append(participants[student_idx])
+                
+                # Skip creating meeting if no students are assigned
+                if not students_in_group:
+                    logger.info(f"Skipping meeting creation for group {group_idx} (subject {subject_group.subject.subject_name}) - no students assigned")
+                    continue
+
                 # Create Identity Group for this meeting
                 # Group name format: "Meeting_<recruitment_name>_<subject_name>_<group_idx>"
                 group_name = f"Meeting_{recruitment.recruitment_name}_{subject_group.subject.subject_name}_{group_idx}"
@@ -297,13 +379,6 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 logger.info(f"Created identity group {identity_group.group_id}")
                 logger.info(f"Identity group details: {identity_group}")
                 
-                # Find students assigned to this subject group from by_student
-                students_in_group = []
-                for student_idx, student_groups in enumerate(by_student):
-                    if group_idx in student_groups:
-                        if student_idx < len(participants):
-                            students_in_group.append(participants[student_idx])
-                
                 # Add students to the identity group
                 for student in students_in_group:
                     UserGroup.objects.create(
@@ -318,6 +393,9 @@ def convert_solution_to_meetings(job_id: str) -> None:
                     group=identity_group,
                     room=room,
                     start_timeslot=start_timeslot,
+                    duration=subject_group.subject.duration_blocks,
+                    start_time=start_time,
+                    end_time=end_time,
                     day_of_week=day_of_week,
                     day_of_cycle=day_of_cycle
                 )

@@ -5,9 +5,12 @@
 #include <stdexcept>
 
 RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData& data, const Evaluator& evaluator) {
-    // we copy basic data
-    genotype = individual.genotype;
-    fitness = evaluator.evaluate(individual);
+    // Make a mutable copy to allow repair during evaluation
+    Individual mutableIndividual = individual;
+    fitness = evaluator.evaluate(mutableIndividual);
+    
+    // Use the repaired genotype
+    genotype = mutableIndividual.genotype;
     
     int studentsNum = data.getStudentsNum();
     int groupsNum = data.getGroupsNum();
@@ -42,6 +45,12 @@ RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData
     // get last fitness data from evaluator
     student_fitnesses = evaluator.getLastStudentFitnesses();
     teacher_fitnesses = evaluator.getLastTeacherFitnesses();
+    student_detailed_fitnesses = evaluator.getLastStudentDetailedFitnesses();
+    teacher_detailed_fitnesses = evaluator.getLastTeacherDetailedFitnesses();
+    student_weighted_fitnesses = evaluator.getLastStudentWeightedFitnesses();
+    teacher_weighted_fitnesses = evaluator.getLastTeacherWeightedFitnesses();
+    total_student_weight = evaluator.getLastTotalStudentWeight();
+    total_teacher_weight = evaluator.getLastTotalTeacherWeight();
     
-    Logger::debug("RawSolutionData created with fitness: " + std::to_string(fitness));
+    //Logger::debug("RawSolutionData created with fitness: " + std::to_string(fitness));
 }

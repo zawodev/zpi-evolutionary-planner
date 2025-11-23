@@ -39,8 +39,8 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ZawodevGeneticAlgorithm>();
     Logger::info("Using genetic algorithm: " + std::string(typeid(*geneticAlgorithm).name()));
     
-    //int seed = 42;
-    int seed = std::random_device{}();
+    int seed = 819300141;
+    //int seed = std::random_device{}();
     Logger::info("Initializing genetic algorithm with seed: " + std::to_string(seed));
     geneticAlgorithm->Init(data, evaluator, seed);
     Logger::info("Genetic algorithm initialization complete. Starting iterations...");

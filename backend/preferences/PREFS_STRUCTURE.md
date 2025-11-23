@@ -1,14 +1,58 @@
 DEFAULT_USER_PREFERENCES = {
-    "WidthHeightInfo": 0, # weight, positive means prefer wider, negative means prefer taller
-    "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
+    # INFO:
+    # - wagi we wszystkich mogą być dodatnie lub ujemne, 
+    # - wielkość wartości bezwglęzdnej określa siłę preferencji
+
+    # --- optional ---
+
+    "FreeDays": 0, # wolne dni (jak bardzo) 
+    "ShortDays": 0, # krótkie dni (jak bardzo)
+    "UniformDays": 0, # równe dni długością względem innych dni
+    "ConcentratedDays": 0, # skupienie roboty obok roboty a wolnego obok wolnego (jako całe dni)
+    
+    "MinGapsLength": [0, 0], # [value, weight]
+    "MaxGapsLength": [0, 0], # [value, weight]
+
+    "MinDayLength": [0, 0], # [value, weight]
+    "MaxDayLength": [0, 0], # [value, weight]
+
+    "PreferredDayStartTimeslot": [0, 0], # [value, weight]
+    "PreferredDayEndTimeslot": [0, 0], # [value, weight]
+
+    "TagOrder": [0, 0, 0], # chce żeby tag A był od razu po tagu B (albo przynajmniej tego samego dnia) [tagAId, tagBId, weight]
+
+    # --- normal ---
+    
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
     "PreferredGroups": [0, 0, 0, 0, 0] # for each group, weight
 }
 
 
 DEFAULT_HOST_PREFERENCES = {
-    "WidthHeightInfo": 0, # weight, positive means prefer wider, negative means prefer taller
-    "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
+    # INFO:
+    # - wagi we wszystkich mogą być dodatnie lub ujemne, 
+    # - wielkość wartości bezwglęzdnej określa siłę preferencji
+
+    # --- optional ---
+
+    "FreeDays": 0, # wolne dni (jak bardzo) 
+    "ShortDays": 0, # krótkie dni (jak bardzo)
+    "UniformDays": 0, # równe dni długością względem innych dni
+    "ConcentratedDays": 0, # skupienie roboty obok roboty a wolnego obok wolnego (jako całe dni)
+    
+    "MinGapsLength": [0, 0], # [value, weight]
+    "MaxGapsLength": [0, 0], # [value, weight]
+
+    "MinDayLength": [0, 0], # [value, weight]
+    "MaxDayLength": [0, 0], # [value, weight]
+
+    "PreferredDayStartTimeslot": [0, 0], # [value, weight]
+    "PreferredDayEndTimeslot": [0, 0], # [value, weight]
+
+    "TagOrder": [0, 0, 0], # chce żeby tag A był od razu po tagu B (albo przynajmniej tego samego dnia) [tagAId, tagBId, weight]
+
+    # --- normal ---
+    
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
 }
 

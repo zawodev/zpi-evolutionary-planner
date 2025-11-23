@@ -35,7 +35,12 @@ struct RawSolutionData {
     std::vector<std::vector<int>> by_group;
     std::vector<double> student_fitnesses;
     std::vector<double> teacher_fitnesses;
-    double management_fitness = 0.0;
+    std::vector<std::vector<std::pair<double, double>>> student_detailed_fitnesses;
+    std::vector<std::vector<std::pair<double, double>>> teacher_detailed_fitnesses;
+    std::vector<double> student_weighted_fitnesses;
+    std::vector<double> teacher_weighted_fitnesses;
+    double total_student_weight = 0.0;
+    double total_teacher_weight = 0.0;
     
     RawSolutionData() = default;
     
