@@ -43,19 +43,19 @@ Individual ExampleGeneticAlgorithm::RunIteration(int currentIteration) {
 }
 
 void ExampleGeneticAlgorithm::initRandom(Individual& individual) const {
-    // losowa inicjalizacja genotypu
-    individual.genotype.clear();
-    for (int i = 0; i < evaluator->getTotalGenes(); ++i) {
-        std::uniform_int_distribution<int> dist(0, evaluator->getMaxGeneValue(i));
-        individual.genotype.push_back(dist(rng));
+    int count = 0;
+    individual.fitness = -1.0;
+    while (individual.fitness < 0) {
+        individual.genotype.clear();
+        for (int i = 0; i < evaluator->getTotalGenes(); ++i) {
+            std::uniform_int_distribution<int> dist(0, evaluator->getMaxGeneValue(i));
+            individual.genotype.push_back(dist(rng));
+        }
+        individual.fitness = evaluator->evaluate(individual);
+        count++;
+        if (count > 1000) {
+            Logger::error("Failed to initialize a valid individual after 1000 attempts.");
+            break;
+        }
     }
-
-    // naprawa genotypu, żeby nie łamał ograniczeń
-    bool wasRepaired = evaluator->repair(individual);
-    if (wasRepaired) {
-        //Logger::debug("Individual's genotype was repaired. Now solution is valid.");
-    }
-
-    // obliczanie fitnessu
-    individual.fitness = evaluator->evaluate(individual);
 }
