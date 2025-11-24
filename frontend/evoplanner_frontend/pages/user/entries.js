@@ -1,11 +1,11 @@
 /* pages/entries.js */
 
 import React, { useState, useRef, useEffect } from "react";
-import { useAuth } from '../contexts/AuthContext';
-import { useRecruitments } from '../hooks/useRecruitments';
-import { usePreferences } from '../hooks/usePreferences';
-import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../utils/scheduleOperations';
-import { timeToMinutes } from '../utils/scheduleDisplay';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRecruitments } from '../../hooks/useRecruitments';
+import { usePreferences } from '../../hooks/usePreferences';
+import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../../utils/scheduleOperations';
+import { timeToMinutes } from '../../utils/scheduleDisplay';
 
 const getGridStartHour = (recruitment) => {
     const timeStr = recruitment?.day_start_time || "07:00";
