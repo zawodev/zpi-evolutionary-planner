@@ -17,7 +17,7 @@ def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
 
     Notes:
     - Sorting is by day_of_week then start_timeslot to reflect the current Meeting model.
-    - select_related includes recruitment, room, required_tag, subject_group (with subject and host_user), and group.
+    - select_related includes recruitment, room, subject_group (with subject and host_user), and group.
     """
     room_id = room_or_id.pk if hasattr(room_or_id, 'pk') else room_or_id
 
@@ -143,7 +143,9 @@ def prepare_optimization_constraints(recruitment: Recruitment):
 
     # c) MinStudentsPerGroup – minimalna liczba studentów na grupę
     # Interpretacja: weź liczbę studentów aktualnie przypisanych do grupy lub 1 jeśli pusta.
-    groups_in_recruitment = Group.objects.filter(meetings__recruitment=recruitment).distinct()
+    groups_in_recruitment = Group.objects.filter(
+        meetings__subject_group__subject__recruitment=recruitment
+    ).distinct()
     min_students_per_group = []
     groups_capacity = []  # e) (przeznaczone do GroupsCapacity)
     group_tags = []       # e) GroupTags brak definicji tagów dla Group – zostawiamy pustą strukturę
@@ -161,8 +163,8 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     groups_per_subject = []
     subject_index_map = {s.subject_id: i for i, s in enumerate(subjects)}
     for s in subjects:
-        # Liczba różnych grup przypisanych do spotkań tego przedmiotu
-        grp_count = Group.objects.filter(meetings__subject_group__subject=s, meetings__recruitment=recruitment).distinct().count()
+        # Liczba różnych grup przypisanych do spotkań tego przedmiotu (w tej samej rekrutacji przez subject)
+        grp_count = Group.objects.filter(meetings__subject_group__subject=s).distinct().count()
         groups_per_subject.append(grp_count)
     num_subjects = len(subjects)
 
@@ -231,10 +233,12 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     teacher_unavail_map = {t.id: set() for t in teachers}
     student_unavail_map = {s.id: set() for s in students}
 
-    # Grupy uczestników per user
+    # Grupy uczestników per user oraz grupy -> studenci
     user_groups_map = {}
+    group_students_map = {}
     for ug in UserGroup.objects.filter(user__in=students).select_related('user', 'group'):
         user_groups_map.setdefault(ug.user_id, set()).add(ug.group_id)
+        group_students_map.setdefault(ug.group_id, set()).add(ug.user_id)
 
     for m in all_meetings:
         m_indices = meeting_block_indices(m)
@@ -247,9 +251,8 @@ def prepare_optimization_constraints(recruitment: Recruitment):
             teacher_unavail_map[host_id].update(m_indices)
         # students: wszyscy należący do grupy
         group_id = m.group_id
-        for stu in students:
-            if group_id in user_groups_map.get(stu.id, ()):  # jeśli student w grupie
-                student_unavail_map[stu.id].update(m_indices)
+        for stu_id in group_students_map.get(group_id, ()):  # szybkie rozwinięcie bez iteracji po wszystkich studentach
+            student_unavail_map[stu_id].update(m_indices)
 
     rooms_unavailability = [sorted(room_unavail_map[r.room_id]) for r in rooms]
     students_unavailability = [sorted(student_unavail_map[s.id]) for s in students]
