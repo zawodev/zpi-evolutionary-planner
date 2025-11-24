@@ -1371,11 +1371,7 @@ const PreferenceModal = ({
               {validationError}
             </div>
           )}
-
-          <div className="new-entries-modal-info">
-            Rekrutacja: {gridStartHour}:00 - {gridEndHour}:00
-          </div>
-
+          
           <div className="new-entries-modal-field">
             <label>Typ:</label>
             <select
