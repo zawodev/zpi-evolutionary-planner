@@ -6,7 +6,7 @@ from .models import Meeting, Room, Recruitment, Subject, SubjectGroup, RoomTag, 
 from optimizer.logger import logger
 from django.contrib.auth import get_user_model
 from preferences.models import Constraints
-from identity.models import Group, UserGroup, UserSubjects
+from identity.models import UserGroup, UserSubjects
 User = get_user_model()
 
 
@@ -141,31 +141,20 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     students = list(linked_users_qs.filter(role='participant'))
     teachers = list(linked_users_qs.filter(role='host'))
 
-    # c) MinStudentsPerGroup – minimalna liczba studentów na grupę
-    # Interpretacja: weź liczbę studentów aktualnie przypisanych do grupy lub 1 jeśli pusta.
-    groups_in_recruitment = Group.objects.filter(
-        meetings__subject_group__subject__recruitment=recruitment
-    ).distinct()
-    min_students_per_group = []
-    groups_capacity = []  # e) (przeznaczone do GroupsCapacity)
-    group_tags = []       # e) GroupTags brak definicji tagów dla Group – zostawiamy pustą strukturę
-    group_index_map = {}
-    for idx, g in enumerate(groups_in_recruitment):
-        group_index_map[g.group_id] = idx
-        student_count = UserGroup.objects.filter(group=g, user__role='participant').count()
-        min_students_per_group.append(max(student_count // 2, 1))  # heurystyka: połowa aktualnych lub 1
-        groups_capacity.append(max(student_count, 1))
-        group_tags.append([])  # brak tagów na grupach – pusta lista
+    # c) MinStudentsPerGroup i GroupsCapacity teraz w kontekście SubjectGroup (grupy prowadzących dla subjectów)
+    subject_groups_qs = SubjectGroup.objects.filter(subject__recruitment=recruitment).select_related('subject', 'host_user')
+    subject_groups = list(subject_groups_qs)
+    min_students_per_group = [sg.subject.min_students for sg in subject_groups]
+    groups_capacity = [sg.subject.capacity for sg in subject_groups]
+    group_tags = [[] for _ in subject_groups]  # brak tagów na poziomie SubjectGroup
+    # mapowanie (nieużywane dalej, ale może być przydatne)
+    subject_group_index_map = {sg.subject_group_id: idx for idx, sg in enumerate(subject_groups)}
 
-    # d) SubjectsDuration, GroupsPerSubject
+    # d) SubjectsDuration, GroupsPerSubject (liczba SubjectGroup per Subject)
     subjects = Subject.objects.filter(recruitment=recruitment).distinct()
     subjects_duration = [s.duration_blocks for s in subjects]
-    groups_per_subject = []
+    groups_per_subject = [SubjectGroup.objects.filter(subject=s).count() for s in subjects]
     subject_index_map = {s.subject_id: i for i, s in enumerate(subjects)}
-    for s in subjects:
-        # Liczba różnych grup przypisanych do spotkań tego przedmiotu (w tej samej rekrutacji przez subject)
-        grp_count = Group.objects.filter(meetings__subject_group__subject=s).distinct().count()
-        groups_per_subject.append(grp_count)
     num_subjects = len(subjects)
 
     # f) RoomTags, RoomCapacity
@@ -204,8 +193,8 @@ def prepare_optimization_constraints(recruitment: Recruitment):
         mapped = [subject_index_map[sid] for sid in subj_ids if sid in subject_index_map]
         teacher_subjects.append(mapped)
 
-    # i) Liczebności
-    num_groups = len(groups_in_recruitment)
+    # i) Liczebności (NumGroups jako liczba SubjectGroup w rekrutacji)
+    num_groups = len(subject_groups)
     num_teachers = len(teachers)
     num_students = len(students)
     num_rooms = len(rooms)
@@ -271,7 +260,7 @@ def prepare_optimization_constraints(recruitment: Recruitment):
         'RoomsTags': room_tags_pairs,
         'SubjectsTagsPairs': subjects_tags_pairs,
         'StudentsSubjects': students_subjects,
-        'TeachersSubjects': teacher_subjects,
+        'TeachersGroups': teacher_subjects,
         'RoomsUnavailabilityTimeslots': rooms_unavailability,
         'StudentsUnavailabilityTimeslots': students_unavailability,
         'TeachersUnavailabilityTimeslots': teachers_unavailability,
