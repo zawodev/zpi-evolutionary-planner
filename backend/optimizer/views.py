@@ -115,6 +115,60 @@ class OptimizationJobDetailView(generics.RetrieveAPIView):
         return super().get(request, *args, **kwargs)
 
 
+class LatestOptimizationJobView(generics.RetrieveAPIView):
+    """
+    Retrieve details of the latest optimization job.
+    """
+    serializer_class = OptimizationJobSerializer
+    
+    def get_object(self):
+        queryset = OptimizationJob.objects.all().order_by('-created_at')
+        
+        # Check kwargs first (URL path)
+        recruitment_id = self.kwargs.get('recruitment_id')
+        
+        # Fallback to query params
+        if not recruitment_id:
+            recruitment_id = self.request.query_params.get('recruitment_id')
+            
+        if recruitment_id:
+            queryset = queryset.filter(recruitment__recruitment_id=recruitment_id)
+        
+        # Filter by status if provided
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+            
+        obj = queryset.first()
+        if not obj:
+            # Return 404 if no job found
+            from django.http import Http404
+            raise Http404("No optimization jobs found")
+        return obj
+
+    @extend_schema(
+        summary="Get latest optimization job",
+        description="Get detailed information about the most recent optimization job",
+        parameters=[
+            OpenApiParameter(
+                name='recruitment_id',
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description='Filter by recruitment ID to get its latest job'
+            ),
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by job status (e.g. completed, running)',
+                enum=['queued', 'running', 'completed', 'failed', 'cancelled']
+            ),
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
 @extend_schema(
     summary="Cancel optimization job",
     description="Cancel a running or queued optimization job",
