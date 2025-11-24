@@ -15,13 +15,12 @@ from datetime import timedelta
 # fitness calc type typu 01 do wyboru
 # porównać do optymalizacji planowej zachłannej (trudne) - albo random searchem + repair??? chyba sie da
 
+# INFO:
+# - wagi we wszystkich mogą być dodatnie lub ujemne, 
+# - wielkość wartości bezwglęzdnej określa siłę preferencji
+
 DEFAULT_USER_PREFERENCES = {
-    # INFO:
-    # - wagi we wszystkich mogą być dodatnie lub ujemne, 
-    # - wielkość wartości bezwglęzdnej określa siłę preferencji
-
     # --- optional ---
-
     "FreeDays": 0, # wolne dni (jak bardzo) - lub pracowite dni
     "ShortDays": 0, # krótkie dni (jak bardzo) - lub długie dni
     "UniformDays": 0, # równe dni długością względem innych dni - lub nierówne
@@ -39,9 +38,8 @@ DEFAULT_USER_PREFERENCES = {
     "TagOrder": [], # chce żeby tag A był od razu po tagu B (albo przynajmniej tego samego dnia) [[tagAId, tagBId, weight], ...]
 
     # --- normal ---
-    
-    "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
-    "PreferredGroups": [0, 0, 0, 0, 0] # for each group, weight
+    "PreferredTimeslots": [], # for each timeslot in cycle, weight
+    "PreferredGroups": [] # for each group, weight
 }
 
 
@@ -96,7 +94,7 @@ def update_nested_dict(original, path, value):
     return result
 
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def user_preferences_view(request, recruitment_id, user_id):
     # validate recruitment_id is UUID format
     is_valid_recruitment, recruitment_uuid = validate_uuid(recruitment_id)
@@ -160,13 +158,13 @@ def user_preferences_view(request, recruitment_id, user_id):
             
             # increment users_submitted_count if first submission
             if created:
-                from scheduling.services import should_start_optimization, trigger_optimization
+                #from scheduling.services import should_start_optimization, trigger_optimization
                 recruitment.users_submitted_count += 1
                 recruitment.save()
                 
                 # check if optimization should start
-                if should_start_optimization(recruitment):
-                    trigger_optimization(recruitment)
+                #if should_start_optimization(recruitment):
+                #    trigger_optimization(recruitment)
 
             # check if request contains path and value
             if 'path' in request.data and 'value' in request.data:
@@ -188,6 +186,23 @@ def user_preferences_view(request, recruitment_id, user_id):
             
             serializer = UserPreferencesSerializer(preferences)
             return Response(serializer.data)
+
+        elif request.method == 'DELETE':
+            # reset preferences to default
+            try:
+                preferences = UserPreferences.objects.get(
+                    recruitment_id=recruitment_uuid,
+                    user_id=user_uuid
+                )
+                preferences.preferences_data = DEFAULT_USER_PREFERENCES.copy()
+                preferences.save()
+                serializer = UserPreferencesSerializer(preferences)
+                return Response(serializer.data)
+            except UserPreferences.DoesNotExist:
+                return Response(
+                    {'error': f'User preferences for user {user_id} and recruitment {recruitment_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
     
     except Exception as e:
         return Response(
@@ -196,7 +211,7 @@ def user_preferences_view(request, recruitment_id, user_id):
         )
 
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def constraints_view(request, recruitment_id):
     # validate recruitment_id is UUID format
     is_valid, recruitment_uuid = validate_uuid(recruitment_id)
@@ -256,6 +271,20 @@ def constraints_view(request, recruitment_id):
             
             serializer = ConstraintsSerializer(constraints)
             return Response(serializer.data)
+
+        elif request.method == 'DELETE':
+            # reset constraints to default
+            try:
+                constraints = Constraints.objects.get(recruitment_id=recruitment_uuid)
+                constraints.constraints_data = DEFAULT_CONSTRAINTS.copy()
+                constraints.save()
+                serializer = ConstraintsSerializer(constraints)
+                return Response(serializer.data)
+            except Constraints.DoesNotExist:
+                return Response(
+                    {'error': f'Constraints for recruitment {recruitment_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
     
     except Exception as e:
         return Response(
