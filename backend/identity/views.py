@@ -282,7 +282,7 @@ class SetUserPasswordView(APIView):
 class ActiveMeetingsByUserView(APIView):
     """Return all meetings (with full nested objects) where the given user is host_user or belongs to the meeting group and recruitment is active.
 
-    Response now contains nested recruitment, room, group, required_tag, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
+    Response now contains nested recruitment, room, group, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
     """
     permission_classes = [permissions.IsAuthenticated]
 

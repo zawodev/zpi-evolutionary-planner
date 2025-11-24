@@ -15,7 +15,7 @@ def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
 
     Notes:
     - Sorting is by day_of_week then start_timeslot to reflect the current Meeting model.
-    - select_related includes recruitment, room, required_tag, subject_group (with subject and host_user), and group.
+    - select_related includes recruitment, room, subject_group (with subject and host_user), and group.
     """
     room_id = room_or_id.pk if hasattr(room_or_id, 'pk') else room_or_id
 
@@ -25,7 +25,6 @@ def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
         .select_related(
             'recruitment',
             'room',
-            'required_tag',
             'group',
             'subject_group',
             'subject_group__subject',

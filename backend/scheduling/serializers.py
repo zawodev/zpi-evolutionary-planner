@@ -98,13 +98,12 @@ class MeetingDetailSerializer(serializers.ModelSerializer):
     recruitment = RecruitmentSerializer(read_only=True)
     room = RoomSerializer(read_only=True)
     group = GroupSerializer(read_only=True)
-    required_tag = TagSerializer(read_only=True)
     subject_group = SubjectGroupDetailSerializer(read_only=True)
     end_hour = serializers.ReadOnlyField()
 
     class Meta:
         model = Meeting
         fields = [
-            'meeting_id', 'recruitment', 'subject_group', 'group', 'room', 'required_tag',
+            'meeting_id', 'recruitment', 'subject_group', 'group', 'room',
             'start_timeslot', 'day_of_week', 'day_of_cycle', 'end_hour'
         ]

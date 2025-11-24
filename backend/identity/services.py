@@ -26,7 +26,7 @@ def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
             recruitment__plan_status='active'
         )
         .select_related(
-            'recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group', 'required_tag'
+            'recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group'
         )
         .order_by('day_of_week', 'start_timeslot')
         .distinct()
