@@ -14,6 +14,8 @@ RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData
     
     int studentsNum = data.getStudentsNum();
     int groupsNum = data.getGroupsNum();
+    days_in_cycle = data.getDaysInCycle();
+    timeslots_daily = data.getTimeslotsDaily();
     
     // validate genotype size
     int expected_size = evaluator.getTotalGenes();
@@ -24,12 +26,15 @@ RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData
     
     // by_student data
     by_student.clear();
-    int idx = 0;
+    int geneIdx = 0;
     for (int s = 0; s < studentsNum; ++s) {
         std::vector<int> student_groups;
         int num_groups_for_student = data.getGroupsForStudent(s);
         for (int g = 0; g < num_groups_for_student; ++g) {
-            student_groups.push_back(genotype[idx++]);
+            int relGroup = genotype[geneIdx];
+            int absGroup = data.getAbsoluteGroupIndex(geneIdx, relGroup);
+            student_groups.push_back(absGroup);
+            geneIdx++;
         }
         by_student.push_back(student_groups);
     }
@@ -37,9 +42,12 @@ RawSolutionData::RawSolutionData(const Individual& individual, const ProblemData
     // by_group data
     by_group.clear();
     for (int g = 0; g < groupsNum; ++g) {
-        int timeslot = genotype[idx++];
-        int room = genotype[idx++];
-        by_group.push_back({timeslot, room});
+        int timeslot = genotype[geneIdx++];
+        int room = genotype[geneIdx++];
+        int subject = data.getSubjectFromGroup(g);
+        int duration = data.getSubjectsDuration()[subject];
+        int end_timeslot = timeslot + duration;
+        by_group.push_back({timeslot, end_timeslot, room});
     }
     
     // get last fitness data from evaluator

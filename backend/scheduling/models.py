@@ -25,6 +25,7 @@ class Subject(models.Model):
 
     class Meta:
         db_table = 'scheduling_subjects'
+        ordering = ['subject_name']
 
     def __str__(self):
         return self.subject_name
@@ -56,6 +57,7 @@ class SubjectGroup(models.Model):
 
     class Meta:
         db_table = 'scheduling_subjectgroups'
+        ordering = ['subject__subject_name']
 
     def __str__(self):
         return f"{self.subject.subject_name} - {self.host_user}"

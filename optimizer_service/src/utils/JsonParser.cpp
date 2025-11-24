@@ -239,6 +239,12 @@ RawSolutionData JsonParser::toRawSolutionData(const nlohmann::json& jsonData) {
         if (jsonData.contains("total_teacher_weight")) {
             solutionData.total_teacher_weight = jsonData.at("total_teacher_weight").get<double>();
         }
+        if (jsonData.contains("days_in_cycle")) {
+            solutionData.days_in_cycle = jsonData.at("days_in_cycle").get<int>();
+        }
+        if (jsonData.contains("timeslots_daily")) {
+            solutionData.timeslots_daily = jsonData.at("timeslots_daily").get<int>();
+        }
         return solutionData;
     } catch (const std::exception& e) {
         throw std::runtime_error("Failed to parse solution data: " + std::string(e.what()));
@@ -259,6 +265,8 @@ nlohmann::json JsonParser::toJson(const RawSolutionData& data) {
     j["teacher_weighted_fitnesses"] = data.teacher_weighted_fitnesses;
     j["total_student_weight"] = data.total_student_weight;
     j["total_teacher_weight"] = data.total_teacher_weight;
+    j["days_in_cycle"] = data.days_in_cycle;
+    j["timeslots_daily"] = data.timeslots_daily;
     return j;
 }
 
@@ -433,6 +441,8 @@ void JsonParser::writeOutput(const std::string& filename, const Individual& indi
         json_str += "  \"teacher_weighted_fitnesses\": " + j["teacher_weighted_fitnesses"].dump() + ",\n";
         json_str += "  \"total_student_weight\": " + std::to_string(j["total_student_weight"].get<double>()) + ",\n";
         json_str += "  \"total_teacher_weight\": " + std::to_string(j["total_teacher_weight"].get<double>()) + ",\n";
+        json_str += "  \"days_in_cycle\": " + std::to_string(j["days_in_cycle"].get<int>()) + ",\n";
+        json_str += "  \"timeslots_daily\": " + std::to_string(j["timeslots_daily"].get<int>()) + ",\n";
         json_str += "  \"student_detailed_fitnesses\": " + j["student_detailed_fitnesses"].dump() + ",\n";
         json_str += "  \"teacher_detailed_fitnesses\": " + j["teacher_detailed_fitnesses"].dump() + "\n";
         json_str += "}\n";

@@ -197,7 +197,6 @@ def convert_solution_to_meetings(job_id: str) -> None:
     """
     from scheduling.models import Meeting, SubjectGroup, Room, Recruitment
     from identity.models import Group, UserGroup, User, UserRecruitment
-    from preferences.models import Constraints
     from django.db import transaction
     
     try:
@@ -212,6 +211,8 @@ def convert_solution_to_meetings(job_id: str) -> None:
         
         by_group = solution_data.get('by_group', [])
         by_student = solution_data.get('by_student', [])
+        timeslots_daily = solution_data.get('timeslots_daily', 0)
+        days_in_cycle = solution_data.get('days_in_cycle', 0)
         
         if not by_group or not by_student:
             logger.error(f"Invalid solution data for job {job_id}: missing by_group or by_student")
@@ -227,22 +228,10 @@ def convert_solution_to_meetings(job_id: str) -> None:
             logger.error(f"No organization found for recruitment {recruitment_id}")
             return
         
-        # Get constraints to understand the schedule structure
-        try:
-            constraints = Constraints.objects.get(recruitment_id=recruitment_id)
-            constraints_data = constraints.constraints_data
-            timeslots_daily = constraints_data.get('TimeslotsDaily', 0)
-            days_in_cycle = constraints_data.get('DaysInCycle', 0)
-            students_subjects = constraints_data.get('StudentsSubjects', [])
-            groups_per_subject = constraints_data.get('GroupsPerSubject', [])
-        except Constraints.DoesNotExist:
-            logger.error(f"No constraints found for recruitment {recruitment_id}")
-            return
-        
         # Get ordered lists of subject groups, rooms, and users for this recruitment
         subject_groups = list(
             SubjectGroup.objects.filter(subject__recruitment_id=recruitment_id)
-            .order_by('subject_group_id')
+            .order_by('subject__subject_name')
         )
         
         rooms = list(Room.objects.all().order_by('room_id'))
@@ -269,30 +258,6 @@ def convert_solution_to_meetings(job_id: str) -> None:
             )
             return
         
-        # Convert by_student from relative to global group indices
-        # Calculate subject group offsets (prefix sums)
-        subject_group_offsets = [0] * len(groups_per_subject)
-        current_offset = 0
-        for i, count in enumerate(groups_per_subject):
-            subject_group_offsets[i] = current_offset
-            current_offset += count
-
-        global_by_student = []
-        for s_idx, rel_groups in enumerate(by_student):
-            if s_idx < len(students_subjects):
-                subj_indices = students_subjects[s_idx]
-                global_groups = []
-                for i, rel_group in enumerate(rel_groups):
-                    if i < len(subj_indices):
-                        subj_idx = subj_indices[i]
-                        if subj_idx < len(subject_group_offsets):
-                            global_groups.append(subject_group_offsets[subj_idx] + rel_group)
-                global_by_student.append(global_groups)
-            else:
-                global_by_student.append([])
-        
-        by_student = global_by_student
-        
         # Use transaction to ensure atomicity
         with transaction.atomic():
             # Get existing meetings and their groups for deletion
@@ -311,14 +276,7 @@ def convert_solution_to_meetings(job_id: str) -> None:
             # Create meetings and identity groups
             created_meetings = []
             
-            for group_idx, (timeslot_room) in enumerate(by_group):
-                if len(timeslot_room) != 2:
-                    logger.warning(f"Invalid by_group entry at index {group_idx}: {timeslot_room}")
-                    continue
-                
-                start_timeslot = timeslot_room[0]
-                room_idx = timeslot_room[1]
-                
+            for group_idx, (timeslot_start, timeslot_end, room_idx) in enumerate(by_group):
                 # Get subject group and room
                 subject_group = subject_groups[group_idx]
                 
@@ -330,8 +288,8 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 
                 # Calculate day_of_week and day_of_cycle from timeslot
                 if timeslots_daily > 0:
-                    day_of_cycle = start_timeslot // timeslots_daily
-                    timeslot_in_day = start_timeslot % timeslots_daily
+                    day_of_cycle = timeslot_start // timeslots_daily
+                    timeslot_in_day = timeslot_start % timeslots_daily
                     day_of_week = day_of_cycle % 7
                 else:
                     day_of_cycle = 0
@@ -340,14 +298,19 @@ def convert_solution_to_meetings(job_id: str) -> None:
                 
                 # Calculate start_time and end_time
                 # Default to 00:00 AM if not set
-                day_start = recruitment.day_start_time or datetime.strptime("00:00", "%H:%M").time()
+                if recruitment.day_start_time:
+                    day_start = recruitment.day_start_time
+                else:
+                    day_start = datetime.strptime("00:00", "%H:%M").time()
+                    logger.warning(f"Recruitment {recruitment_id} has no day_start_time set; defaulting to 00:00")
                 
                 # We need a dummy date to combine with time for arithmetic
                 dummy_date = datetime.today().date()
                 base_dt = datetime.combine(dummy_date, day_start)
                 
                 start_dt = base_dt + timedelta(minutes=timeslot_in_day * 15)
-                end_dt = start_dt + timedelta(minutes=subject_group.subject.duration_blocks * 15)
+                duration_blocks = timeslot_end - timeslot_start
+                end_dt = start_dt + timedelta(minutes=duration_blocks * 15)
                 
                 start_time = start_dt.time()
                 end_time = end_dt.time()
@@ -392,8 +355,8 @@ def convert_solution_to_meetings(job_id: str) -> None:
                     subject_group=subject_group,
                     group=identity_group,
                     room=room,
-                    start_timeslot=start_timeslot,
-                    duration=subject_group.subject.duration_blocks,
+                    start_timeslot=timeslot_start,
+                    duration=duration_blocks,
                     start_time=start_time,
                     end_time=end_time,
                     day_of_week=day_of_week,
@@ -405,6 +368,9 @@ def convert_solution_to_meetings(job_id: str) -> None:
                     f"Created meeting {meeting.meeting_id} for subject group {subject_group.subject_group_id} "
                     f"with {len(students_in_group)} students in identity group {identity_group.group_id}"
                 )
+                
+                # Log detailed info as requested
+                logger.info(f"Group {group_idx}: {len(students_in_group)} students, Room {room.room_number}, Teacher {subject_group.host_user.username}, Start {start_time}, End {end_time}")
             
             # Update recruitment status to 'active'
             recruitment.plan_status = 'active'

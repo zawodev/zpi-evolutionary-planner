@@ -41,6 +41,8 @@ struct RawSolutionData {
     std::vector<double> teacher_weighted_fitnesses;
     double total_student_weight = 0.0;
     double total_teacher_weight = 0.0;
+    int days_in_cycle = 0;
+    int timeslots_daily = 0;
     
     RawSolutionData() = default;
     
