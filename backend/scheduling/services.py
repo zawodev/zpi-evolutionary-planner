@@ -141,16 +141,14 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     students = list(linked_users_qs.filter(role='participant'))
     teachers = list(linked_users_qs.filter(role='host'))
 
-    # c) MinStudentsPerGroup i GroupsCapacity teraz w kontekście SubjectGroup (grupy prowadzących dla subjectów)
+    # c) MinStudentsPerGroup i GroupsCapacity w kontekście SubjectGroup (dla każdej kombinacji subject-host)
     subject_groups_qs = SubjectGroup.objects.filter(subject__recruitment=recruitment).select_related('subject', 'host_user')
     subject_groups = list(subject_groups_qs)
     min_students_per_group = [sg.subject.min_students for sg in subject_groups]
     groups_capacity = [sg.subject.capacity for sg in subject_groups]
-    group_tags = [[] for _ in subject_groups]  # brak tagów na poziomie SubjectGroup
-    # mapowanie (nieużywane dalej, ale może być przydatne)
     subject_group_index_map = {sg.subject_group_id: idx for idx, sg in enumerate(subject_groups)}
 
-    # d) SubjectsDuration, GroupsPerSubject (liczba SubjectGroup per Subject)
+    # d) SubjectsDuration, GroupsPerSubject
     subjects = Subject.objects.filter(recruitment=recruitment).distinct()
     subjects_duration = [s.duration_blocks for s in subjects]
     groups_per_subject = [SubjectGroup.objects.filter(subject=s).count() for s in subjects]
@@ -162,7 +160,8 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     rooms_capacity = [r.capacity for r in rooms]
     room_index_map = {r.room_id: i for i, r in enumerate(rooms)}
 
-    # Zbierz wszystkie tagi użyte w salach i przedmiotach
+    # Subject tags zmapowane na SubjectGroup -> Tag (GroupTags = para indeksów [subjectGroupIndex, tagIndex])
+    # Budujemy tag_index_map jak wcześniej
     all_tags = Tag.objects.filter(
         models.Q(tagged_rooms__room__in=rooms) | models.Q(tagged_subjects__subject__in=subjects)
     ).distinct().order_by('tag_name')
@@ -173,25 +172,27 @@ def prepare_optimization_constraints(recruitment: Recruitment):
         if rt.tag_id in tag_index_map and rt.room_id in room_index_map:
             room_tags_pairs.append([room_index_map[rt.room_id], tag_index_map[rt.tag_id]])
 
-    # SubjectTags (nie było explicite w docstringu jako oddzielny field, ale można wyliczyć GroupTags analogicznie;
-    # dodamy osobno: SubjectsTagsPairs)
-    subjects_tags_pairs = []
-    for st in SubjectTag.objects.filter(subject__in=subjects).select_related('subject', 'tag'):
-        if st.tag_id in tag_index_map and st.subject_id in subject_index_map:
-            subjects_tags_pairs.append([subject_index_map[st.subject_id], tag_index_map[st.tag_id]])
+    group_tags_pairs = []
+    # dla każdej subjectGroup bierzemy tagi jej subjectu
+    for sg in subject_groups:
+        for st in SubjectTag.objects.filter(subject=sg.subject).select_related('tag'):
+            tag_idx = tag_index_map.get(st.tag_id)
+            if tag_idx is not None:
+                group_tags_pairs.append([subject_group_index_map[sg.subject_group_id], tag_idx])
 
-    # g) StudentSubjects & TeacherSubjects
+    # g) StudentSubjects & TeacherGroups (na bazie SubjectGroup)
     students_subjects = []
     for stu in students:
         subj_ids = list(UserSubjects.objects.filter(user=stu).values_list('subject__subject_id', flat=True))
         mapped = [subject_index_map[sid] for sid in subj_ids if sid in subject_index_map]
         students_subjects.append(mapped)
 
-    teacher_subjects = []
+    teacher_groups = []
     for t in teachers:
-        subj_ids = list(SubjectGroup.objects.filter(host_user=t, subject__recruitment=recruitment).values_list('subject__subject_id', flat=True))
-        mapped = [subject_index_map[sid] for sid in subj_ids if sid in subject_index_map]
-        teacher_subjects.append(mapped)
+        sg_indices = [subject_group_index_map[sg.subject_group_id] for sg in subject_groups if sg.host_user_id == t.id]
+        # unikalność i sortowanie
+        sg_indices = sorted(set(sg_indices))
+        teacher_groups.append(sg_indices)
 
     # i) Liczebności (NumGroups jako liczba SubjectGroup w rekrutacji)
     num_groups = len(subject_groups)
@@ -255,12 +256,11 @@ def prepare_optimization_constraints(recruitment: Recruitment):
         'SubjectsDuration': subjects_duration,
         'GroupsPerSubject': groups_per_subject,
         'GroupsCapacity': groups_capacity,
-        'GroupTags': group_tags,
+        'GroupTags': group_tags_pairs,
         'RoomsCapacity': rooms_capacity,
         'RoomsTags': room_tags_pairs,
-        'SubjectsTagsPairs': subjects_tags_pairs,
         'StudentsSubjects': students_subjects,
-        'TeachersGroups': teacher_subjects,
+        'TeachersGroups': teacher_groups,
         'RoomsUnavailabilityTimeslots': rooms_unavailability,
         'StudentsUnavailabilityTimeslots': students_unavailability,
         'TeachersUnavailabilityTimeslots': teachers_unavailability,
