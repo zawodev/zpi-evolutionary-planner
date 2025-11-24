@@ -7,8 +7,30 @@ import { usePreferences } from '../hooks/usePreferences';
 import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../utils/scheduleOperations';
 import { timeToMinutes } from '../utils/scheduleDisplay';
 
+const parseTime = (timeValue) => {
+  if (typeof timeValue === 'string') {
+    const parts = timeValue.split(':');
+    return {
+      hour: parseInt(parts[0], 10) || 0,
+      minute: parseInt(parts[1], 10) || 0
+    };
+  }
+  return {
+    hour: Math.floor(timeValue),
+    minute: 0
+  };
+};
+
+const formatTimeString = (hour, minute) => {
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};
+
+const isValidTime = (hour, minute) => {
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+};
+
 const getGridStartHour = (recruitment) => {
-    const timeStr = recruitment?.day_start_time || "07:00"; // Użyj 7:00 jako ostatecznego fallbacku
+    const timeStr = recruitment?.day_start_time || "07:00";
     const parts = timeStr.split(':');
     if (parts.length > 0) {
         return parseInt(parts[0], 10);
@@ -17,7 +39,7 @@ const getGridStartHour = (recruitment) => {
 };
 
 const getGridEndHour = (recruitment) => {
-    const timeStr = recruitment?.day_end_time || "19:00"; // Użyj 19:00 jako ostatecznego fallbacku
+    const timeStr = recruitment?.day_end_time || "19:00";
     const parts = timeStr.split(':');
     if (parts.length > 0) {
         return parseInt(parts[0], 10);
@@ -26,7 +48,7 @@ const getGridEndHour = (recruitment) => {
 };
 
 const calculateSlotPositionLocal = (start, end, gridStartHour) => {
-  const parseTime = (time) => {
+  const parseTimeLocal = (time) => {
     if (typeof time === 'string') {
       const [hours, minutes = '0'] = time.split(':');
       return parseInt(hours) + parseInt(minutes) / 60;
@@ -34,8 +56,8 @@ const calculateSlotPositionLocal = (start, end, gridStartHour) => {
     return time;
   };
 
-  const startHour = parseTime(start);
-  const endHour = parseTime(end);
+  const startHour = parseTimeLocal(start);
+  const endHour = parseTimeLocal(end);
   
   const gridStart = gridStartHour;
   const hourHeight = 60;
@@ -45,7 +67,6 @@ const calculateSlotPositionLocal = (start, end, gridStartHour) => {
   
   return { top, height };
 };
-
 
 const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay, gridStartHour) => {
   if (!isDragging || dragDay !== currentDay || !dragStart || !dragEnd) {
@@ -57,9 +78,7 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   
   const hourHeight = 60; 
   const gridStartMinutes = gridStartHour * 60;
-
   const minutesOffset = startMinutes - gridStartMinutes; 
-
   const top = minutesOffset * (hourHeight / 60); 
   const height = (endMinutes - startMinutes) * (hourHeight / 60);
   
@@ -76,7 +95,6 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   };
 };
 
-// Embedded Styles
 const EntriesStyles = () => (
   <style>{`
     /* === Main Container === */
@@ -130,7 +148,7 @@ const EntriesStyles = () => (
       cursor: pointer;
       transition: all 0.2s;
       margin-bottom: 0.5rem;
-      opacity: 1; /* Domyślna opacity */
+      opacity: 1;
     }
 
     .new-entries-item.read-only {
@@ -268,7 +286,6 @@ const EntriesStyles = () => (
         color: #4b5563;
     }
 
-
     .new-entries-stats {
       display: flex;
       gap: 1rem;
@@ -303,13 +320,11 @@ const EntriesStyles = () => (
       overflow-x: auto;
     }
 
-    /* Tryb Tylko do Odczytu */
     .new-entries-schedule-grid.read-only-mode {
         pointer-events: none;
         user-select: none;
         opacity: 0.8;
     }
-
 
     .new-entries-schedule-times {
       display: flex;
@@ -380,6 +395,7 @@ const EntriesStyles = () => (
       background: rgba(59, 130, 246, 0.05);
     }
 
+    /* ZAKTUALIZOWANE STYLE SLOTU */
     .new-entries-schedule-slot {
       position: absolute;
       left: 4px;
@@ -391,6 +407,9 @@ const EntriesStyles = () => (
       transition: all 0.2s;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .new-entries-schedule-slot:hover:not(.read-only) {
@@ -409,9 +428,9 @@ const EntriesStyles = () => (
 
     .new-entries-slot-label {
       font-weight: 600;
-      margin-bottom: 0.25rem;
-      line-height: 1.2;
+      line-height: 1.3;
       display: block;
+      flex-shrink: 0;
     }
 
     .new-entries-slot-details {
@@ -419,15 +438,22 @@ const EntriesStyles = () => (
       justify-content: space-between;
       align-items: center;
       font-size: 0.7rem;
+      margin-top: auto;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
 
     .new-entries-slot-time {
       opacity: 0.9;
+      font-weight: 600;
     }
 
     .new-entries-slot-points {
-      font-weight: 600;
-      opacity: 0.8;
+      font-weight: 700;
+      opacity: 0.9;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      background: rgba(255, 255, 255, 0.3);
     }
 
     .new-entries-schedule-slot.prefer {
@@ -456,46 +482,73 @@ const EntriesStyles = () => (
       font-size: 0.75rem;
     }
 
-    /* === Modal === */
+    /* === ULEPSZONE STYLE MODALA === */
     .new-entries-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       padding: 1rem;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
     }
 
     .new-entries-modal-content {
       background: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
+      border-radius: 1rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      max-width: 520px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     .new-entries-modal-header {
-      padding: 1.5rem;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 2rem 2rem 1rem 2rem;
+      border-bottom: 1px solid #f3f4f6;
     }
 
     .new-entries-modal-header h2 {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      color: #1f2937;
-      margin: 0;
+      color: #111827;
+      margin: 0 0 0.5rem 0;
     }
 
     .new-entries-modal-body {
-      padding: 1.5rem;
+      padding: 2rem;
     }
 
     .new-entries-modal-field {
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .new-entries-modal-field:last-child {
+      margin-bottom: 0;
     }
 
     .new-entries-modal-field label {
@@ -503,59 +556,228 @@ const EntriesStyles = () => (
       font-size: 0.875rem;
       font-weight: 600;
       color: #374151;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.625rem;
+      letter-spacing: 0.01em;
     }
 
-    .new-entries-modal-field input,
     .new-entries-modal-field select {
       width: 100%;
-      padding: 0.75rem;
+      padding: 0.875rem 1rem;
       border: 2px solid #e5e7eb;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
+      border-radius: 0.75rem;
+      font-size: 0.9375rem;
       transition: all 0.2s;
+      background: white;
+      cursor: pointer;
+      color: #1f2937;
+      font-weight: 500;
     }
 
-    .new-entries-modal-field input:focus,
+    .new-entries-modal-field select:hover {
+      border-color: #d1d5db;
+    }
+
     .new-entries-modal-field select:focus {
       outline: none;
       border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* ZAKTUALIZOWANE INPUTY CZASU - BEZ SZAREGO TŁA */
+    .new-entries-time-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .new-entries-time-input-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .new-entries-time-input-group label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.625rem;
+      letter-spacing: 0.01em;
+    }
+
+    .new-entries-time-input-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      transition: all 0.2s;
+    }
+
+    .new-entries-time-input-row:hover {
+      border-color: #d1d5db;
+    }
+
+    .new-entries-time-input-row:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .new-entries-time-input-row input {
+      flex: 1;
+      padding: 0.625rem 0.5rem;
+      border: none;
+      font-size: 1.125rem;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.2s;
+      background: transparent;
+      color: #111827;
+      min-width: 0;
+    }
+
+    .new-entries-time-input-row input:focus {
+      outline: none;
+      color: #2563eb;
+    }
+
+    .new-entries-time-input-row input::placeholder {
+      color: #d1d5db;
+    }
+
+    .new-entries-time-separator {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: #9ca3af;
+      user-select: none;
+    }
+
+    /* ULEPSZONE POLE PRIORYTETU */
+    .new-entries-priority-field {
+      background: #f9fafb;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+
+    .new-entries-priority-field label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .new-entries-priority-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .new-entries-priority-field input {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.2s;
+      background: white;
+      color: #111827;
+    }
+
+    .new-entries-priority-field input:hover {
+      border-color: #d1d5db;
+    }
+
+    .new-entries-priority-field input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      color: #2563eb;
+    }
+
+    .new-entries-priority-scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      padding: 0 0.25rem;
+    }
+
+    .new-entries-priority-marker {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      font-weight: 500;
     }
 
     .new-entries-modal-info {
       font-size: 0.875rem;
       color: #6b7280;
-      background: #f9fafb;
-      padding: 0.75rem;
-      border-radius: 0.5rem;
-      margin-bottom: 1rem;
+      background: #f0f9ff;
+      padding: 1rem 1.25rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.75rem;
+      border-left: 3px solid #3b82f6;
+      line-height: 1.6;
+    }
+
+    .new-entries-modal-error {
+      font-size: 0.875rem;
+      color: #dc2626;
+      background: #fef2f2;
+      padding: 1rem 1.25rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.75rem;
+      border-left: 3px solid #dc2626;
+      font-weight: 500;
+      line-height: 1.6;
     }
 
     .new-entries-modal-footer {
-      padding: 1.5rem;
-      border-top: 1px solid #e5e7eb;
+      padding: 1.5rem 2rem 2rem 2rem;
+      border-top: 1px solid #f3f4f6;
       display: flex;
       gap: 0.75rem;
       justify-content: flex-end;
     }
 
     .new-entries-modal-btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
+      padding: 0.875rem 1.75rem;
+      border-radius: 0.75rem;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       cursor: pointer;
       border: none;
       transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      letter-spacing: 0.01em;
+    }
+
+    .new-entries-modal-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .new-entries-modal-btn.primary {
       background: #2563eb;
       color: white;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
-    .new-entries-modal-btn.primary:hover {
+    .new-entries-modal-btn.primary:hover:not(:disabled) {
       background: #1d4ed8;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .new-entries-modal-btn.primary:active:not(:disabled) {
+      transform: translateY(0);
     }
 
     .new-entries-modal-btn.secondary {
@@ -563,17 +785,24 @@ const EntriesStyles = () => (
       color: #374151;
     }
 
-    .new-entries-modal-btn.secondary:hover {
+    .new-entries-modal-btn.secondary:hover:not(:disabled) {
       background: #e5e7eb;
     }
 
     .new-entries-modal-btn.danger {
       background: #dc2626;
       color: white;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
-    .new-entries-modal-btn.danger:hover {
+    .new-entries-modal-btn.danger:hover:not(:disabled) {
       background: #b91c1c;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .new-entries-modal-btn.danger:active:not(:disabled) {
+      transform: translateY(0);
     }
 
     @media (max-width: 1024px) {
@@ -600,6 +829,18 @@ const EntriesStyles = () => (
       }
       .new-entries-schedule-grid {
         padding: 1rem;
+      }
+      .new-entries-time-inputs {
+        grid-template-columns: 1fr;
+      }
+      .new-entries-modal-header {
+        padding: 1.5rem 1.5rem 1rem 1.5rem;
+      }
+      .new-entries-modal-body {
+        padding: 1.5rem;
+      }
+      .new-entries-modal-footer {
+        padding: 1rem 1.5rem 1.5rem 1.5rem;
       }
     }
   `}</style>
@@ -655,7 +896,7 @@ const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, s
           className="new-entries-btn new-entries-btn--primary"
           disabled={!selectedRecruitment || isSaving || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
         >
-          {isSaving ? 'Zapisywanie...' : 'Zachowaj zmiany'}
+          {isSaving ? 'Zapisywanie...' : 'Zapisz Preferencje'}
         </button>
         <div className="new-entries-pt-md"></div>
         <button
@@ -675,28 +916,11 @@ const ScheduleHeader = ({ selectedRecruitment, usedPriority, maxPriority }) => {
   const countdown = "3d 7h";
   
   const status = selectedRecruitment?.plan_status || 'brak statusu';
-  
   const isEditable = status === 'draft' || status === 'active';
-
-  const displayStatusName = () => {
-      switch (status) {
-          case 'draft': return 'W TRAKCIE ZGŁOSZEŃ (DO EDYCJI)';
-          case 'active': return 'ZGŁOSZENIA ZAMKNIĘTE (DO EDYCJI)'; // Utrzymane jako edytowalne
-          case 'optimizing': return 'W TRAKCIE OPTYMALIZACJI (TYLKO ODCZYT)'; 
-          case 'archived': return 'ZARCHIWIZOWANE (TYLKO ODCZYT)';
-          default: return status.toUpperCase();
-      }
-  };
-  
-  const lockIcon = isEditable ? '✏️' : '🔒'; 
 
   return (
     <div className="new-entries-header">
       <h2 className="new-entries-title">Wybrane Zgłoszenia: {recruitmentName}</h2>
-      <span className={`new-entries-status-label ${isEditable ? 'draft' : 'completed'}`}>
-          Status: {displayStatusName()} {lockIcon}
-      </span>
-      
       <div className="new-entries-stats">
         <div className="new-entries-label soft-blue">
           Punkty Priorytetu: {usedPriority}/{maxPriority}
@@ -727,9 +951,9 @@ const ScheduleSlot = ({ slot, position, onClick, isEditable }) => {
       onClick={isEditable ? onClick : (e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <span className="new-entries-slot-label">Preferencja: {slot.label}</span>
+      <span className="new-entries-slot-label">{slot.label}</span>
       <div className="new-entries-slot-details">
-        <span className="new-entries-slot-time">{formatTime(slot.start)}-{formatTime(slot.end)}</span>
+        <span className="new-entries-slot-time">{formatTime(slot.start)} - {formatTime(slot.end)}</span>
         <span className="new-entries-slot-points">{slot.priority}pt</span>
       </div>
     </div>
@@ -785,46 +1009,128 @@ const ScheduleColumn = ({ day, slots, dragPreview, onMouseDown, onSlotClick, isD
   );
 };
 
-const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEditingSlot, onClose, onAdd, onUpdate, onDelete, isEditable }) => {
+const PreferenceModal = ({ 
+  mode, 
+  pendingSlot, 
+  editingSlot, 
+  setPendingSlot, 
+  setEditingSlot, 
+  onClose, 
+  onAdd, 
+  onUpdate, 
+  onDelete, 
+  isEditable,
+  selectedRecruitment 
+}) => {
   const isEditMode = mode === 'edit';
   const currentSlot = isEditMode ? editingSlot : pendingSlot;
 
+  const [validationError, setValidationError] = useState('');
+
   if (!currentSlot) return null;
-  
-  if (!isEditable && isEditMode) {
-      return (
-        <div className="new-entries-modal-overlay" onClick={onClose}>
-          <div className="new-entries-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="new-entries-modal-header">
-              <h2>Podgląd Preferencji (Tylko do odczytu)</h2>
-            </div>
-            
-            <div className="new-entries-modal-body">
-              <div className="new-entries-modal-info">
-                Edycja jest zablokowana. Rekrutacja jest zakończona.
-              </div>
-              <p>Typ: {currentSlot.type}</p>
-              <p>Priorytet: {currentSlot.priority}</p>
-              <p>Godziny: {currentSlot.start} - {currentSlot.end}</p>
-            </div>
-            
-            <div className="new-entries-modal-footer">
-              <button onClick={onClose} className="new-entries-modal-btn secondary">Zamknij</button>
-            </div>
-          </div>
-        </div>
-      );
-  }
-  
-  const getHour = (time) => {
-    if (typeof time === 'string') {
-      return parseInt(time.split(':')[0]);
+
+  const startParsed = parseTime(currentSlot.start);
+  const endParsed = parseTime(currentSlot.end);
+
+  const [startHour, setStartHour] = useState(startParsed.hour);
+  const [startMinute, setStartMinute] = useState(startParsed.minute);
+  const [endHour, setEndHour] = useState(endParsed.hour);
+  const [endMinute, setEndMinute] = useState(endParsed.minute);
+  const [priority, setPriority] = useState(currentSlot.priority || 1);
+  const [slotType, setSlotType] = useState(currentSlot.type || 'prefer');
+
+  const gridStartHour = getGridStartHour(selectedRecruitment);
+  const gridEndHour = getGridEndHour(selectedRecruitment);
+
+  useEffect(() => {
+    setValidationError('');
+
+    if (!isValidTime(startHour, startMinute) || !isValidTime(endHour, endMinute)) {
+      setValidationError('Nieprawidłowy format czasu.');
+      return;
     }
-    return time;
+
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = endHour * 60 + endMinute;
+    const gridStartMinutes = gridStartHour * 60;
+    const gridEndMinutes = gridEndHour * 60;
+
+    if (startTotalMinutes < gridStartMinutes || startTotalMinutes >= gridEndMinutes) {
+      setValidationError(`Godzina rozpoczęcia musi być między ${gridStartHour}:00 a ${gridEndHour}:00.`);
+      return;
+    }
+
+    if (endTotalMinutes <= gridStartMinutes || endTotalMinutes > gridEndMinutes) {
+      setValidationError(`Godzina zakończenia musi być między ${gridStartHour}:00 a ${gridEndHour}:00.`);
+      return;
+    }
+
+    if (endTotalMinutes <= startTotalMinutes) {
+      setValidationError('Godzina zakończenia musi być późniejsza niż rozpoczęcia.');
+      return;
+    }
+
+    if (endTotalMinutes - startTotalMinutes < 15) {
+      setValidationError('Slot musi trwać co najmniej 15 minut.');
+      return;
+    }
+
+    if (priority < 1 || priority > 5) {
+      setValidationError('Priorytet musi być między 1 a 5.');
+      return;
+    }
+  }, [startHour, startMinute, endHour, endMinute, priority, gridStartHour, gridEndHour]);
+
+  const updateCurrentSlot = () => {
+    const setter = isEditMode ? setEditingSlot : setPendingSlot;
+    setter(prev => ({
+      ...prev,
+      start: formatTimeString(startHour, startMinute),
+      end: formatTimeString(endHour, endMinute),
+      priority: priority,
+      type: slotType
+    }));
   };
 
-  const startHour = getHour(currentSlot.start);
-  const endHour = getHour(currentSlot.end);
+  useEffect(() => {
+    updateCurrentSlot();
+  }, [startHour, startMinute, endHour, endMinute, priority, slotType]);
+
+  if (!isEditable && isEditMode) {
+    return (
+      <div className="new-entries-modal-overlay" onClick={onClose}>
+        <div className="new-entries-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="new-entries-modal-header">
+            <h2>Podgląd Preferencji</h2>
+          </div>
+          
+          <div className="new-entries-modal-body">
+            <div className="new-entries-modal-info">
+              Edycja jest zablokowana. Rekrutacja jest zakończona.
+            </div>
+            <p><strong>Typ:</strong> {currentSlot.type === 'prefer' ? 'Chcę mieć zajęcia' : 'Brak zajęć'}</p>
+            <p><strong>Priorytet:</strong> {currentSlot.priority}</p>
+            <p><strong>Godziny:</strong> {formatTimeString(startHour, startMinute)} - {formatTimeString(endHour, endMinute)}</p>
+          </div>
+          
+          <div className="new-entries-modal-footer">
+            <button onClick={onClose} className="new-entries-modal-btn secondary">Zamknij</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSave = () => {
+    if (validationError) {
+      return;
+    }
+    if (isEditMode) {
+      onUpdate();
+    } else {
+      onAdd();
+    }
+  };
 
   return (
     <div className="new-entries-modal-overlay" onClick={onClose}>
@@ -834,44 +1140,110 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
         </div>
         
         <div className="new-entries-modal-body">
-          <div className="new-entries-modal-info">
-            Godziny: {startHour}:00 - {endHour}:00
-          </div>
+          {validationError && (
+            <div className="new-entries-modal-error">
+              ⚠️ {validationError}
+            </div>
+          )}
 
+
+          {/* Typ preferencji */}
           <div className="new-entries-modal-field">
             <label>Typ:</label>
             <select
-              value={currentSlot.type}
-              onChange={(e) => {
-                const setter = isEditMode ? setEditingSlot : setPendingSlot;
-                setter(prev => ({ ...prev, type: e.target.value }));
-              }}
-              disabled={!isEditable} 
+              value={slotType}
+              onChange={(e) => setSlotType(e.target.value)}
+              disabled={!isEditable}
             >
-              <option value="prefer">Chcę mieć zajęcia</option>
-              <option value="avoid">Brak zajęć</option>
+              <option value="prefer">✅ Chcę mieć zajęcia</option>
+              <option value="avoid">❌ Brak zajęć</option>
             </select>
           </div>
 
-          <div className="new-entries-modal-field">
-            <label>Priorytet (1-5):</label>
-            <input
-              type="number"
-              min="1"
-              max="5"
-              value={currentSlot.priority || 1}
-              onChange={(e) => {
-                const setter = isEditMode ? setEditingSlot : setPendingSlot;
-                setter(prev => ({ ...prev, priority: parseInt(e.target.value) }));
-              }}
-              disabled={!isEditable}
-            />
+          {/* Godzina rozpoczęcia */}
+          <div className="new-entries-time-inputs">
+            <div className="new-entries-time-input-group">
+              <label>Godzina rozpoczęcia:</label>
+              <div className="new-entries-time-input-row">
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={startHour}
+                  onChange={(e) => setStartHour(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))}
+                  disabled={!isEditable}
+                  placeholder="GG"
+                />
+                <span className="new-entries-time-separator">:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  step="15"
+                  value={startMinute}
+                  onChange={(e) => setStartMinute(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  disabled={!isEditable}
+                  placeholder="MM"
+                />
+              </div>
+            </div>
+
+            {/* Godzina zakończenia */}
+            <div className="new-entries-time-input-group">
+              <label>Godzina zakończenia:</label>
+              <div className="new-entries-time-input-row">
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={endHour}
+                  onChange={(e) => setEndHour(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))}
+                  disabled={!isEditable}
+                  placeholder="GG"
+                />
+                <span className="new-entries-time-separator">:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  step="15"
+                  value={endMinute}
+                  onChange={(e) => setEndMinute(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  disabled={!isEditable}
+                  placeholder="MM"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Priorytet */}
+          <div className="new-entries-priority-field">
+            <label>Priorytet (1-5)</label>
+            <div className="new-entries-priority-input-wrapper">
+              <input
+                type="number"
+                min="1"
+                max="5"
+                value={priority}
+                onChange={(e) => setPriority(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
+                disabled={!isEditable}
+              />
+            </div>
+            <div className="new-entries-priority-scale">
+              <span className="new-entries-priority-marker">1 - Niski</span>
+              <span className="new-entries-priority-marker">3 - Średni</span>
+              <span className="new-entries-priority-marker">5 - Wysoki</span>
+            </div>
           </div>
         </div>
 
         <div className="new-entries-modal-footer">
           {isEditMode && (
-            <button onClick={onDelete} className="new-entries-modal-btn danger" disabled={!isEditable}>
+            <button 
+              onClick={onDelete} 
+              className="new-entries-modal-btn danger" 
+              disabled={!isEditable}
+            >
               Usuń
             </button>
           )}
@@ -879,9 +1251,9 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
             Anuluj
           </button>
           <button
-            onClick={isEditMode ? onUpdate : onAdd}
+            onClick={handleSave}
             className="new-entries-modal-btn primary"
-            disabled={!isEditable}
+            disabled={!isEditable || validationError !== ''}
           >
             {isEditMode ? 'Zapisz' : 'Dodaj'}
           </button>
@@ -1017,7 +1389,6 @@ const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEn
     resetDrag
   };
 };
-
 
 export default function EntriesPage() {
   const { user } = useAuth();
@@ -1158,14 +1529,13 @@ export default function EntriesPage() {
     setShowModal(true);
   };
 
-  
   const handleAddSlot = () => {
     if (!pendingSlot || !isEditable) return;
 
     const label = createSlotFromType(pendingSlot.type);
     const newSlot = {
-      start: `${pendingSlot.start}:00`,
-      end: `${pendingSlot.end}:00`,
+      start: pendingSlot.start,
+      end: pendingSlot.end,
       type: pendingSlot.type,
       label: label,
       priority: pendingSlot.priority || 1
@@ -1180,8 +1550,8 @@ export default function EntriesPage() {
 
     const label = createSlotFromType(editingSlot.type);
     const updatedSlot = {
-      start: typeof editingSlot.start === 'string' ? editingSlot.start : `${editingSlot.start}:00`,
-      end: typeof editingSlot.end === 'string' ? editingSlot.end : `${editingSlot.end}:00`,
+      start: editingSlot.start,
+      end: editingSlot.end,
       type: editingSlot.type,
       label: label,
       priority: editingSlot.priority || 1
@@ -1254,7 +1624,6 @@ export default function EntriesPage() {
                     className="new-entries-schedule-times"
                     style={{ height: `${gridHeightPx + 40}px`}}
                   >
-                    {/* Renderowanie etykiet godzin */}
                     {hours.map(time => (
                       <div key={time} className="new-entries-schedule-time">{time}</div>
                     ))}
@@ -1303,6 +1672,7 @@ export default function EntriesPage() {
           onUpdate={handleUpdateSlot}
           onDelete={handleDeleteSlot}
           isEditable={isEditable}
+          selectedRecruitment={selectedRecruitment}
         />
       )}
     </div>
