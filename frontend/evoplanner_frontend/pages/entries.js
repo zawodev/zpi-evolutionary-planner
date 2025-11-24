@@ -7,28 +7,6 @@ import { usePreferences } from '../hooks/usePreferences';
 import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../utils/scheduleOperations';
 import { timeToMinutes } from '../utils/scheduleDisplay';
 
-const parseTime = (timeValue) => {
-  if (typeof timeValue === 'string') {
-    const parts = timeValue.split(':');
-    return {
-      hour: parseInt(parts[0], 10) || 0,
-      minute: parseInt(parts[1], 10) || 0
-    };
-  }
-  return {
-    hour: Math.floor(timeValue),
-    minute: 0
-  };
-};
-
-const formatTimeString = (hour, minute) => {
-  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-};
-
-const isValidTime = (hour, minute) => {
-  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
-};
-
 const getGridStartHour = (recruitment) => {
     const timeStr = recruitment?.day_start_time || "07:00";
     const parts = timeStr.split(':');
@@ -47,8 +25,12 @@ const getGridEndHour = (recruitment) => {
     return 19;
 };
 
+const formatTimeString = (hour, minute) => {
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};
+
 const calculateSlotPositionLocal = (start, end, gridStartHour) => {
-  const parseTimeLocal = (time) => {
+  const parseTime = (time) => {
     if (typeof time === 'string') {
       const [hours, minutes = '0'] = time.split(':');
       return parseInt(hours) + parseInt(minutes) / 60;
@@ -56,8 +38,8 @@ const calculateSlotPositionLocal = (start, end, gridStartHour) => {
     return time;
   };
 
-  const startHour = parseTimeLocal(start);
-  const endHour = parseTimeLocal(end);
+  const startHour = parseTime(start);
+  const endHour = parseTime(end);
   
   const gridStart = gridStartHour;
   const hourHeight = 60;
@@ -78,7 +60,9 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   
   const hourHeight = 60; 
   const gridStartMinutes = gridStartHour * 60;
+
   const minutesOffset = startMinutes - gridStartMinutes; 
+
   const top = minutesOffset * (hourHeight / 60); 
   const height = (endMinutes - startMinutes) * (hourHeight / 60);
   
@@ -95,9 +79,37 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   };
 };
 
+const getHeatmapColor = (score) => {
+  if (score < 0.2) {
+    const hue = 220;
+    const saturation = 60;
+    const lightness = 85;
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
+  } else if (score < 0.4) {
+    const hue = 200;
+    const saturation = 70;
+    const lightness = 70;
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
+  } else if (score < 0.6) {
+    const hue = 180;
+    const saturation = 65;
+    const lightness = 60;
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
+  } else if (score < 0.8) {
+    const hue = 40;
+    const saturation = 85;
+    const lightness = 60;
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.9)`;
+  } else {
+    const hue = 15;
+    const saturation = 90;
+    const lightness = 55;
+    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.95)`;
+  }
+};
+
 const EntriesStyles = () => (
   <style>{`
-    /* === Main Container === */
     .new-entries-container {
       min-height: 100vh;
       padding-top: 5rem;
@@ -113,7 +125,6 @@ const EntriesStyles = () => (
       min-height: calc(100vh - 5rem);
     }
 
-    /* === Sidebar === */
     .new-entries-sidebar {
       width: 300px;
       padding: 2rem 1.5rem;
@@ -209,6 +220,19 @@ const EntriesStyles = () => (
       background: #1d4ed8;
     }
 
+    .new-entries-btn--secondary {
+      background: #8b5cf6;
+      color: white;
+    }
+
+    .new-entries-btn--secondary:hover:not(:disabled) {
+      background: #7c3aed;
+    }
+
+    .new-entries-btn--secondary:active:not(:disabled) {
+      background: #6d28d9;
+    }
+
     .new-entries-btn--delete {
       background: #fee2e2;
       color: #dc2626;
@@ -227,7 +251,6 @@ const EntriesStyles = () => (
       padding-top: 0.75rem;
     }
 
-    /* === Main Schedule Area === */
     .new-entries-schedule {
       flex: 1;
       padding: 2rem;
@@ -250,7 +273,6 @@ const EntriesStyles = () => (
       font-weight: 500;
     }
 
-    /* === Schedule Header === */
     .new-entries-header {
       background: white;
       border-radius: 0.75rem;
@@ -309,7 +331,6 @@ const EntriesStyles = () => (
       color: #92400e;
     }
 
-    /* === Schedule Grid === */
     .new-entries-schedule-grid {
       background: white;
       border-radius: 0.75rem;
@@ -395,7 +416,6 @@ const EntriesStyles = () => (
       background: rgba(59, 130, 246, 0.05);
     }
 
-    /* ZAKTUALIZOWANE STYLE SLOTU */
     .new-entries-schedule-slot {
       position: absolute;
       left: 4px;
@@ -482,7 +502,81 @@ const EntriesStyles = () => (
       font-size: 0.75rem;
     }
 
-    /* === ULEPSZONE STYLE MODALA === */
+    .new-entries-heatmap-cell {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      border-radius: 0.375rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #1f2937;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(255, 255, 255, 0.4);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      backdrop-filter: blur(2px);
+    }
+
+    .new-entries-heatmap-cell:hover {
+      transform: scale(1.08) translateY(-2px);
+      z-index: 10;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      border-color: rgba(255, 255, 255, 0.7);
+    }
+
+    .new-entries-heatmap-legend {
+      background: white;
+      border-radius: 0.875rem;
+      padding: 1.25rem 1.75rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border: 1px solid #f3f4f6;
+    }
+
+    .new-entries-heatmap-legend-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .new-entries-heatmap-legend-gradient {
+      height: 32px;
+      border-radius: 0.625rem;
+      background: linear-gradient(to right, 
+        hsl(220, 60%, 85%),
+        hsl(200, 70%, 70%),
+        hsl(180, 65%, 60%),
+        hsl(40, 85%, 60%),
+        hsl(15, 90%, 55%)
+      );
+      margin-bottom: 0.75rem;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1),
+                  0 2px 4px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .new-entries-heatmap-legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .new-entries-heatmap-legend-labels span {
+      padding: 0.25rem 0.5rem;
+      background: #f9fafb;
+      border-radius: 0.375rem;
+      border: 1px solid #e5e7eb;
+    }
+
     .new-entries-modal-overlay {
       position: fixed;
       inset: 0;
@@ -583,7 +677,6 @@ const EntriesStyles = () => (
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
-    /* ZAKTUALIZOWANE INPUTY CZASU - BEZ SZAREGO TŁA */
     .new-entries-time-inputs {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -653,7 +746,6 @@ const EntriesStyles = () => (
       user-select: none;
     }
 
-    /* ULEPSZONE POLE PRIORYTETU */
     .new-entries-priority-field {
       background: #f9fafb;
       border-radius: 0.75rem;
@@ -846,7 +938,19 @@ const EntriesStyles = () => (
   `}</style>
 );
 
-const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, selectedRecruitment, onSelectRecruitment, isSaving }) => {
+const EntriesSidebar = ({ 
+  fileError, 
+  onSave, 
+  onClear, 
+  recruitments, 
+  isLoading, 
+  selectedRecruitment, 
+  onSelectRecruitment, 
+  isSaving,
+  onHeatmapMouseDown,
+  onHeatmapMouseUp,
+  showingHeatmap
+}) => {
   const editableRecruitments = recruitments.filter(rec => rec.plan_status === 'draft' || rec.plan_status === 'active');
   const readOnlyRecruitments = recruitments.filter(rec => rec.plan_status !== 'draft' && rec.plan_status !== 'active');
 
@@ -891,13 +995,32 @@ const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, s
 
       <div className="new-entries-section">
         <h3 className="new-entries-section-title">Akcje:</h3>
+        
+        <button
+          onMouseDown={onHeatmapMouseDown}
+          onMouseUp={onHeatmapMouseUp}
+          onMouseLeave={onHeatmapMouseUp}
+          onTouchStart={onHeatmapMouseDown}
+          onTouchEnd={onHeatmapMouseUp}
+          className="new-entries-btn new-entries-btn--secondary"
+          disabled={!selectedRecruitment}
+          style={{
+            background: showingHeatmap ? '#6d28d9' : '#8b5cf6'
+          }}
+        >
+          {showingHeatmap ? 'Wyświetlanie Heatmapy' : 'Pokaż Heatmapę'}
+        </button>
+        
+        <div className="new-entries-pt-md"></div>
+
         <button
           onClick={onSave}
           className="new-entries-btn new-entries-btn--primary"
           disabled={!selectedRecruitment || isSaving || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
         >
-          {isSaving ? 'Zapisywanie...' : 'Zapisz Preferencje'}
+          {isSaving ? 'Zapisywanie...' : 'Zachowaj zmiany'}
         </button>
+        
         <div className="new-entries-pt-md"></div>
         <button
           onClick={onClear}
@@ -925,7 +1048,7 @@ const ScheduleHeader = ({ selectedRecruitment, usedPriority, maxPriority }) => {
         <div className="new-entries-label soft-blue">
           Punkty Priorytetu: {usedPriority}/{maxPriority}
         </div>
-        <div className="new-entries-label soft-yellow">
+        <div className="new-entries-label soft-blue">
           {isEditable ? `Zamknięcie za: ${countdown}` : 'Rekrutacja zakończona.'}
         </div>
       </div>
@@ -974,37 +1097,115 @@ const DragPreview = ({ top, height, startTime, endTime }) => {
   );
 };
 
-const ScheduleColumn = ({ day, slots, dragPreview, onMouseDown, onSlotClick, isDragging, dragDay, isEditable, selectedRecruitment }) => {
+const HeatmapCell = ({ hour, score, gridStartHour }) => {
+  const hourHeight = 60;
+  const top = (hour - gridStartHour) * hourHeight;
+  const height = hourHeight;
+  
+  const backgroundColor = getHeatmapColor(score);
+  const percentage = Math.round(score * 100);
+
+  return (
+    <div
+      className="new-entries-heatmap-cell"
+      style={{
+        top: `${top}px`,
+        height: `${height}px`,
+        backgroundColor: backgroundColor
+      }}
+      title={`Score: ${score.toFixed(2)} (${percentage}%)`}
+    >
+      {percentage}%
+    </div>
+  );
+};
+
+const ScheduleColumn = ({ 
+  day, 
+  slots, 
+  dragPreview, 
+  onMouseDown, 
+  onSlotClick, 
+  isDragging, 
+  dragDay, 
+  isEditable, 
+  selectedRecruitment,
+  showingHeatmap,
+  heatmapData,
+  gridStartHour
+}) => {
   const isBeingDragged = isDragging && dragDay === day;
   
-  const gridStartHour = getGridStartHour(selectedRecruitment);
   const gridEndHour = getGridEndHour(selectedRecruitment);
   const hourHeight = 60;
   const columnHeightPx = (gridEndHour - gridStartHour) * hourHeight;
+
+  const dayMapping = {
+    'monday': 0,
+    'tuesday': 1,
+    'wednesday': 2,
+    'thursday': 3,
+    'friday': 4
+  };
+  
+  const dayOfWeek = dayMapping[day];
+  
+  const dayHeatmapData = showingHeatmap && heatmapData 
+    ? heatmapData.filter(item => item.day_of_week === dayOfWeek)
+    : [];
 
   return (
     <div 
       className={`new-entries-schedule-column ${isBeingDragged ? 'dragging' : ''} ${!isEditable ? 'read-only' : ''}`}
       style={{ height: `${columnHeightPx}px` }}
       onMouseDown={(e) => {
-        if (isEditable) {
+        if (isEditable && !showingHeatmap) {
             onMouseDown(e, day);
         }
       }}
     >
-      {slots && slots.map((slot, slotIndex) => {
-        const position = calculateSlotPositionLocal(slot.start, slot.end, gridStartHour); 
-        return (
-          <ScheduleSlot
-            key={`${day}-${slotIndex}`}
-            slot={slot}
-            position={position}
-            onClick={(e) => onSlotClick(e, day, slotIndex)}
-            isEditable={isEditable}
+      {showingHeatmap ? (
+        dayHeatmapData.map((item, index) => (
+          <HeatmapCell
+            key={`heatmap-${day}-${item.hour}-${index}`}
+            hour={item.hour}
+            score={item.score}
+            gridStartHour={gridStartHour}
           />
-        );
-      })}
-      {dragPreview && <DragPreview {...dragPreview} />}
+        ))
+      ) : (
+        <>
+          {slots && slots.map((slot, slotIndex) => {
+            const position = calculateSlotPositionLocal(slot.start, slot.end, gridStartHour); 
+            return (
+              <ScheduleSlot
+                key={`${day}-${slotIndex}`}
+                slot={slot}
+                position={position}
+                onClick={(e) => onSlotClick(e, day, slotIndex)}
+                isEditable={isEditable}
+              />
+            );
+          })}
+          {dragPreview && <DragPreview {...dragPreview} />}
+        </>
+      )}
+    </div>
+  );
+};
+
+const HeatmapLegend = () => {
+  return (
+    <div className="new-entries-heatmap-legend">
+      <div className="new-entries-heatmap-legend-title">Legenda popularności:</div>
+      <div className="new-entries-heatmap-legend-gradient"></div>
+      <div className="new-entries-heatmap-legend-labels">
+        <span>0% (Niska)</span>
+        <span>25%</span>
+        <span>50%</span>
+        <span>75%</span>
+        <span>100% (Wysoka)</span>
+      </div>
     </div>
   );
 };
@@ -1028,9 +1229,23 @@ const PreferenceModal = ({
   const [validationError, setValidationError] = useState('');
 
   if (!currentSlot) return null;
+  
+  const parseTimeLocal = (timeValue) => {
+    if (typeof timeValue === 'string') {
+        const parts = timeValue.split(':');
+        return {
+            hour: parseInt(parts[0], 10) || 0,
+            minute: parseInt(parts[1], 10) || 0
+        };
+    }
+    return {
+        hour: Math.floor(timeValue),
+        minute: 0
+    };
+  };
 
-  const startParsed = parseTime(currentSlot.start);
-  const endParsed = parseTime(currentSlot.end);
+  const startParsed = parseTimeLocal(currentSlot.start);
+  const endParsed = parseTimeLocal(currentSlot.end);
 
   const [startHour, setStartHour] = useState(startParsed.hour);
   const [startMinute, setStartMinute] = useState(startParsed.minute);
@@ -1045,13 +1260,24 @@ const PreferenceModal = ({
   useEffect(() => {
     setValidationError('');
 
-    if (!isValidTime(startHour, startMinute) || !isValidTime(endHour, endMinute)) {
-      setValidationError('Nieprawidłowy format czasu.');
-      return;
+    const currentStartHour = parseInt(startHour);
+    const currentStartMinute = parseInt(startMinute);
+    const currentEndHour = parseInt(endHour);
+    const currentEndMinute = parseInt(endMinute);
+
+    if (isNaN(currentStartHour) || isNaN(currentStartMinute) || isNaN(currentEndHour) || isNaN(currentEndMinute)) {
+        setValidationError('Nieprawidłowy format czasu.');
+        return;
     }
 
-    const startTotalMinutes = startHour * 60 + startMinute;
-    const endTotalMinutes = endHour * 60 + endMinute;
+    if (currentStartHour < 0 || currentStartHour > 23 || currentStartMinute < 0 || currentStartMinute > 59 ||
+        currentEndHour < 0 || currentEndHour > 23 || currentEndMinute < 0 || currentEndMinute > 59) {
+        setValidationError('Nieprawidłowa wartość godziny/minuty.');
+        return;
+    }
+
+    const startTotalMinutes = currentStartHour * 60 + currentStartMinute;
+    const endTotalMinutes = currentEndHour * 60 + currentEndMinute;
     const gridStartMinutes = gridStartHour * 60;
     const gridEndMinutes = gridEndHour * 60;
 
@@ -1142,12 +1368,14 @@ const PreferenceModal = ({
         <div className="new-entries-modal-body">
           {validationError && (
             <div className="new-entries-modal-error">
-              ⚠️ {validationError}
+              {validationError}
             </div>
           )}
 
+          <div className="new-entries-modal-info">
+            Rekrutacja: {gridStartHour}:00 - {gridEndHour}:00
+          </div>
 
-          {/* Typ preferencji */}
           <div className="new-entries-modal-field">
             <label>Typ:</label>
             <select
@@ -1155,12 +1383,11 @@ const PreferenceModal = ({
               onChange={(e) => setSlotType(e.target.value)}
               disabled={!isEditable}
             >
-              <option value="prefer">✅ Chcę mieć zajęcia</option>
-              <option value="avoid">❌ Brak zajęć</option>
+              <option value="prefer">Chcę mieć zajęcia</option>
+              <option value="avoid">Brak zajęć</option>
             </select>
           </div>
 
-          {/* Godzina rozpoczęcia */}
           <div className="new-entries-time-inputs">
             <div className="new-entries-time-input-group">
               <label>Godzina rozpoczęcia:</label>
@@ -1188,7 +1415,6 @@ const PreferenceModal = ({
               </div>
             </div>
 
-            {/* Godzina zakończenia */}
             <div className="new-entries-time-input-group">
               <label>Godzina zakończenia:</label>
               <div className="new-entries-time-input-row">
@@ -1216,7 +1442,6 @@ const PreferenceModal = ({
             </div>
           </div>
 
-          {/* Priorytet */}
           <div className="new-entries-priority-field">
             <label>Priorytet (1-5)</label>
             <div className="new-entries-priority-input-wrapper">
@@ -1398,6 +1623,9 @@ export default function EntriesPage() {
   const dayLabels = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt'];
   
   const [selectedRecruitment, setSelectedRecruitment] = useState(null);
+  const [showingHeatmap, setShowingHeatmap] = useState(false);
+  const [heatmapData, setHeatmapData] = useState(null);
+  const [isLoadingHeatmap, setIsLoadingHeatmap] = useState(false);
 
   const gridStartHour = getGridStartHour(selectedRecruitment);
   const gridEndHour = getGridEndHour(selectedRecruitment);
@@ -1445,14 +1673,118 @@ export default function EntriesPage() {
   } = useScheduleDragCustom((dragResult) => {
     setPendingSlot({
       day: dragResult.day,
-      start: dragResult.start,
-      end: dragResult.end,
+      start: formatTimeString(dragResult.start, 0), 
+      end: formatTimeString(dragResult.end, 0),
       type: 'prefer',
       priority: 1
     });
     setModalMode('create');
     setShowModal(true);
   }, isEditable, gridStartHour, gridEndHour);
+
+const processWeightsToHeatmap = (weightsArray, gridStartHour, days) => {
+    if (!weightsArray || weightsArray.length === 0) return [];
+
+    const normalizedWeights = weightsArray.map(w => parseFloat(w) || 0);
+    const maxWeight = Math.max(...normalizedWeights);
+    const minWeight = Math.min(...normalizedWeights);
+    const range = maxWeight - minWeight;
+
+    const timeslotsInCycle = normalizedWeights.length;
+    const timeslotsPerDay = timeslotsInCycle / days.length;
+    
+    const slotsPerHour = 4;
+
+    const processedData = [];
+    
+    for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+        const startSlotIndex = dayIndex * timeslotsPerDay;
+        const endSlotIndex = startSlotIndex + timeslotsPerDay;
+
+        for (let slotIndexInDay = 0; slotIndexInDay < timeslotsPerDay; slotIndexInDay += slotsPerHour) {
+            
+            const globalSlotIndex = startSlotIndex + slotIndexInDay;
+            
+            let hourlyWeight = 0;
+            for (let i = 0; i < slotsPerHour; i++) {
+                if (globalSlotIndex + i < endSlotIndex) {
+                    hourlyWeight += normalizedWeights[globalSlotIndex + i];
+                }
+            }
+
+            const averageWeight = hourlyWeight / slotsPerHour;
+            
+            let score;
+            if (range === 0) {
+                score = 0.5;
+            } else {
+                score = (averageWeight - minWeight) / range;
+            }
+            
+            score = Math.max(0, Math.min(1, score));
+
+            const hour = gridStartHour + Math.floor(slotIndexInDay / slotsPerHour);
+            
+            if (hour < gridEndHour) {
+                processedData.push({
+                    day_of_week: dayIndex,
+                    hour: hour,
+                    score: score,
+                    rawWeight: averageWeight
+                });
+            }
+        }
+    }
+    return processedData;
+};
+
+const fetchHeatmap = async (recruitmentId) => {
+  if (!recruitmentId) return;
+  
+  setIsLoadingHeatmap(true);
+  try {
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const url = `${baseUrl}/api/v1/preferences/aggregate-preferred-timeslots/${recruitmentId}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    
+    const weightsArray = await response.json();
+    
+    const processedData = processWeightsToHeatmap(weightsArray, gridStartHour, days);
+    
+    setHeatmapData(processedData);
+  } catch (error) {
+    console.error('Error fetching heatmap:', error);
+    alert(`Błąd podczas pobierania danych heatmapy: ${error.message}`);
+    setHeatmapData(null);
+  } finally {
+    setIsLoadingHeatmap(false);
+  }
+};
+
+  const handleHeatmapMouseDown = () => {
+    if (!selectedRecruitment) return;
+    
+    setShowingHeatmap(true);
+    
+    if (!heatmapData || heatmapData.recruitmentId !== selectedRecruitment.recruitment_id) {
+      fetchHeatmap(selectedRecruitment.recruitment_id);
+    }
+  };
+
+  const handleHeatmapMouseUp = () => {
+    setShowingHeatmap(false);
+  };
 
   const handleSave = async () => {
     if (!selectedRecruitment || !isEditable) return;
@@ -1596,6 +1928,9 @@ export default function EntriesPage() {
             selectedRecruitment={selectedRecruitment}
             onSelectRecruitment={setSelectedRecruitment}
             isSaving={isSaving}
+            onHeatmapMouseDown={handleHeatmapMouseDown}
+            onHeatmapMouseUp={handleHeatmapMouseUp}
+            showingHeatmap={showingHeatmap}
           />
           
           <main className="new-entries-schedule">
@@ -1619,6 +1954,12 @@ export default function EntriesPage() {
                   maxPriority={maxPriority}
                 />
                 
+                {isLoadingHeatmap && showingHeatmap && (
+                  <div className="new-entries-loading-indicator">
+                    <p>Ładowanie heatmapy...</p>
+                  </div>
+                )}
+
                 <div className={`new-entries-schedule-grid ${!isEditable ? 'read-only-mode' : ''}`}>
                   <div 
                     className="new-entries-schedule-times"
@@ -1648,12 +1989,16 @@ export default function EntriesPage() {
                           isDragging={isDragging}
                           dragDay={dragDay}
                           isEditable={isEditable}
+                          showingHeatmap={showingHeatmap}
+                          heatmapData={heatmapData}
                           selectedRecruitment={selectedRecruitment} 
+                          gridStartHour={gridStartHour} 
                         />
                       ))}
                     </div>
                   </div>
                 </div>
+                {showingHeatmap && heatmapData && <HeatmapLegend />}
               </>
             )}
           </main>
