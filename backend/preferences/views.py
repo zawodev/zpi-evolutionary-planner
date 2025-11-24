@@ -11,9 +11,35 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+# pokazac zbiorcze statystyki dla grupy jak fituje dla kazdego usera
+# fitness calc type typu 01 do wyboru
+# porównać do optymalizacji planowej zachłannej (trudne) - albo random searchem + repair??? chyba sie da
+
 DEFAULT_USER_PREFERENCES = {
-    "WidthHeightInfo": 0, # weight, positive means prefer wider, negative means prefer taller
-    "GapsInfo": [0, 0, 0], # minGaps, maxGaps, weight
+    # INFO:
+    # - wagi we wszystkich mogą być dodatnie lub ujemne, 
+    # - wielkość wartości bezwglęzdnej określa siłę preferencji
+
+    # --- optional ---
+
+    "FreeDays": 0, # wolne dni (jak bardzo) - lub pracowite dni
+    "ShortDays": 0, # krótkie dni (jak bardzo) - lub długie dni
+    "UniformDays": 0, # równe dni długością względem innych dni - lub nierówne
+    "ConcentratedDays": 0, # skupienie roboty obok roboty a wolnego obok wolnego (jako całe dni) - pomieszane między sobą
+    
+    "MinGapsLength": [0, 0], # [value, weight]
+    "MaxGapsLength": [0, 0], # [value, weight]
+
+    "MinDayLength": [0, 0], # [value, weight]
+    "MaxDayLength": [0, 0], # [value, weight]
+
+    "PreferredDayStartTimeslot": [0, 0], # [value, weight]
+    "PreferredDayEndTimeslot": [0, 0], # [value, weight]
+
+    "TagOrder": [], # chce żeby tag A był od razu po tagu B (albo przynajmniej tego samego dnia) [[tagAId, tagBId, weight], ...]
+
+    # --- normal ---
+    
     "PreferredTimeslots": [0, 0, 0, 0, 0, 0, 0], # for each timeslot in cycle, weight
     "PreferredGroups": [0, 0, 0, 0, 0] # for each group, weight
 }
@@ -21,40 +47,27 @@ DEFAULT_USER_PREFERENCES = {
 
 DEFAULT_CONSTRAINTS = {
     "TimeslotsDaily": 0, # 4 x hours (15min timeslots)
-    "DaysInCycle": 0, # 7, 14 or 28
-    "MinStudentsPerGroup": [0, 0, 0], # for each group, student count requirement (or group no start)
-    "SubjectsDuration": [0, 0, 0, 0], # for each subject, duration in timeslots
-    "GroupsPerSubject": [0, 0, 0, 0], # for each subject, number of groups
-    "GroupsCapacity": [0, 0, 0, 0, 0, 0], # for each group, capacity
-    "RoomsCapacity": [0, 0], # for each room, capacity
-    "GroupsTags": [
-        [0, 0], # groupId, tagId
-        [0, 0]
-    ],
-    "RoomsTags": [
-        [0, 0], # roomId, tagId
-        [0, 0]
-    ],
-    "StudentsSubjects": [
-        [0, 0, 0], # subjectIds list for student 0
-        [0, 0] # subjectIds list for student 1
-    ],
-    "TeachersGroups": [
-        [0, 0, 0, 0], # groupIds list for teacher 0
-        [0, 0, 0, 0, 0, 0] # groupIds list for teacher 1
-    ],
-    "RoomsUnavailabilityTimeslots": [
-        [], # roomId 0, list of timeslot ids
-        [12], # roomId 1, list of timeslot ids
-    ],
-    "StudentsUnavailabilityTimeslots": [
-        [], # studentId 0, list of timeslot ids
-        [5, 6, 7], # studentId 1, list of timeslot ids
-    ],
-    "TeachersUnavailabilityTimeslots": [
-        [], # teacherId 0, list of timeslot ids
-        [1, 2, 3], # teacherId 1, list of timeslot ids
-    ]
+    "DaysInCycle": 7, # 7, 14 or 28
+    "NumSubjects": 0,
+    "NumGroups": 0,
+    "NumTeachers": 0,
+    "NumStudents": 0,
+    "NumRooms": 0,
+    "NumTags": 0,
+    "StudentWeights": [], # for each student, weight
+    "TeacherWeights": [], # for each teacher, weight
+    "MinStudentsPerGroup": [], # for each group, student count requirement (or group no start)
+    "SubjectsDuration": [], # for each subject, duration in timeslots
+    "GroupsPerSubject": [], # for each subject, number of groups
+    "GroupsCapacity": [], # for each group, capacity
+    "RoomsCapacity": [], # for each room, capacity
+    "GroupsTags": [], # groupId, tagId
+    "RoomsTags": [], # roomId, tagId
+    "StudentsSubjects": [], # subjectIds list for student 0
+    "TeachersGroups": [], # groupIds list for teacher 0
+    "RoomsUnavailabilityTimeslots": [], # roomId 0, list of timeslot ids
+    "StudentsUnavailabilityTimeslots": [], # studentId 0, list of timeslot ids
+    "TeachersUnavailabilityTimeslots": [] # teacherId 0, list of timeslot ids
 }
 
 

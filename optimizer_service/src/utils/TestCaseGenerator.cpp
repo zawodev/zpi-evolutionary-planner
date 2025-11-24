@@ -153,19 +153,21 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
 
         // Students preferences (new format)
         data.students_preferences.resize(numStudents);
-        std::uniform_int_distribution<> dist_width_height(-50, 50);
+        std::uniform_int_distribution<> dist_weight_val(-50, 50);
         std::uniform_int_distribution<> dist_gaps(0, 5);
         for (int s = 0; s < numStudents; ++s) {
             auto& sp = data.students_preferences[s];
             
-            // width_height_info: random value between -50 and 50
-            sp.width_height_info = dist_width_height(gen);
+            sp.free_days = dist_weight_val(gen);
+            sp.short_days = dist_weight_val(gen);
+            sp.uniform_days = dist_weight_val(gen);
+            sp.concentrated_days = dist_weight_val(gen);
             
-            // gaps_info: [minGaps, maxGaps, weight]
             int min_gaps = dist_gaps(gen);
             int max_gaps = min_gaps + dist_gaps(gen);
             int gaps_weight = dist_weight(gen);
-            sp.gaps_info = {min_gaps, max_gaps, gaps_weight};
+            sp.min_gaps_length = {min_gaps, gaps_weight};
+            sp.max_gaps_length = {max_gaps, gaps_weight};
             
             // preferred_timeslots: array of signed weights (negative = avoid, positive = prefer)
             sp.preferred_timeslots.resize(numTimeslots, 0);
@@ -197,14 +199,16 @@ RawProblemData TestCaseGenerator::generate(int numStudents, int numGroups, int n
         for (int t = 0; t < numTeachers; ++t) {
             auto& tp = data.teachers_preferences[t];
             
-            // width_height_info: random value between -50 and 50
-            tp.width_height_info = dist_width_height(gen);
+            tp.free_days = dist_weight_val(gen);
+            tp.short_days = dist_weight_val(gen);
+            tp.uniform_days = dist_weight_val(gen);
+            tp.concentrated_days = dist_weight_val(gen);
             
-            // gaps_info: [minGaps, maxGaps, weight]
             int min_gaps = dist_gaps(gen);
             int max_gaps = min_gaps + dist_gaps(gen);
             int gaps_weight = dist_weight(gen);
-            tp.gaps_info = {min_gaps, max_gaps, gaps_weight};
+            tp.min_gaps_length = {min_gaps, gaps_weight};
+            tp.max_gaps_length = {max_gaps, gaps_weight};
             
             // preferred_timeslots: array of signed weights (negative = avoid, positive = prefer)
             tp.preferred_timeslots.resize(numTimeslots, 0);

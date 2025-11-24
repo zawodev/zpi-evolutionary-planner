@@ -62,7 +62,8 @@ plik wyjściowy to wynik optymalizacji: najlepsze znalezione rozwiązanie
 - `by_group`: Lista list, np. `[[16,2], [14,2], [8,0], ...]`. Dla każdej grupy: [slot czasowy, sala]. (Druga część)
 - `student_fitnesses`: Lista, np. `[1.0,1.0,1.0]`. fitness każdego studenta (dla wglądu, kto jak został pokrzywdzony, raczej debug only).
 - `teacher_fitnesses`: Lista, np. `[0.642857, 0.777777, 1.0]`. fitness dla każdego nauczyciela.
-- `management_fitness`: Liczba, np. `0.444444`. fitness dla preferencji zarządu.
+- `student_detailed_fitnesses`: Lista list par liczb. Dla każdego studenta lista ocen cząstkowych i wag dla każdej kategorii preferencji.
+- `teacher_detailed_fitnesses`: Lista list par liczb. Dla każdego nauczyciela lista ocen cząstkowych i wag dla każdej kategorii preferencji.
 
 ### Jak Liczone Jest Wyjście
 - Dekodowanie genotypu: W `Evaluator::evaluate()` genotyp jest dzielony na dwie części: student-grupy (relatywne indeksy zamieniane na absolutne) i grupa-slot/sala.
@@ -107,7 +108,14 @@ plik wyjściowy to wynik optymalizacji: najlepsze znalezione rozwiązanie
     "by_group": [[16,2],[14,2],[8,0],[8,1],[13,2],[2,1],[1,0],[5,0],[12,1],[19,0],[32,2],[30,2],[17,1],[3,1]],
     "student_fitnesses": [1.0,1.0,1.0],
     "teacher_fitnesses": [0.6428571428571429,0.7777777777777778,1.0],
-    "management_fitness": 0.444444
+    "student_detailed_fitnesses": [
+        [[1.0, 1.0], [0.5, 2.0], ...],
+        ...
+    ],
+    "teacher_detailed_fitnesses": [
+        [[1.0, 1.0], [0.8, 1.0], ...],
+        ...
+    ]
   }
 }
 ```

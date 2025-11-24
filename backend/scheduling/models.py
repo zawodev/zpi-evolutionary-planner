@@ -25,6 +25,7 @@ class Subject(models.Model):
 
     class Meta:
         db_table = 'scheduling_subjects'
+        ordering = ['subject_name']
 
     def __str__(self):
         return self.subject_name
@@ -56,6 +57,7 @@ class SubjectGroup(models.Model):
 
     class Meta:
         db_table = 'scheduling_subjectgroups'
+        ordering = ['subject__subject_name']
 
     def __str__(self):
         return f"{self.subject.subject_name} - {self.host_user}"
@@ -238,9 +240,12 @@ class Meeting(models.Model):
         db_column='roomid',
         related_name='meetings'
     )
-    start_timeslot = models.IntegerField()
+    start_timeslot = models.IntegerField(default=0)
+    duration = models.IntegerField(default=4, help_text="Duration in 15-minute blocks")
+    start_time = models.TimeField(default='00:00:00')
+    end_time = models.TimeField(default='00:15:00')
     day_of_week = models.IntegerField(help_text="Day of week (0=Monday, 6=Sunday)")
-    day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-30")
+    day_of_cycle = models.IntegerField(help_text="Day in cycle: weekly 0-6, biweekly 0-13, monthly 0-27")
 
     class Meta:
         db_table = 'scheduling_meetings'
