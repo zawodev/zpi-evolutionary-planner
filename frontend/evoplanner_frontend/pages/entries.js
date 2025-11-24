@@ -1,13 +1,31 @@
-/* pages/entries.js - Complete with working drag-and-drop */
+/* pages/entries.js */
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from '../contexts/AuthContext';
 import { useRecruitments } from '../hooks/useRecruitments';
 import { usePreferences } from '../hooks/usePreferences';
-import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType } from '../utils/scheduleOperations';
+import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../utils/scheduleOperations';
+import { timeToMinutes } from '../utils/scheduleDisplay';
 
-// Local position calculation that handles both string ("9:00") and number (9) formats
-const calculateSlotPositionLocal = (start, end) => {
+const getGridStartHour = (recruitment) => {
+    const timeStr = recruitment?.day_start_time || "07:00"; // Użyj 7:00 jako ostatecznego fallbacku
+    const parts = timeStr.split(':');
+    if (parts.length > 0) {
+        return parseInt(parts[0], 10);
+    }
+    return 7;
+};
+
+const getGridEndHour = (recruitment) => {
+    const timeStr = recruitment?.day_end_time || "19:00"; // Użyj 19:00 jako ostatecznego fallbacku
+    const parts = timeStr.split(':');
+    if (parts.length > 0) {
+        return parseInt(parts[0], 10);
+    }
+    return 19;
+};
+
+const calculateSlotPositionLocal = (start, end, gridStartHour) => {
   const parseTime = (time) => {
     if (typeof time === 'string') {
       const [hours, minutes = '0'] = time.split(':');
@@ -19,8 +37,8 @@ const calculateSlotPositionLocal = (start, end) => {
   const startHour = parseTime(start);
   const endHour = parseTime(end);
   
-  const gridStart = 7; // 7:00 AM
-  const hourHeight = 60; // 60px per hour
+  const gridStart = gridStartHour;
+  const hourHeight = 60;
   
   const top = (startHour - gridStart) * hourHeight;
   const height = (endHour - startHour) * hourHeight;
@@ -28,8 +46,8 @@ const calculateSlotPositionLocal = (start, end) => {
   return { top, height };
 };
 
-// Local getDragPreview implementation for better accuracy
-const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay) => {
+
+const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay, gridStartHour) => {
   if (!isDragging || dragDay !== currentDay || !dragStart || !dragEnd) {
     return null;
   }
@@ -37,14 +55,14 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   const startMinutes = Math.min(dragStart.minutes, dragEnd.minutes);
   const endMinutes = Math.max(dragStart.minutes, dragEnd.minutes);
   
-  const gridStart = 7; // 7:00 AM
-  const hourHeight = 60; // 60px per hour
-  
-  // Calculate position
-  const top = (startMinutes - gridStart * 60) * (hourHeight / 60);
+  const hourHeight = 60; 
+  const gridStartMinutes = gridStartHour * 60;
+
+  const minutesOffset = startMinutes - gridStartMinutes; 
+
+  const top = minutesOffset * (hourHeight / 60); 
   const height = (endMinutes - startMinutes) * (hourHeight / 60);
   
-  // Format times
   const startHour = Math.floor(startMinutes / 60);
   const startMin = startMinutes % 60;
   const endHour = Math.floor(endMinutes / 60);
@@ -112,17 +130,31 @@ const EntriesStyles = () => (
       cursor: pointer;
       transition: all 0.2s;
       margin-bottom: 0.5rem;
+      opacity: 1; /* Domyślna opacity */
     }
 
-    .new-entries-item:hover {
+    .new-entries-item.read-only {
+        background: #f3f4f6;
+        border: 2px solid #e5e7eb;
+        color: #6b7280;
+        cursor: default;
+    }
+
+    .new-entries-item:hover:not(.read-only) {
       background: #dbeafe;
       border-color: #bfdbfe;
     }
 
-    .new-entries-item.active {
+    .new-entries-item.active:not(.read-only) {
       background: #2563eb;
       border-color: #2563eb;
       color: white;
+    }
+    
+    .new-entries-item.active.read-only {
+        border-color: #4b5563;
+        background: #e5e7eb;
+        font-weight: 600;
     }
 
     .new-entries-item:last-child {
@@ -216,6 +248,26 @@ const EntriesStyles = () => (
       color: #1f2937;
       margin: 0 0 0.75rem 0;
     }
+    
+    .new-entries-status-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        display: inline-block;
+    }
+
+    .new-entries-status-label.draft {
+        background: #fef9c3;
+        color: #b45309;
+    }
+
+    .new-entries-status-label.completed {
+        background: #e5e7eb;
+        color: #4b5563;
+    }
+
 
     .new-entries-stats {
       display: flex;
@@ -250,6 +302,14 @@ const EntriesStyles = () => (
       gap: 1rem;
       overflow-x: auto;
     }
+
+    /* Tryb Tylko do Odczytu */
+    .new-entries-schedule-grid.read-only-mode {
+        pointer-events: none;
+        user-select: none;
+        opacity: 0.8;
+    }
+
 
     .new-entries-schedule-times {
       display: flex;
@@ -302,14 +362,17 @@ const EntriesStyles = () => (
 
     .new-entries-schedule-column {
       position: relative;
-      height: 720px;
       border-left: 1px solid #f3f4f6;
       cursor: crosshair;
       user-select: none;
     }
-
-    .new-entries-schedule-column:hover {
+    
+    .new-entries-schedule-column:not(.read-only):hover {
       background: rgba(59, 130, 246, 0.02);
+    }
+    
+    .new-entries-schedule-column.read-only {
+        cursor: default;
     }
 
     .new-entries-schedule-column.dragging {
@@ -322,7 +385,7 @@ const EntriesStyles = () => (
       left: 4px;
       right: 4px;
       border-radius: 0.5rem;
-      padding: 0.5rem;
+      padding: 0.75rem;
       font-size: 0.75rem;
       cursor: pointer;
       transition: all 0.2s;
@@ -330,9 +393,18 @@ const EntriesStyles = () => (
       overflow: hidden;
     }
 
-    .new-entries-schedule-slot:hover {
+    .new-entries-schedule-slot:hover:not(.read-only) {
       transform: translateX(-2px);
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+    
+    .new-entries-schedule-slot.read-only {
+        cursor: default;
+    }
+    
+    .new-entries-schedule-slot.read-only:hover {
+        transform: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .new-entries-slot-label {
@@ -533,47 +605,46 @@ const EntriesStyles = () => (
   `}</style>
 );
 
-// Components
 const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, selectedRecruitment, onSelectRecruitment, isSaving }) => {
-  const upcomingRecruitments = recruitments.filter(rec => rec.plan_status === 'draft');
-  const completedRecruitments = recruitments.filter(rec => rec.plan_status !== 'draft');
+  const editableRecruitments = recruitments.filter(rec => rec.plan_status === 'draft' || rec.plan_status === 'active');
+  const readOnlyRecruitments = recruitments.filter(rec => rec.plan_status !== 'draft' && rec.plan_status !== 'active');
 
   return (
     <aside className="new-entries-sidebar">
       <div className="new-entries-section">
-        <h3 className="new-entries-section-title">Nadchodzące zgłoszenia:</h3>
+        <h3 className="new-entries-section-title">Aktywne (do edycji):</h3>
         {isLoading && <div className="new-entries-item">Ładowanie...</div>}
         {fileError && <div className="new-entries-error-message">{fileError}</div>}
-        {!isLoading && !fileError && upcomingRecruitments.length > 0 ? (
-          upcomingRecruitments.map(rec => (
+        {!isLoading && !fileError && editableRecruitments.length > 0 ? (
+          editableRecruitments.map(rec => (
             <div
               key={rec.recruitment_id}
               className={`new-entries-item ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
               onClick={() => onSelectRecruitment(rec)}
             >
-              <span>{rec.recruitment_name}</span>
+              <span>{rec.recruitment_name} ({rec.plan_status})</span>
             </div>
           ))
         ) : (
-          !isLoading && !fileError && <div className="new-entries-item">Brak nadchodzących rekrutacji.</div>
+          !isLoading && !fileError && <div className="new-entries-item read-only">Brak aktywnych rekrutacji.</div>
         )}
       </div>
 
       <div className="new-entries-section">
-        <h3 className="new-entries-section-title">Zakończone zgłoszenia:</h3>
+        <h3 className="new-entries-section-title">Zakończone (tylko do odczytu):</h3>
         {isLoading && <div className="new-entries-item">Ładowanie...</div>}
-        {!isLoading && !fileError && completedRecruitments.length > 0 ? (
-          completedRecruitments.map(rec => (
+        {!isLoading && !fileError && readOnlyRecruitments.length > 0 ? (
+          readOnlyRecruitments.map(rec => (
             <div
               key={rec.recruitment_id}
-              className={`new-entries-item ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
+              className={`new-entries-item read-only ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
               onClick={() => onSelectRecruitment(rec)}
             >
-              <span>{rec.recruitment_name}</span>
+              <span>{rec.recruitment_name} ({rec.plan_status})</span>
             </div>
           ))
         ) : (
-          !isLoading && !fileError && <div className="new-entries-item">Brak zakończonych rekrutacji.</div>
+          !isLoading && !fileError && <div className="new-entries-item read-only">Brak zakończonych rekrutacji.</div>
         )}
       </div>
 
@@ -582,7 +653,7 @@ const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, s
         <button
           onClick={onSave}
           className="new-entries-btn new-entries-btn--primary"
-          disabled={!selectedRecruitment || isSaving}
+          disabled={!selectedRecruitment || isSaving || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
         >
           {isSaving ? 'Zapisywanie...' : 'Zachowaj zmiany'}
         </button>
@@ -590,7 +661,7 @@ const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, s
         <button
           onClick={onClear}
           className="new-entries-btn new-entries-btn--delete"
-          disabled={!selectedRecruitment}
+          disabled={!selectedRecruitment || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
         >
           Wyczyść Preferencje
         </button>
@@ -602,24 +673,43 @@ const EntriesSidebar = ({ fileError, onSave, onClear, recruitments, isLoading, s
 const ScheduleHeader = ({ selectedRecruitment, usedPriority, maxPriority }) => {
   const recruitmentName = selectedRecruitment ? selectedRecruitment.recruitment_name : '...';
   const countdown = "3d 7h";
+  
+  const status = selectedRecruitment?.plan_status || 'brak statusu';
+  
+  const isEditable = status === 'draft' || status === 'active';
+
+  const displayStatusName = () => {
+      switch (status) {
+          case 'draft': return 'W TRAKCIE ZGŁOSZEŃ (DO EDYCJI)';
+          case 'active': return 'ZGŁOSZENIA ZAMKNIĘTE (DO EDYCJI)'; // Utrzymane jako edytowalne
+          case 'optimizing': return 'W TRAKCIE OPTYMALIZACJI (TYLKO ODCZYT)'; 
+          case 'archived': return 'ZARCHIWIZOWANE (TYLKO ODCZYT)';
+          default: return status.toUpperCase();
+      }
+  };
+  
+  const lockIcon = isEditable ? '✏️' : '🔒'; 
 
   return (
     <div className="new-entries-header">
       <h2 className="new-entries-title">Wybrane Zgłoszenia: {recruitmentName}</h2>
+      <span className={`new-entries-status-label ${isEditable ? 'draft' : 'completed'}`}>
+          Status: {displayStatusName()} {lockIcon}
+      </span>
+      
       <div className="new-entries-stats">
         <div className="new-entries-label soft-blue">
           Punkty Priorytetu: {usedPriority}/{maxPriority}
         </div>
         <div className="new-entries-label soft-yellow">
-          Zamknięcie za: {countdown}
+          {isEditable ? `Zamknięcie za: ${countdown}` : 'Rekrutacja zakończona.'}
         </div>
       </div>
     </div>
   );
 };
 
-const ScheduleSlot = ({ slot, position, onClick }) => {
-  // Helper to format time display (handles both "9:00" strings and 9 numbers)
+const ScheduleSlot = ({ slot, position, onClick, isEditable }) => {
   const formatTime = (time) => {
     if (typeof time === 'string') {
       return time;
@@ -629,12 +719,12 @@ const ScheduleSlot = ({ slot, position, onClick }) => {
 
   return (
     <div
-      className={`new-entries-schedule-slot ${slot.type}`}
+      className={`new-entries-schedule-slot ${slot.type} ${!isEditable ? 'read-only' : ''}`}
       style={{
         top: `${position.top}px`,
         height: `${position.height}px`
       }}
-      onClick={onClick}
+      onClick={isEditable ? onClick : (e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <span className="new-entries-slot-label">Preferencja: {slot.label}</span>
@@ -660,25 +750,33 @@ const DragPreview = ({ top, height, startTime, endTime }) => {
   );
 };
 
-const ScheduleColumn = ({ day, slots, dragPreview, onMouseDown, onSlotClick, isDragging, dragDay }) => {
+const ScheduleColumn = ({ day, slots, dragPreview, onMouseDown, onSlotClick, isDragging, dragDay, isEditable, selectedRecruitment }) => {
   const isBeingDragged = isDragging && dragDay === day;
   
+  const gridStartHour = getGridStartHour(selectedRecruitment);
+  const gridEndHour = getGridEndHour(selectedRecruitment);
+  const hourHeight = 60;
+  const columnHeightPx = (gridEndHour - gridStartHour) * hourHeight;
+
   return (
     <div 
-      className={`new-entries-schedule-column ${isBeingDragged ? 'dragging' : ''}`}
+      className={`new-entries-schedule-column ${isBeingDragged ? 'dragging' : ''} ${!isEditable ? 'read-only' : ''}`}
+      style={{ height: `${columnHeightPx}px` }}
       onMouseDown={(e) => {
-        console.log('Mouse down on column:', day);
-        onMouseDown(e, day);
+        if (isEditable) {
+            onMouseDown(e, day);
+        }
       }}
     >
       {slots && slots.map((slot, slotIndex) => {
-        const position = calculateSlotPositionLocal(slot.start, slot.end);
+        const position = calculateSlotPositionLocal(slot.start, slot.end, gridStartHour); 
         return (
           <ScheduleSlot
             key={`${day}-${slotIndex}`}
             slot={slot}
             position={position}
             onClick={(e) => onSlotClick(e, day, slotIndex)}
+            isEditable={isEditable}
           />
         );
       })}
@@ -687,13 +785,37 @@ const ScheduleColumn = ({ day, slots, dragPreview, onMouseDown, onSlotClick, isD
   );
 };
 
-const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEditingSlot, onClose, onAdd, onUpdate, onDelete }) => {
+const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEditingSlot, onClose, onAdd, onUpdate, onDelete, isEditable }) => {
   const isEditMode = mode === 'edit';
   const currentSlot = isEditMode ? editingSlot : pendingSlot;
 
   if (!currentSlot) return null;
-
-  // Helper to extract hour from start/end (which can be string "9:00" or number 9)
+  
+  if (!isEditable && isEditMode) {
+      return (
+        <div className="new-entries-modal-overlay" onClick={onClose}>
+          <div className="new-entries-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="new-entries-modal-header">
+              <h2>Podgląd Preferencji (Tylko do odczytu)</h2>
+            </div>
+            
+            <div className="new-entries-modal-body">
+              <div className="new-entries-modal-info">
+                Edycja jest zablokowana. Rekrutacja jest zakończona.
+              </div>
+              <p>Typ: {currentSlot.type}</p>
+              <p>Priorytet: {currentSlot.priority}</p>
+              <p>Godziny: {currentSlot.start} - {currentSlot.end}</p>
+            </div>
+            
+            <div className="new-entries-modal-footer">
+              <button onClick={onClose} className="new-entries-modal-btn secondary">Zamknij</button>
+            </div>
+          </div>
+        </div>
+      );
+  }
+  
   const getHour = (time) => {
     if (typeof time === 'string') {
       return parseInt(time.split(':')[0]);
@@ -724,6 +846,7 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
                 const setter = isEditMode ? setEditingSlot : setPendingSlot;
                 setter(prev => ({ ...prev, type: e.target.value }));
               }}
+              disabled={!isEditable} 
             >
               <option value="prefer">Chcę mieć zajęcia</option>
               <option value="avoid">Brak zajęć</option>
@@ -741,13 +864,14 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
                 const setter = isEditMode ? setEditingSlot : setPendingSlot;
                 setter(prev => ({ ...prev, priority: parseInt(e.target.value) }));
               }}
+              disabled={!isEditable}
             />
           </div>
         </div>
 
         <div className="new-entries-modal-footer">
           {isEditMode && (
-            <button onClick={onDelete} className="new-entries-modal-btn danger">
+            <button onClick={onDelete} className="new-entries-modal-btn danger" disabled={!isEditable}>
               Usuń
             </button>
           )}
@@ -757,6 +881,7 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
           <button
             onClick={isEditMode ? onUpdate : onAdd}
             className="new-entries-modal-btn primary"
+            disabled={!isEditable}
           >
             {isEditMode ? 'Zapisz' : 'Dodaj'}
           </button>
@@ -766,13 +891,12 @@ const PreferenceModal = ({ mode, pendingSlot, editingSlot, setPendingSlot, setEd
   );
 };
 
-// Custom useScheduleDrag hook (embedded and functional)
-const useScheduleDragCustom = (onDragComplete) => {
+const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEndHour) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [dragDay, setDragDay] = useState(null);
-
+  
   const getPositionInfo = (e, columnElement) => {
     if (!columnElement) {
       return { time: "NaN:NaN", minutes: NaN };
@@ -783,50 +907,35 @@ const useScheduleDragCustom = (onDragComplete) => {
       return { time: "NaN:NaN", minutes: NaN };
     }
     
-    // Calculate Y position relative to column
     const y = e.clientY - rect.top;
     
-    // Constants
-    const hourHeight = 60; // 60px per hour in our grid
-    const gridStart = 7;   // 7:00 AM
-    const gridEnd = 19;    // 7:00 PM (so last hour is 18:00-19:00)
-    const totalHeight = (gridEnd - gridStart) * hourHeight; // 720px total
+    const hourHeight = 60;
+    const gridStart = gridStartHour;   
+    const gridEnd = gridEndHour;
+    const totalHeight = (gridEnd - gridStart) * hourHeight; 
     
-    // Clamp Y to grid bounds
     const clampedY = Math.max(0, Math.min(y, totalHeight));
     
-    // Calculate which hour we're in (0-11 for hours 7-18)
-    const hourIndex = Math.floor(clampedY / hourHeight);
+    const minutesFromGridStart = (clampedY / hourHeight) * 60;
+    const totalMinutes = gridStart * 60 + minutesFromGridStart;
+
+    const roundedMinutes = Math.round(totalMinutes / 15) * 15;
     
-    // Calculate the actual hour (7-18)
-    const hour = gridStart + hourIndex;
+    const minTotalMinutes = gridStart * 60;
+    const maxTotalMinutes = gridEnd * 60;
+    const clampedTotalMinutes = Math.max(minTotalMinutes, Math.min(roundedMinutes, maxTotalMinutes));
     
-    // Calculate total minutes from start
-    const totalMinutesFromStart = (clampedY / hourHeight) * 60;
-    
-    // Round to nearest 15 minutes
-    const roundedMinutes = Math.round(totalMinutesFromStart / 15) * 15;
-    
-    // Convert back to hour and minute
-    const finalHour = gridStart + Math.floor(roundedMinutes / 60);
-    const finalMinute = roundedMinutes % 60;
-    
-    // Clamp final hour to grid bounds
-    const clampedHour = Math.max(gridStart, Math.min(finalHour, gridEnd));
-    
-    if (isNaN(clampedHour) || isNaN(finalMinute)) {
-      console.error("getPositionInfo calculated NaN for time");
-      return { time: "NaN:NaN", minutes: NaN };
-    }
-    
+    const finalHour = Math.floor(clampedTotalMinutes / 60);
+    const finalMinute = clampedTotalMinutes % 60;
+
     return {
-      time: `${clampedHour}:${finalMinute.toString().padStart(2, '0')}`,
-      minutes: clampedHour * 60 + finalMinute
+      time: `${finalHour}:${finalMinute.toString().padStart(2, '0')}`,
+      minutes: clampedTotalMinutes
     };
   };
 
   const handleMouseDown = (e, day) => {
-    if (e.button !== 0) return;
+    if (!isEditable || e.button !== 0) return;
     const column = e.currentTarget;
     const posInfo = getPositionInfo(e, column);
     if (isNaN(posInfo.minutes)) {
@@ -838,7 +947,7 @@ const useScheduleDragCustom = (onDragComplete) => {
     setDragStart(posInfo);
     setDragEnd(posInfo);
   };
-
+  
   const handleMouseMove = (e, days) => {
     if (!isDragging || !dragDay) return;
     const columns = document.querySelectorAll('.new-entries-schedule-column');
@@ -861,30 +970,20 @@ const useScheduleDragCustom = (onDragComplete) => {
     const startMinutes = Math.min(dragStart.minutes, dragEnd.minutes);
     const endMinutes = Math.max(dragStart.minutes, dragEnd.minutes);
     
-    // Minimum 30 minutes (half hour)
     if (endMinutes - startMinutes < 30) {
       resetDrag();
       return;
     }
 
-    // Round to nearest hour for cleaner slots
     const startHour = Math.floor(startMinutes / 60);
     const endHour = Math.ceil(endMinutes / 60);
     
-    // Make sure end is at least 1 hour after start
     const finalEndHour = Math.max(endHour, startHour + 1);
-
-    console.log('Creating slot:', {
-      day: dragDay,
-      start: startHour,
-      end: finalEndHour,
-      startMinutes,
-      endMinutes
-    });
+    const finalStartHour = startHour; 
 
     onDragComplete({
       day: dragDay,
-      start: startHour,
+      start: finalStartHour,
       end: finalEndHour
     });
     resetDrag();
@@ -907,7 +1006,7 @@ const useScheduleDragCustom = (onDragComplete) => {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, dragStart, dragEnd, dragDay]);
+  }, [isDragging, dragStart, dragEnd, dragDay, onDragComplete, isEditable, gridStartHour, gridEndHour]);
 
   return {
     isDragging,
@@ -919,13 +1018,26 @@ const useScheduleDragCustom = (onDragComplete) => {
   };
 };
 
+
 export default function EntriesPage() {
   const { user } = useAuth();
   const calendarRef = useRef(null);
 
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
   const dayLabels = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt'];
-  const hours = ["7:00", "8:00", "9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+  
+  const [selectedRecruitment, setSelectedRecruitment] = useState(null);
+
+  const gridStartHour = getGridStartHour(selectedRecruitment);
+  const gridEndHour = getGridEndHour(selectedRecruitment);
+  
+  const hourHeight = 60;
+  const gridHeightPx = (gridEndHour - gridStartHour) * hourHeight;
+  
+  const hours = Array.from({ length: Math.max(0, gridEndHour - gridStartHour) }, (_, i) => {
+      const hour = gridStartHour + i;
+      return `${hour.toString().padStart(2, '0')}:00`;
+  });
 
   const { 
     recruitments, 
@@ -933,7 +1045,7 @@ export default function EntriesPage() {
     error: recruitmentsError 
   } = useRecruitments(user?.id);
   
-  const [selectedRecruitment, setSelectedRecruitment] = useState(null);
+  const isEditable = selectedRecruitment?.plan_status === 'draft' || selectedRecruitment?.plan_status === 'active';
 
   const {
     scheduleData,
@@ -944,7 +1056,7 @@ export default function EntriesPage() {
     saveError,
     savePreferences,
     clearAllPreferences
-  } = usePreferences(selectedRecruitment?.recruitment_id, user?.id);
+  } = usePreferences(selectedRecruitment, user?.id);
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('create');
@@ -952,7 +1064,6 @@ export default function EntriesPage() {
   const [editingSlot, setEditingSlot] = useState(null);
   const [maxPriority] = useState(40);
 
-  // FIXED: Using the embedded custom hook instead of imported one
   const {
     isDragging,
     dragStart,
@@ -961,7 +1072,6 @@ export default function EntriesPage() {
     handleMouseDown,
     resetDrag
   } = useScheduleDragCustom((dragResult) => {
-    console.log('Drag completed:', dragResult);
     setPendingSlot({
       day: dragResult.day,
       start: dragResult.start,
@@ -971,16 +1081,62 @@ export default function EntriesPage() {
     });
     setModalMode('create');
     setShowModal(true);
-  });
+  }, isEditable, gridStartHour, gridEndHour);
 
   const handleSave = async () => {
-    const success = await savePreferences();
+    if (!selectedRecruitment || !isEditable) return;
+    
+    const dayStart = selectedRecruitment.day_start_time || "08:00"; 
+    const dayEnd = selectedRecruitment.day_end_time || "16:00";
+    
+    const startMin = timeToMinutes(dayStart);
+    const endMin = timeToMinutes(dayEnd);
+    const durationMin = endMin - startMin;
+    const slotsPerDay = Math.floor(durationMin / 15);
+    
+    const weightsArray = convertScheduleToWeights(
+        scheduleData, 
+        days, 
+        dayStart, 
+        slotsPerDay > 0 ? slotsPerDay : 32
+    );
+
+    const newPreferencesData = {
+        "FreeDays": 0, 
+        "ShortDays": 0,
+        "UniformDays": 0,
+        "ConcentratedDays": 0,
+        
+        "MinGapsLength": [0, 0],
+        "MaxGapsLength": [0, 0],
+        
+        "MinDayLength": [0, 0],
+        "MaxDayLength": [0, 0],
+        
+        "PreferredDayStartTimeslot": [0, 0],
+        "PreferredDayEndTimeslot": [0, 0],
+        
+        "TagOrder": [],
+        
+        "PreferredTimeslots": weightsArray,
+        
+        "PreferredGroups": [0, 0, 0, 0, 0] 
+    };
+    
+    const finalPayload = {
+        preferences_data: newPreferencesData
+    };
+
+    const success = await savePreferences(finalPayload);
+    
     if (success) {
       alert('Zmiany zapisane pomyślnie!');
     }
   };
 
   const handleClear = () => {
+    if (!isEditable) return;
+    
     if (window.confirm('Czy na pewno chcesz usunąć wszystkie preferencje? Ta akcja jest nieodwracalna.')) {
       clearAllPreferences();
       alert('Wszystkie preferencje zostały wyczyszczone. Kliknij "Zachowaj zmiany", aby zapisać.');
@@ -1002,13 +1158,14 @@ export default function EntriesPage() {
     setShowModal(true);
   };
 
+  
   const handleAddSlot = () => {
-    if (!pendingSlot) return;
+    if (!pendingSlot || !isEditable) return;
 
     const label = createSlotFromType(pendingSlot.type);
     const newSlot = {
-      start: `${pendingSlot.start}:00`, // Convert to string format
-      end: `${pendingSlot.end}:00`,     // Convert to string format
+      start: `${pendingSlot.start}:00`,
+      end: `${pendingSlot.end}:00`,
       type: pendingSlot.type,
       label: label,
       priority: pendingSlot.priority || 1
@@ -1019,7 +1176,7 @@ export default function EntriesPage() {
   };
 
   const handleUpdateSlot = () => {
-    if (!editingSlot) return;
+    if (!editingSlot || !isEditable) return;
 
     const label = createSlotFromType(editingSlot.type);
     const updatedSlot = {
@@ -1037,7 +1194,7 @@ export default function EntriesPage() {
   };
 
   const handleDeleteSlot = () => {
-    if (!editingSlot) return;
+    if (!editingSlot || !isEditable) return;
 
     setScheduleData(prev => 
       deleteSlot(prev, editingSlot.day, editingSlot.index)
@@ -1092,8 +1249,12 @@ export default function EntriesPage() {
                   maxPriority={maxPriority}
                 />
                 
-                <div className="new-entries-schedule-grid">
-                  <div className="new-entries-schedule-times">
+                <div className={`new-entries-schedule-grid ${!isEditable ? 'read-only-mode' : ''}`}>
+                  <div 
+                    className="new-entries-schedule-times"
+                    style={{ height: `${gridHeightPx + 40}px`}}
+                  >
+                    {/* Renderowanie etykiet godzin */}
                     {hours.map(time => (
                       <div key={time} className="new-entries-schedule-time">{time}</div>
                     ))}
@@ -1112,11 +1273,13 @@ export default function EntriesPage() {
                           key={day}
                           day={day}
                           slots={(scheduleData[day] || []).filter(Boolean)}
-                          dragPreview={getDragPreviewLocal(isDragging, dragStart, dragEnd, dragDay, day)}
+                          dragPreview={getDragPreviewLocal(isDragging, dragStart, dragEnd, dragDay, day, gridStartHour)} 
                           onMouseDown={(e) => handleMouseDown(e, day)}
                           onSlotClick={handleSlotClick}
                           isDragging={isDragging}
                           dragDay={dragDay}
+                          isEditable={isEditable}
+                          selectedRecruitment={selectedRecruitment} 
                         />
                       ))}
                     </div>
@@ -1139,6 +1302,7 @@ export default function EntriesPage() {
           onAdd={handleAddSlot}
           onUpdate={handleUpdateSlot}
           onDelete={handleDeleteSlot}
+          isEditable={isEditable}
         />
       )}
     </div>

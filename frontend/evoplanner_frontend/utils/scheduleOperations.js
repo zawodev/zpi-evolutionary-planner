@@ -2,12 +2,124 @@
 
 import { timeToMinutes, minutesToTime, calculateSlotPosition } from './scheduleDisplay';
 
+export const createSlotFromType = (type) => {
+  return type === 'prefer' ? 'Chce mieć zajęcia' : 'Brak zajęć';
+};
+
+export const convertScheduleToWeights = (scheduleData, days, dayStartTime = "08:00", timeslotsPerDay = 32) => {
+    
+    const totalSlots = days.length * timeslotsPerDay;
+    const weightsArray = new Array(totalSlots).fill(0);
+    const startMinutesBase = timeToMinutes(dayStartTime); 
+
+    days.forEach((day, dayIndex) => {
+        const slots = (scheduleData[day] || []).filter(Boolean);
+        
+        slots.forEach(slot => {
+            if (!slot) return;
+
+            const startMin = timeToMinutes(slot.start);
+            const endMin = timeToMinutes(slot.end);
+            
+            const startSlotIndex = Math.floor((startMin - startMinutesBase) / 15);
+            const endSlotIndex = Math.floor((endMin - startMinutesBase) / 15);
+            
+            const weight = slot.type === 'prefer' ? slot.priority : -slot.priority;
+
+            const dayOffset = dayIndex * timeslotsPerDay;
+            
+            for (let i = startSlotIndex; i < endSlotIndex; i++) {
+                const globalIndex = dayOffset + i;
+                if (globalIndex >= 0 && globalIndex < weightsArray.length) {
+                    weightsArray[globalIndex] += weight; 
+                }
+            }
+        });
+    });
+
+    return weightsArray;
+};
+
+export const convertWeightsToSchedule = (weightsArray, days, dayStartTime = "08:00", timeslotsPerDay = 32) => {
+    const scheduleData = days.reduce((acc, day) => ({ ...acc, [day]: [] }), {});
+    const startMinutesBase = timeToMinutes(dayStartTime);
+
+    for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+        const day = days[dayIndex];
+        const dayOffset = dayIndex * timeslotsPerDay;
+        const slots = [];
+
+        let currentSlot = null;
+
+        for (let i = 0; i < timeslotsPerDay; i++) {
+            const globalIndex = dayOffset + i;
+            const weight = parseFloat(weightsArray[globalIndex]) || 0; 
+            const absoluteWeight = Math.abs(weight);
+            const type = weight > 0 ? 'prefer' : 'avoid';
+
+            const blockStartMin = startMinutesBase + i * 15;
+            const blockEndMin = blockStartMin + 15;
+
+            if (absoluteWeight > 0) {
+                if (currentSlot && 
+                    currentSlot.priority === absoluteWeight && 
+                    currentSlot.type === type) 
+                {
+                    currentSlot.endMin = blockEndMin;
+                } else {
+                    if (currentSlot) {
+                        slots.push({
+                            start: minutesToTime(currentSlot.startMin),
+                            end: minutesToTime(currentSlot.endMin),
+                            type: currentSlot.type,
+                            label: createSlotFromType(currentSlot.type),
+                            priority: currentSlot.priority,
+                        });
+                    }
+
+                    currentSlot = {
+                        startMin: blockStartMin,
+                        endMin: blockEndMin,
+                        type: type,
+                        priority: absoluteWeight,
+                    };
+                }
+            } else {
+                if (currentSlot) {
+                    slots.push({
+                        start: minutesToTime(currentSlot.startMin),
+                        end: minutesToTime(currentSlot.endMin),
+                        type: currentSlot.type,
+                        label: createSlotFromType(currentSlot.type),
+                        priority: currentSlot.priority,
+                    });
+                    currentSlot = null;
+                }
+            }
+        }
+
+        if (currentSlot) {
+            slots.push({
+                start: minutesToTime(currentSlot.startMin),
+                end: minutesToTime(currentSlot.endMin),
+                type: currentSlot.type,
+                label: createSlotFromType(currentSlot.type),
+                priority: currentSlot.priority,
+            });
+        }
+        
+        scheduleData[day] = slots;
+    }
+    
+    return scheduleData;
+};
+
 export const calculateUsedPriority = (scheduleData, days) => {
   let total = 0;
   days.forEach(day => {
     const validSlots = (scheduleData[day] || []).filter(Boolean);
     validSlots.forEach(slot => {
-      total += slot.priority || 0;
+      total += Math.abs(slot.priority) || 0; 
     });
   });
   return total;
@@ -56,10 +168,6 @@ export const deleteSlot = (scheduleData, day, slotIndex) => {
     ...scheduleData,
     [day]: newDaySlots
   };
-};
-
-export const createSlotFromType = (type) => {
-  return type === 'prefer' ? 'Chce mieć zajęcia' : 'Brak zajęć';
 };
 
 export const getDragPreview = (isDragging, dragStart, dragEnd, dragDay, currentDay) => {
