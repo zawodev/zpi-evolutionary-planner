@@ -30,7 +30,7 @@ export default function LoginPage() {
         if (data.user.role == "office") {
           window.location.href = "admin/users";
         } else {
-          window.location.href = "/entries"; }
+          window.location.href = "/user/entries"; }
       } else {
         setError(data.message || data.detail || "Nieprawidłowy login lub hasło");
       }
