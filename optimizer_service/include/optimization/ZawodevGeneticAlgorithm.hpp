@@ -21,12 +21,13 @@ private:
     std::vector<Individual> population;
     int populationSize = 128;
     int fihcSize; //defined in init
-    int crossSize = 64;
+    int crossSize = 0;
+    int mutationSize = 0;
     
     // functions
     void UpdateBestIndividual(Individual& contesterInd);
     void RunInnerIteration(int currentInnerIteration);
-    void InitRandomInd(Individual& individual) const;
+    void InitRandomInd(Individual& individual);
     void FihcInd(Individual& individual);
     void SortSelection();
     void Cross(Individual& parent1, Individual& parent2, Individual& child);

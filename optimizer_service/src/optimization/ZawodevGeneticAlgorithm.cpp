@@ -59,7 +59,7 @@ Individual ZawodevGeneticAlgorithm::RunIteration(int currentIteration) {
     return bestIndividual;
 }
 
-void ZawodevGeneticAlgorithm::UpdateBestIndividual(Individual &contesterInd) {
+void ZawodevGeneticAlgorithm::UpdateBestIndividual(Individual& contesterInd) {
     if (contesterInd.fitness > bestIndividual.fitness) {
         bestIndividual = contesterInd;
         Logger::debug("New best fitness: " + std::to_string(bestIndividual.fitness));
@@ -68,33 +68,35 @@ void ZawodevGeneticAlgorithm::UpdateBestIndividual(Individual &contesterInd) {
 
 void ZawodevGeneticAlgorithm::RunInnerIteration(int currentInnerIteration) {
     for (int i = 0; i < crossSize; ++i) {
-        int idx_parent1 = rand() % populationSize;
-        int idx_parent2 = rand() % populationSize;
-        int idx_child = rand() % populationSize;
+        //rand idx from rng obj in class (from 0 inclusive to populationSize-1 inclusive)
+        int idx_parent1 = std::uniform_int_distribution<int>(0, populationSize - 1)(rng);
+        int idx_parent2 = std::uniform_int_distribution<int>(0, populationSize - 1)(rng);
+        int idx_child = std::uniform_int_distribution<int>(0, populationSize - 1)(rng);
         Cross(population[idx_parent1], population[idx_parent2], population[idx_child]);
     }
-    Logger::debug("1/3 Crossover done.");
-    for (int i = 0; i < populationSize; ++i) {
-        MutateInd(population[i]);
+    //Logger::debug("1/3 Crossover done.");
+    for (int i = 0; i < mutationSize; ++i) {
+        int idx = std::uniform_int_distribution<int>(0, populationSize - 1)(rng);
+        MutateInd(population[idx]);
     }
-    Logger::debug("2/3 Mutation done.");
+    //Logger::debug("2/3 Mutation done.");
     for (int i = 0; i < fihcSize; ++i) {
-        int idx = rand() % populationSize;
+        int idx = std::uniform_int_distribution<int>(0, populationSize - 1)(rng);
         FihcInd(population[idx]);
     }
-    Logger::debug("3/3 FIHC done.");
+    //Logger::debug("3/3 FIHC done.");
 
-    SortSelection();
+    //SortSelection();
     UpdateBestIndividual(population[0]);
 
     // no fstrings in cpp??? me saddy :c
-    Logger::debug("Iteration: " + std::to_string(currentInnerIteration) + "/" + std::to_string(INNER_LOOP_COUNT) + ", Best fitness: " + std::to_string(bestIndividual.fitness));
+    Logger::debug("Iteration: " + std::to_string(currentInnerIteration) + "/" + std::to_string(INNER_LOOP_COUNT));
     //population[0].printDebugInfo();
 
     //idk above need to be fixed looks ugly but i gotta go
 }
 
-void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const {
+void ZawodevGeneticAlgorithm::InitRandomInd(Individual& individual) {
     int count = 0;
     individual.fitness = -1.0;
     while (individual.fitness < 0) {
@@ -104,6 +106,7 @@ void ZawodevGeneticAlgorithm::InitRandomInd(Individual &individual) const {
             individual.genotype.push_back(dist(rng));
         }
         individual.fitness = evaluator->evaluate(individual);
+        UpdateBestIndividual(individual);
         count++;
         if (count > 1000) {
             Logger::error("Failed to initialize a valid individual after 1000 attempts.");
@@ -119,6 +122,7 @@ void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
     // now with random order of genes
     //Logger::debug("Before FIHC: ");
     //individual.printDebugInfo();
+    InitRandomInd(individual); // re-initialize to random valid individual
 
     // Create a vector of gene indices and shuffle it for random order
     std::vector<size_t> geneIndices(individual.genotype.size());
@@ -138,6 +142,7 @@ void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
             Individual tempInd = individual;
             tempInd.genotype[geneIdx] = val;
             double newFitness = evaluator->evaluate(tempInd);
+            UpdateBestIndividual(tempInd);
             
             if (newFitness > bestFitness) {
                 bestFitness = newFitness;
@@ -169,20 +174,26 @@ void ZawodevGeneticAlgorithm::SortSelection() {
 
 void ZawodevGeneticAlgorithm::Cross(Individual &parent1, Individual &parent2, Individual &child) {
     for(int i = 0; i < evaluator->getTotalGenes(); i++){
-        child.genotype[i] = rng() % 2 ? parent1.genotype[i] : parent2.genotype[i];
+        int choice = std::uniform_int_distribution<int>(0, 1)(rng);
+        child.genotype[i] = choice ? parent1.genotype[i] : parent2.genotype[i];
     }
     child.fitness = evaluator->evaluate(child);
+    UpdateBestIndividual(child);
 }
 
 void ZawodevGeneticAlgorithm::MutateInd(Individual &individual) {
-    int mutations = 3;
+    int minMutations = 1;
+    int maxMutations = 5;
+    int mutations = std::uniform_int_distribution<int>(minMutations, maxMutations)(rng);
+
     float mutationChance = 0.03f;
-    if (rand() > mutationChance) return;
+    if (std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) > mutationChance) return;
 
     for (int i = 0; i < mutations; i++){
-        int idx = rand() % evaluator->getTotalGenes();
-        int val = rand() % evaluator->getMaxGeneValue(idx);
+        int idx = std::uniform_int_distribution<int>(0, evaluator->getTotalGenes() - 1)(rng);
+        int val = std::uniform_int_distribution<int>(0, evaluator->getMaxGeneValue(idx))(rng);
         individual.genotype[idx] = val;
     }
     individual.fitness = evaluator->evaluate(individual);
+    UpdateBestIndividual(individual);
 }
