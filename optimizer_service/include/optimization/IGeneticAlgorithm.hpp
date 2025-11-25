@@ -6,7 +6,7 @@
 class IGeneticAlgorithm {
 public:
     virtual ~IGeneticAlgorithm() = default;
-    virtual void Init(const ProblemData& data, const Evaluator& evaluator, int seed = 42) = 0;
+    virtual Individual Init(const ProblemData& data, const Evaluator& evaluator, int seed = 42) = 0;
     virtual Individual RunIteration(int currentIteration) = 0;
 };
 

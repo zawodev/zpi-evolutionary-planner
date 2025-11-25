@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <numeric>
 
-void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& evaluator, int seed) {
+Individual ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& evaluator, int seed) {
     this->problemData = &data;
     this->evaluator = &evaluator;
     bestIndividual = Individual{};
@@ -43,6 +43,8 @@ void ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
     // debug info
     Logger::debug("Start fitness: " + std::to_string(bestIndividual.fitness));
     // exit(1);
+
+    return bestIndividual;
 }
 
 Individual ZawodevGeneticAlgorithm::RunIteration(int currentIteration) {

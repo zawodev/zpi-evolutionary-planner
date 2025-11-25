@@ -39,18 +39,22 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     std::unique_ptr<IGeneticAlgorithm> geneticAlgorithm = std::make_unique<ZawodevGeneticAlgorithm>();
     Logger::info("Using genetic algorithm: " + std::string(typeid(*geneticAlgorithm).name()));
     
-    int seed = 819300141;
-    //int seed = std::random_device{}();
-    Logger::info("Initializing genetic algorithm with seed: " + std::to_string(seed));
-    geneticAlgorithm->Init(data, evaluator, seed);
-    Logger::info("Genetic algorithm initialization complete. Starting iterations...");
-
     // track exec time
     auto startTime = std::chrono::steady_clock::now();
     auto maxDuration = std::chrono::seconds(jobData.max_execution_time);
 
-    Individual bestIndividual;
-    for (int iterNum = 0; true; ++iterNum) {
+    int seed = 819300141;
+    //int seed = std::random_device{}();
+    Logger::info("Initializing genetic algorithm with seed: " + std::to_string(seed));
+    Individual bestIndividual = geneticAlgorithm->Init(data, evaluator, seed);
+    Logger::info("Genetic algorithm initialization complete. Starting iterations...");
+
+    // send initial progress update (randomly initialized individual)
+    RawSolutionData solutionData(bestIndividual, data, evaluator);
+    RawProgressData progressData(jobData.recruitment_id, 0, solutionData);
+    sender.sendProgress(progressData);
+
+    for (int iterNum = 1; true; ++iterNum) {
         bool shouldBreak = false;
         bestIndividual = geneticAlgorithm->RunIteration(iterNum);
         Logger::info("Iteration " + std::to_string(iterNum) + ", best fitness: " + std::to_string(bestIndividual.fitness));
