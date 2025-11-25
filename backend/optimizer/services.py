@@ -560,12 +560,25 @@ class ProgressListener:
                     job.status = 'completed'
                     job.completed_at = timezone.now()
                     
-                    # Convert solution to meetings after optimization completes
-                    try:
-                        convert_solution_to_meetings(str(job.id))
-                        logger.info(f"Successfully converted solution to meetings for job {job.id}")
-                    except Exception as e:
-                        logger.error(f"Failed to convert solution to meetings for job {job.id}: {e}")
+                    # Check if optimization end date has passed
+                    recruitment = job.recruitment
+                    optimization_end_date = recruitment.optimization_end_date
+                    
+                    if not optimization_end_date or timezone.now() >= optimization_end_date:
+                        # Optimization period ended, convert solution to meetings
+                        try:
+                            convert_solution_to_meetings(str(job.id))
+                            logger.info(f"Successfully converted solution to meetings for job {job.id}")
+                        except Exception as e:
+                            logger.error(f"Failed to convert solution to meetings for job {job.id}: {e}")
+                    else:
+                        # Optimization period still active, trigger next optimization round
+                        try:
+                            from scheduling.services import trigger_optimization
+                            trigger_optimization(recruitment)
+                            logger.info(f"Triggered next optimization round for recruitment {recruitment.recruitment_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to trigger next optimization round for recruitment {recruitment.recruitment_id}: {e}")
                 
                 job.save()
                 

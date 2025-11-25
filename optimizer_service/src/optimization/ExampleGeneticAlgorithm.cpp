@@ -4,7 +4,7 @@
 #include <thread>
 #include <chrono>
 
-void ExampleGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& evaluator, int seed) {
+Individual ExampleGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& evaluator, int seed) {
     this->problemData = &data;
     this->evaluator = &evaluator;
     bestIndividual = Individual{};
@@ -18,6 +18,8 @@ void ExampleGeneticAlgorithm::Init(const ProblemData& data, const Evaluator& eva
 
     // debug info
     Logger::debug("Start fitness: " + std::to_string(bestIndividual.fitness));
+
+    return bestIndividual;
 }
 
 Individual ExampleGeneticAlgorithm::RunIteration(int currentIteration) {
