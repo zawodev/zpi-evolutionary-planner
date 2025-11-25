@@ -250,7 +250,6 @@ class RandomOfficeUserCreateView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             user_data = UserSerializer(user).data
-            # include plaintext password in response so caller can distribute it
             return Response({
                 'user': user_data,
                 'password': password
@@ -568,3 +567,72 @@ class UsersBySubjectView(APIView):
         serializer = UserSubjectsSerializer(relations, many=True)
         return Response(serializer.data)
 
+
+class BulkAddGroupUsersToRecruitmentView(APIView):
+    """Bulk add all users belonging to a given group to a recruitment.
+
+    Request body must include:
+    - group: UUID of the group
+    - recruitment: UUID of the recruitment
+
+    Rules:
+    - Only admin or office (IsOfficeUser) may call this endpoint.
+    - Office users may only operate within their own organization.
+    - Group.organization must match Recruitment.organization.
+
+    Response JSON:
+    {
+      "group": <group uuid>,
+      "recruitment": <recruitment uuid>,
+      "created_count": <number of new relations>,
+      "skipped_existing": <number of users already in recruitment>,
+      "users_added": [list of user UUIDs added],
+      "total_users_in_group": <size of group>
+    }
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def post(self, request):
+        from scheduling.models import Recruitment
+        group_id = request.data.get('group')
+        recruitment_id = request.data.get('recruitment')
+        if not group_id or not recruitment_id:
+            return Response({"detail": "Required fields: group, recruitment"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.select_related('organization').get(pk=group_id)
+        except Group.DoesNotExist:
+            return Response({"detail": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            recruitment = Recruitment.objects.select_related('organization').get(pk=recruitment_id)
+        except Recruitment.DoesNotExist:
+            return Response({"detail": "Recruitment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Organization consistency check
+        if group.organization_id != recruitment.organization_id:
+            return Response({"detail": "Group and Recruitment must belong to the same organization"}, status=status.HTTP_400_BAD_REQUEST)
+
+        requester = request.user
+        if requester.role != 'admin':
+            if requester.organization_id != group.organization_id:
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        user_ids_in_group = list(UserGroup.objects.filter(group=group).values_list('user_id', flat=True))
+        if not user_ids_in_group:
+            return Response({"detail": "Group has no users"}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_user_ids = set(UserRecruitment.objects.filter(recruitment=recruitment, user_id__in=user_ids_in_group).values_list('user_id', flat=True))
+        to_create = [uid for uid in user_ids_in_group if uid not in existing_user_ids]
+
+        new_relations = [UserRecruitment(user_id=uid, recruitment=recruitment) for uid in to_create]
+        if new_relations:
+            UserRecruitment.objects.bulk_create(new_relations, ignore_conflicts=True)
+
+        return Response({
+            "group": str(group.group_id),
+            "recruitment": str(recruitment.recruitment_id),
+            "created_count": len(to_create),
+            "skipped_existing": len(existing_user_ids),
+            "users_added": to_create,
+            "total_users_in_group": len(user_ids_in_group)
+        }, status=status.HTTP_201_CREATED)
