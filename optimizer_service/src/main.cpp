@@ -43,8 +43,8 @@ void processJob(EventReceiver& receiver, EventSender& sender) {
     auto startTime = std::chrono::steady_clock::now();
     auto maxDuration = std::chrono::seconds(jobData.max_execution_time);
 
-    int seed = 819300141;
-    //int seed = std::random_device{}();
+    //int seed = 819300141;
+    int seed = std::random_device{}();
     Logger::info("Initializing genetic algorithm with seed: " + std::to_string(seed));
     Individual bestIndividual = geneticAlgorithm->Init(data, evaluator, seed);
     Logger::info("Genetic algorithm initialization complete. Starting iterations...");
