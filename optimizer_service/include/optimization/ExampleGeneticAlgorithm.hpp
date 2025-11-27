@@ -6,7 +6,7 @@
 
 class ExampleGeneticAlgorithm : public IGeneticAlgorithm {
 public:
-    void Init(const ProblemData& data, const Evaluator& evaluator, int seed = std::random_device{}()) override;
+    Individual Init(const ProblemData& data, const Evaluator& evaluator, int seed = std::random_device{}()) override;
     Individual RunIteration(int currentIteration) override;
 private:
     // system variables

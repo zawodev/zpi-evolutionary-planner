@@ -115,6 +115,60 @@ class OptimizationJobDetailView(generics.RetrieveAPIView):
         return super().get(request, *args, **kwargs)
 
 
+class LatestOptimizationJobView(generics.RetrieveAPIView):
+    """
+    Retrieve details of the latest optimization job.
+    """
+    serializer_class = OptimizationJobSerializer
+    
+    def get_object(self):
+        queryset = OptimizationJob.objects.all().order_by('-created_at')
+        
+        # Check kwargs first (URL path)
+        recruitment_id = self.kwargs.get('recruitment_id')
+        
+        # Fallback to query params
+        if not recruitment_id:
+            recruitment_id = self.request.query_params.get('recruitment_id')
+            
+        if recruitment_id:
+            queryset = queryset.filter(recruitment__recruitment_id=recruitment_id)
+        
+        # Filter by status if provided
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+            
+        obj = queryset.first()
+        if not obj:
+            # Return 404 if no job found
+            from django.http import Http404
+            raise Http404("No optimization jobs found")
+        return obj
+
+    @extend_schema(
+        summary="Get latest optimization job",
+        description="Get detailed information about the most recent optimization job",
+        parameters=[
+            OpenApiParameter(
+                name='recruitment_id',
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description='Filter by recruitment ID to get its latest job'
+            ),
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by job status (e.g. completed, running)',
+                enum=['queued', 'running', 'completed', 'failed', 'cancelled']
+            ),
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
 @extend_schema(
     summary="Cancel optimization job",
     description="Cancel a running or queued optimization job",
@@ -231,3 +285,214 @@ def health_check(request):
             'error': str(e),
             'timestamp': timezone.now().isoformat()
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@extend_schema(
+    summary="Get recruitment optimization status",
+    description="Get detailed status of optimization process for a recruitment, including progress estimation",
+    responses={200: {'description': 'Optimization status details'}}
+)
+@api_view(['GET'])
+def recruitment_optimization_status(request, recruitment_id):
+    """
+    Get detailed status of optimization process for a recruitment.
+    Calculates progress based on optimization start/end dates and job history.
+    """
+    from scheduling.models import Recruitment
+    from django.db.models import Avg, F, ExpressionWrapper, fields
+    import math
+    from datetime import timedelta
+    
+    try:
+        recruitment = get_object_or_404(Recruitment, recruitment_id=recruitment_id)
+        
+        # Get all jobs for this recruitment
+        jobs = OptimizationJob.objects.filter(recruitment_id=recruitment_id).order_by('created_at')
+        
+        # Basic recruitment info
+        response_data = {
+            'recruitment_id': str(recruitment_id),
+            'optimization_start_date': recruitment.optimization_start_date,
+            'optimization_end_date': recruitment.optimization_end_date,
+            'max_round_execution_time': recruitment.max_round_execution_time,
+            'plan_status': recruitment.plan_status,
+            'jobs_count': jobs.count(),
+            'jobs': []
+        }
+        
+        # Process jobs
+        completed_jobs_durations = []
+        gaps = []
+        last_completed_at = None
+        
+        now = timezone.now()
+        current_running_job_time_running = None
+        
+        for job in jobs:
+            # Calculate extended fields
+            time_running = None
+            waiting_time = None
+            
+            if job.started_at:
+                waiting_time = (job.started_at - job.created_at).total_seconds()
+                
+                if job.completed_at:
+                    time_running = (job.completed_at - job.started_at).total_seconds()
+                    completed_jobs_durations.append(time_running)
+                    
+                    # Calculate gap from previous job completion to this job start
+                    if last_completed_at:
+                        gap = (job.started_at - last_completed_at).total_seconds()
+                        # Only consider positive gaps (in case of clock skew or parallel weirdness)
+                        if gap >= 0:
+                            gaps.append(gap)
+                    
+                    last_completed_at = job.completed_at
+                else:
+                    # Job is running - calculate time from started to now
+                    time_running = (now - job.started_at).total_seconds()
+                    current_running_job_time_running = time_running
+            
+            job_data = {
+                'id': str(job.id),
+                'status': job.status,
+                'created_at': job.created_at,
+                'started_at': job.started_at,
+                'completed_at': job.completed_at,
+                'current_iteration': job.current_iteration,
+                'time_running': time_running,
+                'waiting_time': waiting_time
+            }
+            response_data['jobs'].append(job_data)
+        
+        # Calculate averages
+        avg_execution_time = 0
+        if completed_jobs_durations:
+            avg_execution_time = sum(completed_jobs_durations) / len(completed_jobs_durations)
+        else:
+            # Fallback if no jobs completed yet
+            avg_execution_time = recruitment.max_round_execution_time
+
+        # Calculate remaining time for running job
+        current_running_job_remaining_time = 0
+        if current_running_job_time_running is not None:
+             current_running_job_remaining_time = max(0, avg_execution_time - current_running_job_time_running)
+
+        # Calculate estimated end date
+        estimated_end_date = recruitment.optimization_end_date
+        if estimated_end_date:
+             potential_end = now + timedelta(seconds=current_running_job_remaining_time)
+             if potential_end > estimated_end_date:
+                 estimated_end_date = potential_end
+        
+        response_data['estimated_end_date'] = estimated_end_date
+
+        # Calculate progress metrics
+        
+        # 1. Linear time progress (0.0 - 1.0)
+        time_progress = 0.0
+        running_time = 0.0
+        to_end_time = 0.0
+        
+        if recruitment.optimization_start_date:
+             if recruitment.optimization_end_date and now > recruitment.optimization_end_date:
+                 running_time = (recruitment.optimization_end_date - recruitment.optimization_start_date).total_seconds()
+             else:
+                 running_time = (now - recruitment.optimization_start_date).total_seconds()
+             
+        if recruitment.optimization_end_date:
+             if now > recruitment.optimization_end_date:
+                 to_end_time = 0.0
+             else:
+                 to_end_time = (recruitment.optimization_end_date - now).total_seconds()
+
+        if recruitment.optimization_start_date and recruitment.optimization_end_date:
+            total_duration = (recruitment.optimization_end_date - recruitment.optimization_start_date).total_seconds()
+            if total_duration > 0:
+                # Use running_time calculated above which handles the cap
+                time_progress = max(0.0, min(1.0, running_time / total_duration))
+        
+        response_data['time_progress'] = time_progress
+        response_data['running_time'] = running_time
+        response_data['to_end_time'] = to_end_time
+        
+        # Estimated time progress
+        estimated_time_progress = 0.0
+        estimated_to_end_time = 0.0
+        
+        if estimated_end_date:
+            if now > estimated_end_date:
+                estimated_to_end_time = 0.0
+            else:
+                estimated_to_end_time = (estimated_end_date - now).total_seconds()
+            
+        if recruitment.optimization_start_date and estimated_end_date:
+             total_estimated_duration = (estimated_end_date - recruitment.optimization_start_date).total_seconds()
+             if total_estimated_duration > 0:
+                 elapsed = (now - recruitment.optimization_start_date).total_seconds()
+                 estimated_time_progress = max(0.0, min(1.0, elapsed / total_estimated_duration))
+        
+        response_data['estimated_time_progress'] = estimated_time_progress
+        response_data['estimated_to_end_time'] = estimated_to_end_time
+        
+        # 2. Estimated iterations
+        current_job_number = jobs.count()
+        
+        if recruitment.optimization_start_date and recruitment.optimization_end_date:
+            # Calculate remaining time
+            remaining_time = 0
+            if now < recruitment.optimization_end_date:
+                remaining_time = (recruitment.optimization_end_date - now).total_seconds()
+            
+            # Optimistic Estimate:
+            # How many max_round_execution_time intervals fit in remaining time
+            # Always calculated the same way regardless of history
+            optimistic_remaining_jobs = 0
+            if recruitment.max_round_execution_time > 0:
+                optimistic_remaining_jobs = math.ceil(remaining_time / recruitment.max_round_execution_time)
+            
+            estimated_total_jobs_optimistic = current_job_number + optimistic_remaining_jobs
+            
+            # Pessimistic Estimate:
+            # Based on history: avg execution time + avg gap time
+            # avg_execution_time is already calculated above
+            
+            avg_gap_time = 0
+            if gaps:
+                avg_gap_time = sum(gaps) / len(gaps)
+            
+            cycle_time_pessimistic = avg_execution_time + avg_gap_time
+            
+            pessimistic_remaining_jobs = 0
+            if cycle_time_pessimistic > 0:
+                pessimistic_remaining_jobs = math.floor(remaining_time / cycle_time_pessimistic)
+            
+            estimated_total_jobs_pessimistic = current_job_number + pessimistic_remaining_jobs
+            
+            response_data['estimation'] = {
+                'optimistic_total': estimated_total_jobs_optimistic,
+                'pessimistic_total': estimated_total_jobs_pessimistic,
+                'avg_job_duration': avg_execution_time,
+                'avg_wait_time': avg_gap_time
+            }
+            
+            # Progress text using pessimistic estimate (realistic view)
+            # If we are past end date, show actual/actual
+            if now > recruitment.optimization_end_date:
+                response_data['pessimistic_progress_text'] = f"{current_job_number}/{current_job_number}"
+            else:
+                response_data['pessimistic_progress_text'] = f"{current_job_number}/{estimated_total_jobs_pessimistic}"
+
+            # Progress text using optimistic estimate (best case)
+            if now > recruitment.optimization_end_date:
+                response_data['optimistic_progress_text'] = f"{current_job_number}/{current_job_number}"
+            else:
+                response_data['optimistic_progress_text'] = f"{current_job_number}/{estimated_total_jobs_optimistic}"
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get recruitment optimization status: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

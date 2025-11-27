@@ -88,10 +88,13 @@ class Recruitment(models.Model):
     day_start_time = models.TimeField(blank=True, null=True)
     day_end_time = models.TimeField(blank=True, null=True)
 
-    host_prefs_start_date = models.DateTimeField(blank=True, null=True) # zbieranie preferencji hostów
+    #host_prefs_start_date = models.DateTimeField(blank=True, null=True) # zbieranie preferencji hostów
     user_prefs_start_date = models.DateTimeField(blank=True, null=True) # zbieranie preferencji użytkowników
+    user_prefs_end_date = models.DateTimeField(blank=True, null=True) # zakończenie zbierania preferencji użytkowników
+
     optimization_start_date = models.DateTimeField(blank=True, null=True) # rozpoczęcie optymalizacji
     optimization_end_date = models.DateTimeField(blank=True, null=True) # zakończenie optymalizacji
+
     expiration_date = models.DateTimeField(blank=True, null=True) # data wygaśnięcia rekrutacji
 
     preference_threshold = models.FloatField(default=0.5)
@@ -104,7 +107,7 @@ class Recruitment(models.Model):
         db_column='cycletype'
     )
     plan_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    default_token_count = models.IntegerField(default=3)
+    default_token_count = models.IntegerField(default=3) # NOT USED ANYMORE
     max_round_execution_time = models.IntegerField(default=300) # in seconds
 
     class Meta:

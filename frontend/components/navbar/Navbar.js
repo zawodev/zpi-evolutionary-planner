@@ -27,10 +27,10 @@ export default function Navbar() {
           </>
         ) : (
           <>
-            <Link href="/entries">
+            <Link href="/user/entries">
               <button className="header-nav nav-entries">Zgłoszenia</button>
             </Link>
-            <Link href="/plan">
+            <Link href="/user/plan">
               <button className="header-nav nav-plans">Plany</button>
             </Link>
           </>

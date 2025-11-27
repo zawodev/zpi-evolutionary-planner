@@ -94,7 +94,7 @@ docker compose up -d
 Then, in another terminal, start the frontend:
 
 ```bash
-cd frontend/evoplanner_frontend
+cd frontend
 npm install
 npm run dev
 ```

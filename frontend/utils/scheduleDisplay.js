@@ -1,4 +1,4 @@
-/* utils/schedule.js */
+/* utils/scheduleDisplay.js */
 
 export const calculateSlotPosition = (startTime, endTime) => {
   if (!startTime || !endTime || startTime.includes("NaN") || endTime.includes("NaN")) {
@@ -45,4 +45,3 @@ export const minutesToTime = (minutes) => {
   const mins = minutes % 60;
   return `${hours}:${mins.toString().padStart(2, '0')}`;
 };
-
