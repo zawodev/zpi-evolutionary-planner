@@ -357,13 +357,13 @@ def aggregate_preferred_timeslots_view(request, recruitment_id):
                 continue
             for i, val in enumerate(pts):
                 try:
-                    num = float(val)
+                    num = float(max(0, val))
                 except (TypeError, ValueError):
                     continue
                 sums[i] += num
 
         if all(float(x).is_integer() for x in sums):
-            sums = [int(max(0,x)) for x in sums]
+            sums = [int(x) for x in sums]
 
         if cache is None:
             HeatmapCache.objects.create(recruitment_id=recruitment_uuid, cached_value=sums, last_updated=timezone.now())
