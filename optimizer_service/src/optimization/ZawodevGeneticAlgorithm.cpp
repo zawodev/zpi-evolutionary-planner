@@ -44,7 +44,10 @@ Individual ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluato
     Logger::debug("Start fitness: " + std::to_string(bestIndividual.fitness));
     // exit(1);
 
-    return bestIndividual;
+    //0th iteration return
+    Individual dummy;
+    InitRandomInd(dummy);
+    return dummy;
 }
 
 Individual ZawodevGeneticAlgorithm::RunIteration(int currentIteration) {

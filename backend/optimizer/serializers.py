@@ -72,27 +72,19 @@ class OptimizationProgressSerializer(serializers.ModelSerializer):
 
 class OptimizationJobSerializer(serializers.ModelSerializer):
     """Serializer for optimization job details"""
-    latest_progress = serializers.SerializerMethodField()
     recruitment_id = serializers.UUIDField(source='recruitment.recruitment_id', read_only=True)
     
     class Meta:
         model = OptimizationJob
         fields = [
             'id', 'recruitment_id', 'status', 'max_execution_time', 'created_at', 'updated_at',
-            'started_at', 'completed_at', 'error_message', 'final_solution',
-            'current_iteration', 'latest_progress'
+            'started_at', 'completed_at', 'error_message', 
+            'current_iteration', 'final_solution', 'first_solution'
         ]
         read_only_fields = [
             'id', 'recruitment_id', 'created_at', 'updated_at', 'started_at', 'completed_at',
             'current_iteration'
         ]
-    
-    def get_latest_progress(self, obj):
-        """Get the latest progress update"""
-        latest = obj.progress_updates.first()
-        if latest:
-            return OptimizationProgressSerializer(latest).data
-        return None
 
 
 class OptimizationJobListSerializer(serializers.ModelSerializer):

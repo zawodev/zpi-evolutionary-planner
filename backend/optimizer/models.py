@@ -27,6 +27,7 @@ class OptimizationJob(models.Model):
     
     error_message = models.TextField(blank=True, null=True)
     final_solution = models.JSONField(null=True, blank=True)
+    first_solution = models.JSONField(null=True, blank=True)
     
     current_iteration = models.IntegerField(default=0)
     
