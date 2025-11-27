@@ -1,10 +1,12 @@
 from typing import Union
 from django.db.models import QuerySet
 from django.utils import timezone
-from django.db import transaction
-from .models import Meeting, Room, Recruitment
+from django.db import transaction, models
+from .models import Meeting, Room, Recruitment, Subject, SubjectGroup, RoomTag, Tag, SubjectTag
 from optimizer.logger import logger
 from django.contrib.auth import get_user_model
+from preferences.models import Constraints
+from identity.models import UserGroup, UserSubjects
 User = get_user_model()
 
 
@@ -99,46 +101,193 @@ def trigger_optimization(recruitment):
             raise
 
 
-def prepare_optimization_constraints(recruitment):
+def prepare_optimization_constraints(recruitment: Recruitment):
     """
-    Przygotuj optimization constraints dla danego recruitment poprzez zebranie odpowiednich danych
-    z pól w bazie i zapisanie ich w polu recruitment.constraints_data (json) w modelu Constraint.
-
-    Ta funkcja iteruje przez odpowiednie tabele i pola bazy danych, aby zebrać:
-.
-    a) TimeslotsDaily: Bazując na godzinach rozpoczęcia i zakończenia w rekordzie rekrutacji, oblicz liczbę
-       dostępnych 15-minutowych przedziałów czasowych w ciągu dnia. (zapisz int)
-
-    b) DaysInCycle: Na podstawie typu cyklu (cotygodniowy, co dwutygodniowy, comiesięczny) z rekordu rekrutacji, 
-       określ liczbę dni w cyklu (7, 14 lub 28). (zapisz int)
-
-    c) MinStudentsPerGroup: Dla każdej grupy określ minimalną liczbę studentów wymaganą do uruchomienia grupy.
-
-    d) SubjectsDuration, GroupsPerSubject: Dla każdego przedmiotu pobierz czas trwania i liczbę grup
-       na przedmiot z tabeli przedmiotów.
-
-    e) GroupsCapacity, GroupTags: Dla każdej grupy przedmiotowej zbierz pojemność i tagi z
-       odpowiadających rekordów SQL.
-
-    f) RoomTags, RoomCapacity: Podobnie dla sal, zbierz tagi i pojemność.
-
-    g) StudentSubjects i TeacherSubject: Lista wymaganych przedmiotów z tabeli wiele-do-wielu
-       UserSubjects (kto musi uczęszczać na co) dla studentów, oraz z host_user w SubjectGroup dla nauczycieli.
-
-    h) Unavailability: For each room, student, and teacher, collect unavailability as arrays.
-       If no unavailability exists, use an empty array. Order matters.
-
-    Returns: None
-    (po prostu zapisz do pola constraints które jest jedno dla danego recruitment)
-
-    Zaczyna się jakoś tak:
-        ...
-        constraints = Constraints.objects.get(recruitment_id=recruitment_id)
-        constraints_data = constraints.constraints_data
-        timeslots_daily = constraints_data.get('TimeslotsDaily', 0) #przykładowe pole, dokładny opis masz w preferences/PREFS_STRUCTURE.md lub views.py lub #info na discord
-        ...
+    Zbiera dane z modeli i aktualizuje Constraints.constraints_data dla danego recruitment.
+    Patrz docstring oryginalny dla szczegółów pól.
     """
-    pass
+    try:
+        constraints = Constraints.objects.select_for_update().get(recruitment=recruitment)
+    except Constraints.DoesNotExist:
+        logger.warning(f"Constraints for recruitment {recruitment.recruitment_id} not found; creating empty.")
+        constraints = Constraints.objects.create(recruitment=recruitment, constraints_data={})
+
+    data = constraints.constraints_data or {}
+
+    # a) TimeslotsDaily
+    def compute_timeslots_daily():
+        start = recruitment.day_start_time
+        end = recruitment.day_end_time
+        if start and end:
+            delta_minutes = (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute)
+            if delta_minutes > 0:
+                blocks = delta_minutes // 15
+                return max(blocks, 1)
+        # fallback – użyj istniejącej wartości lub default 32 (8h *4 *1?)
+        return data.get('TimeslotsDaily', 32)
+
+    timeslots_daily = compute_timeslots_daily()
+
+    # b) DaysInCycle
+    cycle_map = {
+        'weekly': 7,
+        'biweekly': 14,
+        'monthly': 28,  # zgodnie z docstringiem (Meeting day_of_cycle może mieć większy zakres; tu przyjmujemy 28)
+    }
+    days_in_cycle = cycle_map.get(recruitment.cycle_type, 7)
+
+    # Pobieramy użytkowników powiązanych z rekrutacją
+    linked_users_qs = User.objects.filter(user_recruitments__recruitment=recruitment).distinct().order_by('id')
+    students = list(linked_users_qs.filter(role='participant'))
+    teachers = list(linked_users_qs.filter(role='host'))
+
+    # c) MinStudentsPerGroup i GroupsCapacity w kontekście SubjectGroup (dla każdej kombinacji subject-host)
+    subject_groups_qs = SubjectGroup.objects.filter(subject__recruitment=recruitment).select_related('subject', 'host_user')
+    subject_groups = list(subject_groups_qs)
+    min_students_per_group = [sg.subject.min_students for sg in subject_groups]
+    groups_capacity = [sg.subject.capacity for sg in subject_groups]
+    subject_group_index_map = {sg.subject_group_id: idx for idx, sg in enumerate(subject_groups)}
+
+    # d) SubjectsDuration, GroupsPerSubject
+    subjects = Subject.objects.filter(recruitment=recruitment).distinct()
+    subjects_duration = [s.duration_blocks for s in subjects]
+    groups_per_subject = [SubjectGroup.objects.filter(subject=s).count() for s in subjects]
+    subject_index_map = {s.subject_id: i for i, s in enumerate(subjects)}
+    num_subjects = len(subjects)
+
+    # f) RoomTags, RoomCapacity
+    rooms = Room.objects.filter(room_recruitments__recruitment=recruitment).distinct()
+    rooms_capacity = [r.capacity for r in rooms]
+    room_index_map = {r.room_id: i for i, r in enumerate(rooms)}
+
+    # Subject tags zmapowane na SubjectGroup -> Tag (GroupTags = para indeksów [subjectGroupIndex, tagIndex])
+    # Budujemy tag_index_map jak wcześniej
+    all_tags = Tag.objects.filter(
+        models.Q(tagged_rooms__room__in=rooms) | models.Q(tagged_subjects__subject__in=subjects)
+    ).distinct().order_by('tag_name')
+    tag_index_map = {t.tag_id: i for i, t in enumerate(all_tags)}
+
+    room_tags_pairs = []
+    for rt in RoomTag.objects.filter(room__in=rooms).select_related('room', 'tag'):
+        if rt.tag_id in tag_index_map and rt.room_id in room_index_map:
+            room_tags_pairs.append([room_index_map[rt.room_id], tag_index_map[rt.tag_id]])
+
+    group_tags_pairs = []
+    # dla każdej subjectGroup bierzemy tagi jej subjectu
+    for sg in subject_groups:
+        for st in SubjectTag.objects.filter(subject=sg.subject).select_related('tag'):
+            tag_idx = tag_index_map.get(st.tag_id)
+            if tag_idx is not None:
+                group_tags_pairs.append([subject_group_index_map[sg.subject_group_id], tag_idx])
+
+    # g) StudentSubjects & TeacherGroups (na bazie SubjectGroup)
+    students_subjects = []
+    for stu in students:
+        subj_ids = list(UserSubjects.objects.filter(user=stu).values_list('subject__subject_id', flat=True))
+        mapped = [subject_index_map[sid] for sid in subj_ids if sid in subject_index_map]
+        students_subjects.append(mapped)
+
+    teacher_groups = []
+    for t in teachers:
+        sg_indices = [subject_group_index_map[sg.subject_group_id] for sg in subject_groups if sg.host_user_id == t.id]
+        # unikalność i sortowanie
+        sg_indices = sorted(set(sg_indices))
+        teacher_groups.append(sg_indices)
+
+    # i) Liczebności (NumGroups jako liczba SubjectGroup w rekrutacji)
+    num_groups = len(subject_groups)
+    num_teachers = len(teachers)
+    num_students = len(students)
+    num_rooms = len(rooms)
+    num_tags = len(all_tags)
+
+    # j) Wagi użytkowników (domyślnie 1 jeśli brak pola weight)
+    student_weights = [getattr(stu, 'weight', 1) for stu in students]
+    teacher_weights = [getattr(t, 'weight', 1) for t in teachers]
+
+    # h) Unavailability – teraz wypełniamy realnymi timeslotami:
+    # start_timeslot jest już globalnym indeksem timeslota w całym cyklu (0.. DaysInCycle*TimeslotsDaily-1)
+    # więc wystarczy wziąć start_timeslot oraz kolejne bloki według duration_blocks.
+    def meeting_block_indices(m: Meeting):
+        start_idx = getattr(m, 'start_timeslot', None)
+        if start_idx is None:
+            return []
+
+        duration_blocks = getattr(m.subject_group.subject, 'duration_blocks', None) or 1
+        break_before = getattr(m.subject_group.subject, 'break_before_blocks', 0) or 0
+        break_after = getattr(m.subject_group.subject, 'break_after_blocks', 0) or 0
+
+        first_idx = max(0, start_idx - break_before)
+        last_idx = start_idx + duration_blocks - 1 + break_after
+        if last_idx < first_idx:
+            return []
+        return [i for i in range(first_idx, last_idx + 1)]
+
+    # Zbierz wszystkie spotkania rekrutacji
+    all_meetings = Meeting.objects.filter(recruitment=recruitment).select_related(
+        'room', 'group', 'subject_group__subject', 'subject_group__host_user'
+    )
+
+    # Preindeksowanie
+    room_unavail_map = {r.room_id: set() for r in rooms}
+    teacher_unavail_map = {t.id: set() for t in teachers}
+    student_unavail_map = {s.id: set() for s in students}
+
+    # Grupy uczestników per user oraz grupy -> studenci
+    user_groups_map = {}
+    group_students_map = {}
+    for ug in UserGroup.objects.filter(user__in=students).select_related('user', 'group'):
+        user_groups_map.setdefault(ug.user_id, set()).add(ug.group_id)
+        group_students_map.setdefault(ug.group_id, set()).add(ug.user_id)
+
+    for m in all_meetings:
+        m_indices = meeting_block_indices(m)
+        # room
+        if m.room_id in room_unavail_map:
+            room_unavail_map[m.room_id].update(m_indices)
+        # teacher (host)
+        host_id = m.subject_group.host_user_id
+        if host_id in teacher_unavail_map:
+            teacher_unavail_map[host_id].update(m_indices)
+        # students: wszyscy należący do grupy
+        group_id = m.group_id
+        for stu_id in group_students_map.get(group_id, ()):  # szybkie rozwinięcie bez iteracji po wszystkich studentach
+            student_unavail_map[stu_id].update(m_indices)
+
+    rooms_unavailability = [sorted(room_unavail_map[r.room_id]) for r in rooms]
+    students_unavailability = [sorted(student_unavail_map[s.id]) for s in students]
+    teachers_unavailability = [sorted(teacher_unavail_map[t.id]) for t in teachers]
+
+    # Aktualizacja constraints_data – zachowujemy stare pola jeśli nie nadpisujemy
+    data.update({
+        'TimeslotsDaily': timeslots_daily,
+        'DaysInCycle': days_in_cycle,
+        'MinStudentsPerGroup': min_students_per_group,
+        'SubjectsDuration': subjects_duration,
+        'GroupsPerSubject': groups_per_subject,
+        'GroupsCapacity': groups_capacity,
+        'GroupsTags': group_tags_pairs,
+        'RoomsCapacity': rooms_capacity,
+        'RoomsTags': room_tags_pairs,
+        'StudentsSubjects': students_subjects,
+        'TeachersGroups': teacher_groups,
+        'RoomsUnavailabilityTimeslots': rooms_unavailability,
+        'StudentsUnavailabilityTimeslots': students_unavailability,
+        'TeachersUnavailabilityTimeslots': teachers_unavailability,
+        'NumGroups': num_groups,
+        'NumTeachers': num_teachers,
+        'NumStudents': num_students,
+        'NumRooms': num_rooms,
+        'NumTags': num_tags,
+        'NumSubjects': num_subjects,
+        'StudentWeights': student_weights,
+        'TeacherWeights': teacher_weights,
+    })
+
+    constraints.constraints_data = data
+    constraints.save(update_fields=['constraints_data'])
+    logger.info(f"Constraints updated for recruitment {recruitment.recruitment_id}")
+    return constraints
 
 
 def check_and_trigger_optimizations():

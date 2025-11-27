@@ -95,6 +95,7 @@ class Recruitment(models.Model):
     optimization_start_date = models.DateTimeField(blank=True, null=True) # rozpoczęcie optymalizacji
     optimization_end_date = models.DateTimeField(blank=True, null=True) # zakończenie optymalizacji
 
+    plan_start_date = models.DateTimeField(blank=True, null=True) # data rozpoczęcia planu
     expiration_date = models.DateTimeField(blank=True, null=True) # data wygaśnięcia rekrutacji
 
     preference_threshold = models.FloatField(default=0.5)
@@ -191,6 +192,29 @@ class RoomTag(models.Model):
 
     def __str__(self):
         return f"{self.room} - {self.tag}"
+
+
+class SubjectTag(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        db_column='subjectid',
+        related_name='subject_tags'
+    )
+    tag = models.ForeignKey(
+        Tag,
+        on_delete=models.CASCADE,
+        db_column='tagid',
+        related_name='tagged_subjects'
+    )
+
+    class Meta:
+        db_table = 'scheduling_subjecttags'
+        unique_together = ('subject', 'tag')
+
+    def __str__(self):
+        return f"{self.subject} - {self.tag}"
 
 
 class Meeting(models.Model):

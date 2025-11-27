@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment
+from .models import Subject, SubjectGroup, Recruitment, Room, Tag, RoomTag, Meeting, RoomRecruitment, SubjectTag
 from preferences.models import Constraints
 from preferences.views import DEFAULT_CONSTRAINTS
 
@@ -69,6 +69,15 @@ class MeetingSerializer(serializers.ModelSerializer):
 class RoomRecruitmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomRecruitment
+        fields = '__all__'
+
+
+class SubjectTagSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='subject.subject_name', read_only=True)
+    tag_name = serializers.CharField(source='tag.tag_name', read_only=True)
+
+    class Meta:
+        model = SubjectTag
         fields = '__all__'
 
 
