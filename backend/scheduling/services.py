@@ -209,9 +209,19 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     # start_timeslot jest już globalnym indeksem timeslota w całym cyklu (0.. DaysInCycle*TimeslotsDaily-1)
     # więc wystarczy wziąć start_timeslot oraz kolejne bloki według duration_blocks.
     def meeting_block_indices(m: Meeting):
-        start_idx = m.start_timeslot
-        duration_blocks = m.subject_group.subject.duration_blocks
-        return [start_idx + off for off in range(duration_blocks)]
+        start_idx = getattr(m, 'start_timeslot', None)
+        if start_idx is None:
+            return []
+
+        duration_blocks = getattr(m.subject_group.subject, 'duration_blocks', None) or 1
+        break_before = getattr(m.subject_group.subject, 'break_before_blocks', 0) or 0
+        break_after = getattr(m.subject_group.subject, 'break_after_blocks', 0) or 0
+
+        first_idx = max(0, start_idx - break_before)
+        last_idx = start_idx + duration_blocks - 1 + break_after
+        if last_idx < first_idx:
+            return []
+        return [i for i in range(first_idx, last_idx + 1)]
 
     # Zbierz wszystkie spotkania rekrutacji
     all_meetings = Meeting.objects.filter(recruitment=recruitment).select_related(
