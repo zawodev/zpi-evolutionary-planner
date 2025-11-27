@@ -12,8 +12,24 @@ const EMPTY_SCHEDULE = {
   friday: []
 };
 
+const DEFAULT_COMPLEX_PREFS = {
+    FreeDays: 0,
+    ShortDays: 0,
+    UniformDays: 0,
+    ConcentratedDays: 0,
+    MinGapsLength: [0, 0],
+    MaxGapsLength: [0, 0],
+    MinDayLength: [0, 0],
+    MaxDayLength: [0, 0],
+    PreferredDayStartTimeslot: [0, 0],
+    PreferredDayEndTimeslot: [0, 0],
+    TagOrder: [],
+    PreferredGroups: [],
+};
+
 export const usePreferences = (selectedRecruitment, userId) => {
   const [scheduleData, setScheduleData] = useState(EMPTY_SCHEDULE);
+  const [complexPrefs, setComplexPrefs] = useState(DEFAULT_COMPLEX_PREFS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,6 +64,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
   useEffect(() => {
     if (!recruitmentId || !userId) {
       setScheduleData(EMPTY_SCHEDULE);
+      setComplexPrefs(DEFAULT_COMPLEX_PREFS);
       return;
     }
 
@@ -63,6 +80,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
       if (timeslotsPerDay <= 0) {
           console.warn("Recruitment data (day_start_time/day_end_time) is missing or invalid, or not yet loaded. Cannot safely load/deserialize preferences.");
           setScheduleData(EMPTY_SCHEDULE); 
+          setComplexPrefs(DEFAULT_COMPLEX_PREFS);
           setIsLoading(false);
           return;
       }
@@ -86,6 +104,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
 
         if (response.status === 404) {
           setScheduleData(EMPTY_SCHEDULE);
+          setComplexPrefs(DEFAULT_COMPLEX_PREFS);
         } else if (response.ok) {
           const data = await response.json();
           if (data.preferences_data && 
@@ -93,6 +112,22 @@ export const usePreferences = (selectedRecruitment, userId) => {
               !Array.isArray(data.preferences_data)) {
             
             const preferences = data.preferences_data;
+
+            setComplexPrefs({
+                FreeDays: preferences.FreeDays ?? DEFAULT_COMPLEX_PREFS.FreeDays,
+                ShortDays: preferences.ShortDays ?? DEFAULT_COMPLEX_PREFS.ShortDays,
+                UniformDays: preferences.UniformDays ?? DEFAULT_COMPLEX_PREFS.UniformDays,
+                ConcentratedDays: preferences.ConcentratedDays ?? DEFAULT_COMPLEX_PREFS.ConcentratedDays,
+                MinGapsLength: preferences.MinGapsLength ?? DEFAULT_COMPLEX_PREFS.MinGapsLength,
+                MaxGapsLength: preferences.MaxGapsLength ?? DEFAULT_COMPLEX_PREFS.MaxGapsLength,
+                MinDayLength: preferences.MinDayLength ?? DEFAULT_COMPLEX_PREFS.MinDayLength,
+                MaxDayLength: preferences.MaxDayLength ?? DEFAULT_COMPLEX_PREFS.MaxDayLength,
+                PreferredDayStartTimeslot: preferences.PreferredDayStartTimeslot ?? DEFAULT_COMPLEX_PREFS.PreferredDayStartTimeslot,
+                PreferredDayEndTimeslot: preferences.PreferredDayEndTimeslot ?? DEFAULT_COMPLEX_PREFS.PreferredDayEndTimeslot,
+                TagOrder: preferences.TagOrder ?? DEFAULT_COMPLEX_PREFS.TagOrder,
+                PreferredGroups: preferences.PreferredGroups ?? DEFAULT_COMPLEX_PREFS.PreferredGroups,
+            });
+            
             const preferredTimeslots = preferences.PreferredTimeslots;
 
             if (Array.isArray(preferredTimeslots) && preferredTimeslots.length > 0) {
@@ -111,6 +146,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
 
           } else {
             setScheduleData(EMPTY_SCHEDULE);
+            setComplexPrefs(DEFAULT_COMPLEX_PREFS);
           }
         } else {
           throw new Error(`Błąd ładowania preferencji: ${response.statusText}`);
@@ -126,7 +162,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
     fetchPreferences();
   }, [recruitmentId, userId, selectedRecruitment?.day_start_time, selectedRecruitment?.day_end_time]);
 
-  const savePreferences = async (customData = null) => {
+  const savePreferences = async (finalPayload) => { 
     if (!recruitmentId || !userId) {
       setSaveError("Nie wybrano rekrutacji lub użytkownika.");
       return false;
@@ -142,8 +178,6 @@ export const usePreferences = (selectedRecruitment, userId) => {
       return false;
     }
 
-    const bodyData = customData || scheduleData;
-
     try {
       const response = await fetch(
         `http://127.0.0.1:8000/api/v1/preferences/user-preferences/${recruitmentId}/${userId}/`,
@@ -153,7 +187,7 @@ export const usePreferences = (selectedRecruitment, userId) => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(bodyData)
+          body: JSON.stringify(finalPayload)
         }
       );
 
@@ -176,11 +210,14 @@ export const usePreferences = (selectedRecruitment, userId) => {
 
   const clearAllPreferences = () => {
     setScheduleData(EMPTY_SCHEDULE);
+    setComplexPrefs(DEFAULT_COMPLEX_PREFS);
   };
 
   return {
     scheduleData,
     setScheduleData,
+    complexPrefs,
+    setComplexPrefs,
     isLoading,
     error,
     isSaving,

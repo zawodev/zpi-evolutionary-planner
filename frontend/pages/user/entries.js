@@ -1,12 +1,13 @@
 /* pages/entries.js */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecruitments } from '../../hooks/useRecruitments';
 import { usePreferences } from '../../hooks/usePreferences';
 import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../../utils/scheduleOperations';
 import { timeToMinutes } from '../../utils/scheduleDisplay';
 
+// --- Helper Functions ---
 const getGridStartHour = (recruitment) => {
     const timeStr = recruitment?.day_start_time || "07:00";
     const parts = timeStr.split(':');
@@ -762,12 +763,6 @@ const EntriesStyles = () => (
       letter-spacing: 0.05em;
     }
 
-    .new-entries-priority-input-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
     .new-entries-priority-field input {
       width: 100%;
       padding: 0.875rem 1rem;
@@ -896,6 +891,313 @@ const EntriesStyles = () => (
     .new-entries-modal-btn.danger:active:not(:disabled) {
       transform: translateY(0);
     }
+    
+    .new-entries-input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    .modal-input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 2px solid #e5e7eb;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    /* STYLE DLA ZAAWANSOWANYCH PREFERENCJI */
+    .advanced-preferences-container {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      width: 100%;
+    }
+
+    .advanced-preferences-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: background 0.2s;
+    }
+
+    .advanced-preferences-header:hover {
+      background: #f9fafb;
+    }
+
+    .advanced-preferences-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .advanced-preferences-toggle {
+      transition: transform 0.2s;
+      color: #6b7280;
+    }
+
+    .advanced-preferences-toggle.expanded {
+      transform: rotate(90deg);
+    }
+
+    .advanced-preferences-content {
+      margin-top: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
+
+    .preference-group {
+      border-top: 2px solid #f3f4f6;
+      padding-top: 1.5rem;
+    }
+
+    .preference-group-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .preference-group-title::before {
+      content: '';
+      width: 4px;
+      height: 1.25rem;
+      background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+      border-radius: 2px;
+    }
+
+    .preference-item {
+      margin-bottom: 1.5rem;
+    }
+
+    .preference-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .preference-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 0.375rem;
+      display: block;
+    }
+
+    .preference-description {
+      font-size: 0.8125rem;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-bottom: 0.875rem;
+    }
+
+    .preference-slider-container {
+      background: #f9fafb;
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid #e5e7eb;
+    }
+
+    .preference-slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .preference-slider-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .preference-slider-value {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #1f2937;
+      padding: 0.25rem 0.625rem;
+      background: white;
+      border-radius: 0.375rem;
+      border: 1px solid #e5e7eb;
+    }
+
+    .preference-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      appearance: none;
+      background: linear-gradient(to right, 
+        #ef4444 0%, 
+        #f59e0b 35%, 
+        #9ca3af 50%, 
+        #a3e635 65%, 
+        #22c55e 100%
+      );
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .preference-slider:hover {
+      opacity: 0.9;
+    }
+
+    .preference-slider:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .preference-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #3b82f6;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preference-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .preference-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #3b82f6;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preference-slider-markers {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      padding: 0 0.25rem;
+    }
+
+    .preference-slider-marker {
+      font-size: 0.6875rem;
+      color: #9ca3af;
+      font-weight: 500;
+    }
+
+    .preference-complex-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .preference-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    .preference-input-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .preference-input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      background: white;
+      color: #1f2937;
+    }
+
+    .preference-input:hover:not(:disabled) {
+      border-color: #d1d5db;
+    }
+
+    .preference-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .preference-input:disabled {
+      background: #f3f4f6;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .preference-hint {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 0.5rem;
+      line-height: 1.5;
+    }
+
+    .preference-hint strong {
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    .advanced-preferences-info {
+      background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      grid-column: 1 / -1;
+    }
+
+    .advanced-preferences-info-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      color: #3b82f6;
+    }
+
+    .advanced-preferences-info-text {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: #1e40af;
+    }
+
+    .advanced-preferences-info-text strong {
+      font-weight: 700;
+    }
+
+    @media (max-width: 1200px) {
+      .advanced-preferences-content {
+        grid-template-columns: 1fr;
+      }
+    }
 
     @media (max-width: 1024px) {
       .new-entries-main {
@@ -934,9 +1236,340 @@ const EntriesStyles = () => (
       .new-entries-modal-footer {
         padding: 1rem 1.5rem 1.5rem 1.5rem;
       }
+      .advanced-preferences-content {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+      .preference-complex-inputs {
+        grid-template-columns: 1fr;
+      }
+      .advanced-preferences-container {
+        padding: 1rem;
+      }
     }
   `}</style>
 );
+
+// --- KOMPONENTY DLA ZAAWANSOWANYCH PREFERENCJI ---
+
+const ChevronRightIcon = ({ size, style, className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={style}
+    className={className}
+  >
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
+const InfoIcon = ({ size, className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </svg>
+);
+
+const WEIGHT_LABELS = {
+  '-5': 'Duża niechęć',
+  '-3': 'Średnia niechęć',
+  '0': 'Neutralne',
+  '3': 'Średnia chęć',
+  '5': 'Duża chęć',
+};
+
+// Komponent dla pojedynczych wag
+const SimplePreferenceInput = ({ title, weight, onWeightChange, description, isEditable }) => {
+    return (
+        <div className="preference-item">
+            <label className="preference-label">{title}</label>
+            <p className="preference-description">{description}</p>
+            <div className="preference-slider-container">
+                <div className="preference-slider-header">
+                    <span className="preference-slider-label">Waga</span>
+                    <span className="preference-slider-value">
+                        {weight} ({WEIGHT_LABELS[weight] || 'Niestandardowa'})
+                    </span>
+                </div>
+                <input
+                    type="range"
+                    min="-5"
+                    max="5"
+                    step="1"
+                    value={weight}
+                    onChange={(e) => onWeightChange(parseInt(e.target.value))}
+                    className="preference-slider"
+                    disabled={!isEditable}
+                />
+                <div className="preference-slider-markers">
+                    <span className="preference-slider-marker">-5</span>
+                    <span className="preference-slider-marker">0</span>
+                    <span className="preference-slider-marker">5</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Komponent dla par wartość/waga
+const ComplexPreferenceInput = ({ 
+    title, 
+    value, 
+    weight, 
+    onValueChange, 
+    onWeightChange, 
+    description, 
+    min, 
+    max, 
+    step, 
+    unit,
+    isEditable 
+}) => {
+    const isAvoid = weight < 0;
+    const isNeutral = weight === 0;
+
+    return (
+        <div className="preference-item">
+            <label className="preference-label">{title}</label>
+            <p className="preference-description">{description}</p>
+            
+            <div className="preference-complex-inputs">
+                <div className="preference-input-group">
+                    <label className="preference-input-label">Wartość ({unit})</label>
+                    <input
+                        type="number"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={value}
+                        onChange={(e) => onValueChange(parseInt(e.target.value) || 0)}
+                        className="preference-input"
+                        disabled={!isEditable || isNeutral}
+                    />
+                </div>
+                <div className="preference-input-group">
+                    <label className="preference-input-label">Waga</label>
+                    <input
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="1"
+                        value={weight}
+                        onChange={(e) => onWeightChange(parseInt(e.target.value))}
+                        className="preference-slider"
+                        disabled={!isEditable}
+                    />
+                    <div className="preference-slider-markers">
+                        <span className="preference-slider-marker">-5</span>
+                        <span className="preference-slider-marker">0</span>
+                        <span className="preference-slider-marker">5</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdvancedPreferencesSection = ({ complexPrefs, setComplexPrefs, isEditable }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const lengthUnit = "bloków (15 min)";
+    const slotUnit = "slotów (15 min)";
+
+    const updateSimpleWeight = (key, weight) => {
+        if (isEditable) {
+            setComplexPrefs(prev => ({ ...prev, [key]: weight }));
+        }
+    };
+
+    const updateComplexValue = (key, index, value) => {
+        if (isEditable) {
+            setComplexPrefs(prev => {
+                const newArray = [...(prev[key] || [0, 0])];
+                newArray[index] = value;
+                if (newArray.length < 2) {
+                    newArray.push(0);
+                }
+                return { ...prev, [key]: newArray };
+            });
+        }
+    };
+
+    return (
+        <div className="advanced-preferences-container">
+            <div 
+                className="advanced-preferences-header"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <h3 className="advanced-preferences-title">
+                    Zaawansowane Preferencje
+                </h3>
+                <ChevronRightIcon 
+                    size={20} 
+                    className={`advanced-preferences-toggle ${isExpanded ? 'expanded' : ''}`}
+                />
+            </div>
+            
+            {isExpanded && (
+                <div className="advanced-preferences-content">
+                    <div className="advanced-preferences-info">
+                        <InfoIcon size={20} className="advanced-preferences-info-icon" />
+                        <div className="advanced-preferences-info-text">
+                            Ustaw wagi dla preferencji. <strong>5</strong> to silna <strong>preferencja</strong>, 
+                            <strong> -5</strong> to silna <strong>niechęć</strong>, <strong>0</strong> to neutralność.
+                        </div>
+                    </div>
+
+                    {/* GRUPA 1: Ogólne Wagi Dnia */}
+                    <div className="preference-group">
+                        <h4 className="preference-group-title">Ogólne Wagi Dnia</h4>
+                        
+                        <SimplePreferenceInput 
+                            title="Dni wolne (FreeDays)"
+                            weight={complexPrefs.FreeDays}
+                            onWeightChange={(w) => updateSimpleWeight('FreeDays', w)}
+                            description="Jak bardzo chcesz mieć całkowicie wolne dni (ujemna wartość promuje codzienną aktywność)."
+                            isEditable={isEditable}
+                        />
+                        
+                        <SimplePreferenceInput 
+                            title="Krótkie dni (ShortDays)"
+                            weight={complexPrefs.ShortDays}
+                            onWeightChange={(w) => updateSimpleWeight('ShortDays', w)}
+                            description="Preferencja dni z małą liczbą godzin (ujemna promuje długie dni)."
+                            isEditable={isEditable}
+                        />
+                        
+                        <SimplePreferenceInput 
+                            title="Równomierne obciążenie (UniformDays)"
+                            weight={complexPrefs.UniformDays}
+                            onWeightChange={(w) => updateSimpleWeight('UniformDays', w)}
+                            description="Chęć, by każdy dzień pracy miał podobną liczbę godzin."
+                            isEditable={isEditable}
+                        />
+                        
+                        <SimplePreferenceInput 
+                            title="Skupienie dni (ConcentratedDays)"
+                            weight={complexPrefs.ConcentratedDays}
+                            onWeightChange={(w) => updateSimpleWeight('ConcentratedDays', w)}
+                            description="Chęć grupowania dni pracujących i dni wolnych."
+                            isEditable={isEditable}
+                        />
+                    </div>
+                    
+                    {/* GRUPA 2: Precyzyjne Ramy Czasowe i Przerwy */}
+                    <div className="preference-group">
+                        <h4 className="preference-group-title">Precyzyjne Ramy Czasowe i Przerwy</h4>
+
+                        <ComplexPreferenceInput
+                            title="Minimalna przerwa (MinGapsLength)"
+                            value={complexPrefs.MinGapsLength[0]}
+                            weight={complexPrefs.MinGapsLength[1]}
+                            onValueChange={(v) => updateComplexValue('MinGapsLength', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('MinGapsLength', 1, w)}
+                            description="Minimalna pożądana długość przerwy między zajęciami."
+                            min={0}
+                            max={32} 
+                            step={1}
+                            unit={lengthUnit}
+                            isEditable={isEditable}
+                        />
+
+                        <ComplexPreferenceInput
+                            title="Maksymalna przerwa (MaxGapsLength)"
+                            value={complexPrefs.MaxGapsLength[0]}
+                            weight={complexPrefs.MaxGapsLength[1]}
+                            onValueChange={(v) => updateComplexValue('MaxGapsLength', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('MaxGapsLength', 1, w)}
+                            description="Maksymalna tolerowana długość okienka. Pomaga unikać zbyt długiego czekania."
+                            min={0}
+                            max={32}
+                            step={1}
+                            unit={lengthUnit}
+                            isEditable={isEditable}
+                        />
+
+                        <ComplexPreferenceInput
+                            title="Minimalna długość dnia (MinDayLength)"
+                            value={complexPrefs.MinDayLength[0]}
+                            weight={complexPrefs.MinDayLength[1]}
+                            onValueChange={(v) => updateComplexValue('MinDayLength', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('MinDayLength', 1, w)}
+                            description="Minimalna liczba czasu spędzonego na zajęciach w dniu. Pomocne dla dojeżdżających."
+                            min={0}
+                            max={32}
+                            step={1}
+                            unit={lengthUnit}
+                            isEditable={isEditable}
+                        />
+                        
+                        <ComplexPreferenceInput
+                            title="Maksymalna długość dnia (MaxDayLength)"
+                            value={complexPrefs.MaxDayLength[0]}
+                            weight={complexPrefs.MaxDayLength[1]}
+                            onValueChange={(v) => updateComplexValue('MaxDayLength', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('MaxDayLength', 1, w)}
+                            description="Preferowana maksymalna liczba godzin zajęć w jednym dniu."
+                            min={0}
+                            max={32}
+                            step={1}
+                            unit={lengthUnit}
+                            isEditable={isEditable}
+                        />
+                        
+                        <ComplexPreferenceInput
+                            title="Preferowany początek dnia (PreferredDayStartTimeslot)"
+                            value={complexPrefs.PreferredDayStartTimeslot[0]}
+                            weight={complexPrefs.PreferredDayStartTimeslot[1]}
+                            onValueChange={(v) => updateComplexValue('PreferredDayStartTimeslot', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('PreferredDayStartTimeslot', 1, w)}
+                            description="Numer slotu rozpoczęcia pierwszych zajęć (0 to początek dnia)."
+                            min={0}
+                            max={31} 
+                            step={1}
+                            unit={slotUnit}
+                            isEditable={isEditable}
+                        />
+
+                        <ComplexPreferenceInput
+                            title="Preferowany koniec dnia (PreferredDayEndTimeslot)"
+                            value={complexPrefs.PreferredDayEndTimeslot[0]}
+                            weight={complexPrefs.PreferredDayEndTimeslot[1]}
+                            onValueChange={(v) => updateComplexValue('PreferredDayEndTimeslot', 0, v)}
+                            onWeightChange={(w) => updateComplexValue('PreferredDayEndTimeslot', 1, w)}
+                            description="Numer slotu zakończenia ostatnich zajęć dnia."
+                            min={0}
+                            max={31}
+                            step={1}
+                            unit={slotUnit}
+                            isEditable={isEditable}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- POZOSTAŁE KOMPONENTY ---
 
 const EntriesSidebar = ({ 
   fileError, 
@@ -1645,6 +2278,8 @@ export default function EntriesPage() {
   const {
     scheduleData,
     setScheduleData,
+    complexPrefs,
+    setComplexPrefs,
     isLoading: isLoadingSchedule,
     error: preferencesError,
     isSaving,
@@ -1739,7 +2374,7 @@ const fetchHeatmap = async (recruitmentId) => {
   
   setIsLoadingHeatmap(true);
   try {
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
     const url = `${baseUrl}/api/v1/preferences/aggregate-preferred-timeslots/${recruitmentId}`;
     
     const response = await fetch(url, {
@@ -1801,25 +2436,25 @@ const fetchHeatmap = async (recruitmentId) => {
     );
 
     const newPreferencesData = {
-        "FreeDays": 0, 
-        "ShortDays": 0,
-        "UniformDays": 0,
-        "ConcentratedDays": 0,
+        "FreeDays": complexPrefs.FreeDays,
+        "ShortDays": complexPrefs.ShortDays,
+        "UniformDays": complexPrefs.UniformDays,
+        "ConcentratedDays": complexPrefs.ConcentratedDays,
         
-        "MinGapsLength": [0, 0],
-        "MaxGapsLength": [0, 0],
+        "MinGapsLength": complexPrefs.MinGapsLength,
+        "MaxGapsLength": complexPrefs.MaxGapsLength,
         
-        "MinDayLength": [0, 0],
-        "MaxDayLength": [0, 0],
+        "MinDayLength": complexPrefs.MinDayLength,
+        "MaxDayLength": complexPrefs.MaxDayLength,
         
-        "PreferredDayStartTimeslot": [0, 0],
-        "PreferredDayEndTimeslot": [0, 0],
+        "PreferredDayStartTimeslot": complexPrefs.PreferredDayStartTimeslot,
+        "PreferredDayEndTimeslot": complexPrefs.PreferredDayEndTimeslot,
         
-        "TagOrder": [],
+        "TagOrder": complexPrefs.TagOrder,
         
         "PreferredTimeslots": weightsArray,
         
-        "PreferredGroups": [0, 0, 0, 0, 0] 
+        "PreferredGroups": complexPrefs.PreferredGroups, 
     };
     
     const finalPayload = {
@@ -1837,185 +2472,182 @@ const fetchHeatmap = async (recruitmentId) => {
     if (!isEditable) return;
     
     if (window.confirm('Czy na pewno chcesz usunąć wszystkie preferencje? Ta akcja jest nieodwracalna.')) {
-      clearAllPreferences();
-      alert('Wszystkie preferencje zostały wyczyszczone. Kliknij "Zachowaj zmiany", aby zapisać.');
-    }
-  };
+      clearAllPreferences();alert('Wszystkie preferencje zostały wyczyszczone. Kliknij "Zachowaj zmiany", aby zapisać.');
+}
+};
+const handleSlotClick = (e, day, slotIndex) => {
+e.stopPropagation();
+const slot = scheduleData[day][slotIndex];
+if (!slot) return;
+setEditingSlot({
+  ...slot,
+  priority: slot.priority || 1,
+  day: day,
+  index: slotIndex
+});
+setModalMode('edit');
+setShowModal(true);
+};
+const handleAddSlot = () => {
+if (!pendingSlot || !isEditable) return;
+const label = createSlotFromType(pendingSlot.type);
+const newSlot = {
+  start: pendingSlot.start,
+  end: pendingSlot.end,
+  type: pendingSlot.type,
+  label: label,
+  priority: pendingSlot.priority || 1
+};
 
-  const handleSlotClick = (e, day, slotIndex) => {
-    e.stopPropagation();
-    const slot = scheduleData[day][slotIndex];
-    if (!slot) return;
+setScheduleData(prev => addSlot(prev, pendingSlot.day, newSlot));
+handleCloseModal();
+};
+const handleUpdateSlot = () => {
+if (!editingSlot || !isEditable) return;
+const label = createSlotFromType(editingSlot.type);
+const updatedSlot = {
+  start: editingSlot.start,
+  end: editingSlot.end,
+  type: editingSlot.type,
+  label: label,
+  priority: editingSlot.priority || 1
+};
 
-    setEditingSlot({
-      ...slot,
-      priority: slot.priority || 1,
-      day: day,
-      index: slotIndex
-    });
-    setModalMode('edit');
-    setShowModal(true);
-  };
-
-  const handleAddSlot = () => {
-    if (!pendingSlot || !isEditable) return;
-
-    const label = createSlotFromType(pendingSlot.type);
-    const newSlot = {
-      start: pendingSlot.start,
-      end: pendingSlot.end,
-      type: pendingSlot.type,
-      label: label,
-      priority: pendingSlot.priority || 1
-    };
-
-    setScheduleData(prev => addSlot(prev, pendingSlot.day, newSlot));
-    handleCloseModal();
-  };
-
-  const handleUpdateSlot = () => {
-    if (!editingSlot || !isEditable) return;
-
-    const label = createSlotFromType(editingSlot.type);
-    const updatedSlot = {
-      start: editingSlot.start,
-      end: editingSlot.end,
-      type: editingSlot.type,
-      label: label,
-      priority: editingSlot.priority || 1
-    };
-
-    setScheduleData(prev => 
-      updateSlot(prev, editingSlot.day, editingSlot.index, updatedSlot)
-    );
-    handleCloseModal();
-  };
-
-  const handleDeleteSlot = () => {
-    if (!editingSlot || !isEditable) return;
-
-    setScheduleData(prev => 
-      deleteSlot(prev, editingSlot.day, editingSlot.index)
-    );
-    handleCloseModal();
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setPendingSlot(null);
-    setEditingSlot(null);
-    resetDrag();
-  };
-
-  const displayError = recruitmentsError || preferencesError || saveError;
-
-  return (
-    <div className="new-entries-container">
-      <EntriesStyles />
+setScheduleData(prev => 
+  updateSlot(prev, editingSlot.day, editingSlot.index, updatedSlot)
+);
+handleCloseModal();
+};
+const handleDeleteSlot = () => {
+if (!editingSlot || !isEditable) return;
+setScheduleData(prev => 
+  deleteSlot(prev, editingSlot.day, editingSlot.index)
+);
+handleCloseModal();
+};
+const handleCloseModal = () => {
+setShowModal(false);
+setPendingSlot(null);
+setEditingSlot(null);
+resetDrag();
+};
+const displayError = recruitmentsError || preferencesError || saveError;
+return (
+<div className="new-entries-container">
+<EntriesStyles />
+  <div className="new-entries-content">
+    <div className="new-entries-main">
+      <EntriesSidebar
+        fileError={displayError}
+        onSave={handleSave}
+        onClear={handleClear}
+        recruitments={recruitments}
+        isLoading={isLoadingRecruitments}
+        selectedRecruitment={selectedRecruitment}
+        onSelectRecruitment={setSelectedRecruitment}
+        isSaving={isSaving}
+        onHeatmapMouseDown={handleHeatmapMouseDown}
+        onHeatmapMouseUp={handleHeatmapMouseUp}
+        showingHeatmap={showingHeatmap}
+      />
       
-      <div className="new-entries-content">
-        <div className="new-entries-main">
-          <EntriesSidebar
-            fileError={displayError}
-            onSave={handleSave}
-            onClear={handleClear}
-            recruitments={recruitments}
-            isLoading={isLoadingRecruitments}
-            selectedRecruitment={selectedRecruitment}
-            onSelectRecruitment={setSelectedRecruitment}
-            isSaving={isSaving}
-            onHeatmapMouseDown={handleHeatmapMouseDown}
-            onHeatmapMouseUp={handleHeatmapMouseUp}
-            showingHeatmap={showingHeatmap}
-          />
-          
-          <main className="new-entries-schedule">
-            {isLoadingRecruitments ? (
+      <main className="new-entries-schedule">
+        {isLoadingRecruitments ? (
+          <div className="new-entries-loading-indicator">
+            <p>Ładowanie rekrutacji...</p>
+          </div>
+        ) : !selectedRecruitment ? (
+          <div className="new-entries-loading-indicator">
+            <p>Proszę wybrać rekrutację z listy po lewej stronie.</p>
+          </div>
+        ) : isLoadingSchedule ? (
+          <div className="new-entries-loading-indicator">
+            <p>Ładowanie preferencji dla {selectedRecruitment.recruitment_name}...</p>
+          </div>
+        ) : (
+          <>
+            <ScheduleHeader
+              selectedRecruitment={selectedRecruitment}
+              usedPriority={calculateUsedPriority(scheduleData, days)}
+              maxPriority={maxPriority}
+            />
+            
+            {isLoadingHeatmap && showingHeatmap && (
               <div className="new-entries-loading-indicator">
-                <p>Ładowanie rekrutacji...</p>
+                <p>Ładowanie heatmapy...</p>
               </div>
-            ) : !selectedRecruitment ? (
-              <div className="new-entries-loading-indicator">
-                <p>Proszę wybrać rekrutację z listy po lewej stronie.</p>
-              </div>
-            ) : isLoadingSchedule ? (
-              <div className="new-entries-loading-indicator">
-                <p>Ładowanie preferencji dla {selectedRecruitment.recruitment_name}...</p>
-              </div>
-            ) : (
-              <>
-                <ScheduleHeader
-                  selectedRecruitment={selectedRecruitment}
-                  usedPriority={calculateUsedPriority(scheduleData, days)}
-                  maxPriority={maxPriority}
-                />
-                
-                {isLoadingHeatmap && showingHeatmap && (
-                  <div className="new-entries-loading-indicator">
-                    <p>Ładowanie heatmapy...</p>
-                  </div>
-                )}
-
-                <div className={`new-entries-schedule-grid ${!isEditable ? 'read-only-mode' : ''}`}>
-                  <div 
-                    className="new-entries-schedule-times"
-                    style={{ height: `${gridHeightPx + 40}px`}}
-                  >
-                    {hours.map(time => (
-                      <div key={time} className="new-entries-schedule-time">{time}</div>
-                    ))}
-                  </div>
-                  
-                  <div className="new-entries-schedule-week">
-                    <div className="new-entries-schedule-days">
-                      {dayLabels.map(day => (
-                        <span key={day} className="new-entries-schedule-day">{day}</span>
-                      ))}
-                    </div>
-                    
-                    <div className="new-entries-schedule-calendar" ref={calendarRef}>
-                      {days.map((day) => (
-                        <ScheduleColumn
-                          key={day}
-                          day={day}
-                          slots={(scheduleData[day] || []).filter(Boolean)}
-                          dragPreview={getDragPreviewLocal(isDragging, dragStart, dragEnd, dragDay, day, gridStartHour)} 
-                          onMouseDown={(e) => handleMouseDown(e, day)}
-                          onSlotClick={handleSlotClick}
-                          isDragging={isDragging}
-                          dragDay={dragDay}
-                          isEditable={isEditable}
-                          showingHeatmap={showingHeatmap}
-                          heatmapData={heatmapData}
-                          selectedRecruitment={selectedRecruitment} 
-                          gridStartHour={gridStartHour} 
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                {showingHeatmap && heatmapData && <HeatmapLegend />}
-              </>
             )}
-          </main>
-        </div>
-      </div>
 
-      {showModal && (
-        <PreferenceModal
-          mode={modalMode}
-          pendingSlot={pendingSlot}
-          editingSlot={editingSlot}
-          setPendingSlot={setPendingSlot}
-          setEditingSlot={setEditingSlot}
-          onClose={handleCloseModal}
-          onAdd={handleAddSlot}
-          onUpdate={handleUpdateSlot}
-          onDelete={handleDeleteSlot}
-          isEditable={isEditable}
-          selectedRecruitment={selectedRecruitment}
-        />
-      )}
+            <div className={`new-entries-schedule-grid ${!isEditable ? 'read-only-mode' : ''}`}>
+              <div 
+                className="new-entries-schedule-times"
+                style={{ height: `${gridHeightPx + 40}px`}}
+              >
+                {hours.map(time => (
+                  <div key={time} className="new-entries-schedule-time">{time}</div>
+                ))}
+              </div>
+              
+              <div className="new-entries-schedule-week">
+                <div className="new-entries-schedule-days">
+                  {dayLabels.map(day => (
+                    <span key={day} className="new-entries-schedule-day">{day}</span>
+                  ))}
+                </div>
+                
+                <div className="new-entries-schedule-calendar" ref={calendarRef}>
+                  {days.map((day) => (
+                    <ScheduleColumn
+                      key={day}
+                      day={day}
+                      slots={(scheduleData[day] || []).filter(Boolean)}
+                      dragPreview={getDragPreviewLocal(isDragging, dragStart, dragEnd, dragDay, day, gridStartHour)} 
+                      onMouseDown={(e) => handleMouseDown(e, day)}
+                      onSlotClick={handleSlotClick}
+                      isDragging={isDragging}
+                      dragDay={dragDay}
+                      isEditable={isEditable}
+                      showingHeatmap={showingHeatmap}
+                      heatmapData={heatmapData}
+                      selectedRecruitment={selectedRecruitment} 
+                      gridStartHour={gridStartHour} 
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {showingHeatmap && heatmapData && <HeatmapLegend />}
+            
+            {/* SEKCJA ZAAWANSOWANYCH PREFERENCJI */}
+            {selectedRecruitment && (
+              <AdvancedPreferencesSection
+                complexPrefs={complexPrefs}
+                setComplexPrefs={setComplexPrefs}
+                isEditable={isEditable}
+              />
+            )}
+          </>
+        )}
+      </main>
     </div>
-  );
+  </div>
+
+  {showModal && (
+    <PreferenceModal
+      mode={modalMode}
+      pendingSlot={pendingSlot}
+      editingSlot={editingSlot}
+      setPendingSlot={setPendingSlot}
+      setEditingSlot={setEditingSlot}
+      onClose={handleCloseModal}
+      onAdd={handleAddSlot}
+      onUpdate={handleUpdateSlot}
+      onDelete={handleDeleteSlot}
+      isEditable={isEditable}
+      selectedRecruitment={selectedRecruitment}
+    />
+  )}
+</div>
+);
 }
