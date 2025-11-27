@@ -95,6 +95,7 @@ class Recruitment(models.Model):
     optimization_start_date = models.DateTimeField(blank=True, null=True) # rozpoczęcie optymalizacji
     optimization_end_date = models.DateTimeField(blank=True, null=True) # zakończenie optymalizacji
 
+    plan_start_date = models.DateTimeField(blank=True, null=True) # data rozpoczęcia planu
     expiration_date = models.DateTimeField(blank=True, null=True) # data wygaśnięcia rekrutacji
 
     preference_threshold = models.FloatField(default=0.5)
