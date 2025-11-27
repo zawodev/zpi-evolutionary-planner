@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 
 from identity.models import Organization, Group, UserGroup, UserRecruitment, UserSubjects
 from scheduling.models import (
-    Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment
+    Subject, Recruitment, SubjectGroup, Room, Tag, Meeting, RoomTag, RoomRecruitment, SubjectTag
 )
 from preferences.models import UserPreferences, Constraints, HeatmapCache
 from optimizer.models import OptimizationJob, OptimizationProgress
@@ -226,7 +226,6 @@ class Command(BaseCommand):
                         start_timeslot=base_day_start + j,
                         day_of_week=(i + j) % 5,
                         day_of_cycle=(i + j) % 7,
-                        defaults={'required_tag': tag_project if (i + j) % 2 == 0 else tag_lab}
                     )
                     meetings.append(mtg)
             return meetings
@@ -403,5 +402,14 @@ class Command(BaseCommand):
             subs = random.sample(subjects_beta_active, k=min(2, len(subjects_beta_active)))
             for sub in subs:
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
+
+        # SubjectTag assignments (po stworzeniu tagów i subjects)
+        def assign_subject_tags(subjects, tags):
+            for s in subjects:
+                chosen = random.sample(tags, k=min(2, len(tags)))
+                for t in chosen:
+                    SubjectTag.objects.get_or_create(subject=s, tag=t)
+        assign_subject_tags(subjects_alpha_active, [tag_project, tag_lab])
+        assign_subject_tags(subjects_beta_active, [tag_project, tag_lab])
 
         self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models).'))
