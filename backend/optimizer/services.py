@@ -554,6 +554,9 @@ class ProgressListener:
                 if job.status == 'queued':
                     job.status = 'running'
                     job.started_at = timezone.now()
+
+                if iteration == 0:
+                    job.first_solution = solution_data
                 
                 # Check if job is completed (iteration = -1)
                 if iteration == -1:
