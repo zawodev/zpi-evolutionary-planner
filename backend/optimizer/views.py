@@ -324,6 +324,7 @@ def recruitment_optimization_status(request, recruitment_id):
         completed_jobs_durations = []
         gaps = []
         last_completed_at = None
+        last_started_at = None
         
         now = timezone.now()
         current_running_job_time_running = None
@@ -334,6 +335,7 @@ def recruitment_optimization_status(request, recruitment_id):
             waiting_time = None
             
             if job.started_at:
+                last_started_at = job.started_at
                 waiting_time = (job.started_at - job.created_at).total_seconds()
                 
                 if job.completed_at:
@@ -372,6 +374,10 @@ def recruitment_optimization_status(request, recruitment_id):
         else:
             # Fallback if no jobs completed yet
             avg_execution_time = recruitment.max_round_execution_time
+
+        avg_gap_time = 0
+        if gaps:
+            avg_gap_time = sum(gaps) / len(gaps)
 
         # Calculate remaining time for running job
         current_running_job_remaining_time = 0
@@ -435,6 +441,26 @@ def recruitment_optimization_status(request, recruitment_id):
         response_data['estimated_time_progress'] = estimated_time_progress
         response_data['estimated_to_end_time'] = estimated_to_end_time
         
+        # Current job cycle progress (start of job -> start of next job)
+        current_job_estimated_time_progress = 0.0
+        current_job_estimated_to_next_job_start = 0.0
+        
+        cycle_duration = avg_execution_time + avg_gap_time
+        
+        cycle_start_time = None
+        if last_started_at:
+            cycle_start_time = last_started_at
+        elif recruitment.optimization_start_date and now >= recruitment.optimization_start_date:
+            cycle_start_time = recruitment.optimization_start_date
+            
+        if cycle_start_time and cycle_duration > 0:
+             time_in_cycle = (now - cycle_start_time).total_seconds()
+             current_job_estimated_time_progress = max(0.0, min(1.0, time_in_cycle / cycle_duration))
+             current_job_estimated_to_next_job_start = max(0.0, cycle_duration - time_in_cycle)
+        
+        response_data['current_job_estimated_time_progress'] = current_job_estimated_time_progress
+        response_data['current_job_estimated_to_next_job_start'] = current_job_estimated_to_next_job_start
+
         # 2. Estimated iterations
         current_job_number = jobs.count()
         
@@ -456,10 +482,6 @@ def recruitment_optimization_status(request, recruitment_id):
             # Pessimistic Estimate:
             # Based on history: avg execution time + avg gap time
             # avg_execution_time is already calculated above
-            
-            avg_gap_time = 0
-            if gaps:
-                avg_gap_time = sum(gaps) / len(gaps)
             
             cycle_time_pessimistic = avg_execution_time + avg_gap_time
             
