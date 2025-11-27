@@ -137,7 +137,7 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     days_in_cycle = cycle_map.get(recruitment.cycle_type, 7)
 
     # Pobieramy użytkowników powiązanych z rekrutacją
-    linked_users_qs = User.objects.filter(user_recruitments__recruitment=recruitment).distinct()
+    linked_users_qs = User.objects.filter(user_recruitments__recruitment=recruitment).distinct().order_by('id')
     students = list(linked_users_qs.filter(role='participant'))
     teachers = list(linked_users_qs.filter(role='host'))
 
