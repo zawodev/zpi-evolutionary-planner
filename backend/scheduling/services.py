@@ -256,7 +256,7 @@ def prepare_optimization_constraints(recruitment: Recruitment):
         'SubjectsDuration': subjects_duration,
         'GroupsPerSubject': groups_per_subject,
         'GroupsCapacity': groups_capacity,
-        'GroupTags': group_tags_pairs,
+        'GroupsTags': group_tags_pairs,
         'RoomsCapacity': rooms_capacity,
         'RoomsTags': room_tags_pairs,
         'StudentsSubjects': students_subjects,
