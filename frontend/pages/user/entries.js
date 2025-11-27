@@ -75,8 +75,8 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
   return {
     top,
     height,
-    startTime: `${startHour}:${startMin.toString().padStart(2, '0')}`,
-    endTime: `${endHour}:${endMin.toString().padStart(2, '0')}`
+    startTime: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
+    endTime: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
   };
 };
 
@@ -763,28 +763,76 @@ const EntriesStyles = () => (
       letter-spacing: 0.05em;
     }
 
-    .new-entries-priority-field input {
-      width: 100%;
-      padding: 0.875rem 1rem;
-      border: 2px solid #e5e7eb;
-      border-radius: 0.75rem;
-      font-size: 1.125rem;
+    .new-entries-priority-slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .new-entries-priority-slider-label {
+      font-size: 0.8125rem;
       font-weight: 600;
-      text-align: center;
-      transition: all 0.2s;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .new-entries-priority-slider-value {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #1f2937;
+      padding: 0.25rem 0.625rem;
       background: white;
-      color: #111827;
+      border-radius: 0.375rem;
+      border: 1px solid #e5e7eb;
     }
 
-    .new-entries-priority-field input:hover {
-      border-color: #d1d5db;
+    .new-entries-priority-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      appearance: none;
+      background: linear-gradient(to right, #dbeafe 0%, #3b82f6 50%, #1e40af 100%);
+      cursor: pointer;
+      transition: opacity 0.2s;
     }
 
-    .new-entries-priority-field input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      color: #2563eb;
+    .new-entries-priority-slider:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .new-entries-priority-slider:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .new-entries-priority-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #2563eb;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .new-entries-priority-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .new-entries-priority-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #2563eb;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
     .new-entries-priority-scale {
@@ -1692,9 +1740,15 @@ const ScheduleHeader = ({ selectedRecruitment, usedPriority, maxPriority }) => {
 const ScheduleSlot = ({ slot, position, onClick, isEditable }) => {
   const formatTime = (time) => {
     if (typeof time === 'string') {
+      const parts = time.split(':');
+      if (parts.length === 2) {
+        const hour = parts[0].padStart(2, '0');
+        const minute = parts[1].padStart(2, '0');
+        return `${hour}:${minute}`;
+      }
       return time;
     }
-    return `${time}:00`;
+    return `${time.toString().padStart(2, '0')}:00`;
   };
 
   return (
@@ -1861,6 +1915,14 @@ const PreferenceModal = ({
 
   const [validationError, setValidationError] = useState('');
 
+  const PRIORITY_LABELS = {
+    1: 'Bardzo niski',
+    2: 'Niski',
+    3: 'Średni',
+    4: 'Wysoki',
+    5: 'Bardzo wysoki'
+  };
+
   if (!currentSlot) return null;
   
   const parseTimeLocal = (timeValue) => {
@@ -1915,12 +1977,12 @@ const PreferenceModal = ({
     const gridEndMinutes = gridEndHour * 60;
 
     if (startTotalMinutes < gridStartMinutes || startTotalMinutes >= gridEndMinutes) {
-      setValidationError(`Godzina rozpoczęcia musi być między ${gridStartHour}:00 a ${gridEndHour}:00.`);
+      setValidationError(`Godzina rozpoczęcia musi być między ${gridStartHour.toString().padStart(2, '0')}:00 a ${gridEndHour.toString().padStart(2, '0')}:00.`);
       return;
     }
 
     if (endTotalMinutes <= gridStartMinutes || endTotalMinutes > gridEndMinutes) {
-      setValidationError(`Godzina zakończenia musi być między ${gridStartHour}:00 a ${gridEndHour}:00.`);
+      setValidationError(`Godzina zakończenia musi być między ${gridStartHour.toString().padStart(2, '0')}:00 a ${gridEndHour.toString().padStart(2, '0')}:00.`);
       return;
     }
 
@@ -1968,8 +2030,8 @@ const PreferenceModal = ({
               Edycja jest zablokowana. Rekrutacja jest zakończona.
             </div>
             <p><strong>Typ:</strong> {currentSlot.type === 'prefer' ? 'Chcę mieć zajęcia' : 'Brak zajęć'}</p>
-            <p><strong>Priorytet:</strong> {currentSlot.priority}</p>
-            <p><strong>Godziny:</strong> {formatTimeString(startHour, startMinute)} - {formatTimeString(endHour, endMinute)}</p>
+            <p><strong>Priorytet:</strong> {currentSlot.priority} - {PRIORITY_LABELS[currentSlot.priority]}</p>
+            <p><strong>Godziny:</strong> {startHour.toString().padStart(2, '0')}:{startMinute.toString().padStart(2, '0')} - {endHour.toString().padStart(2, '0')}:{endMinute.toString().padStart(2, '0')}</p>
           </div>
           
           <div className="new-entries-modal-footer">
@@ -1989,6 +2051,16 @@ const PreferenceModal = ({
     } else {
       onAdd();
     }
+  };
+
+  const handleHourChange = (value, setter) => {
+    const numValue = parseInt(value) || 0;
+    setter(Math.max(0, Math.min(23, numValue)));
+  };
+
+  const handleMinuteChange = (value, setter) => {
+    const numValue = parseInt(value) || 0;
+    setter(Math.max(0, Math.min(59, numValue)));
   };
 
   return (
@@ -2025,8 +2097,8 @@ const PreferenceModal = ({
                   type="number"
                   min="0"
                   max="23"
-                  value={startHour}
-                  onChange={(e) => setStartHour(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))}
+                  value={startHour.toString().padStart(2, '0')}
+                  onChange={(e) => handleHourChange(e.target.value, setStartHour)}
                   disabled={!isEditable}
                   placeholder="GG"
                 />
@@ -2036,8 +2108,8 @@ const PreferenceModal = ({
                   min="0"
                   max="59"
                   step="15"
-                  value={startMinute}
-                  onChange={(e) => setStartMinute(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  value={startMinute.toString().padStart(2, '0')}
+                  onChange={(e) => handleMinuteChange(e.target.value, setStartMinute)}
                   disabled={!isEditable}
                   placeholder="MM"
                 />
@@ -2051,8 +2123,8 @@ const PreferenceModal = ({
                   type="number"
                   min="0"
                   max="23"
-                  value={endHour}
-                  onChange={(e) => setEndHour(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))}
+                  value={endHour.toString().padStart(2, '0')}
+                  onChange={(e) => handleHourChange(e.target.value, setEndHour)}
                   disabled={!isEditable}
                   placeholder="GG"
                 />
@@ -2062,8 +2134,8 @@ const PreferenceModal = ({
                   min="0"
                   max="59"
                   step="15"
-                  value={endMinute}
-                  onChange={(e) => setEndMinute(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  value={endMinute.toString().padStart(2, '0')}
+                  onChange={(e) => handleMinuteChange(e.target.value, setEndMinute)}
                   disabled={!isEditable}
                   placeholder="MM"
                 />
@@ -2072,21 +2144,26 @@ const PreferenceModal = ({
           </div>
 
           <div className="new-entries-priority-field">
-            <label>Priorytet (1-5)</label>
-            <div className="new-entries-priority-input-wrapper">
-              <input
-                type="number"
-                min="1"
-                max="5"
-                value={priority}
-                onChange={(e) => setPriority(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
-                disabled={!isEditable}
-              />
+            <div className="new-entries-priority-slider-header">
+            <label>Priorytet</label>
+              <span className="new-entries-priority-slider-value">
+                {priority} - {PRIORITY_LABELS[priority]}
+              </span>
             </div>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={priority}
+              onChange={(e) => setPriority(parseInt(e.target.value))}
+              className="new-entries-priority-slider"
+              disabled={!isEditable}
+            />
             <div className="new-entries-priority-scale">
-              <span className="new-entries-priority-marker">1 - Niski</span>
-              <span className="new-entries-priority-marker">3 - Średni</span>
-              <span className="new-entries-priority-marker">5 - Wysoki</span>
+              <span className="new-entries-priority-marker">1</span>
+              <span className="new-entries-priority-marker">3</span>
+              <span className="new-entries-priority-marker">5</span>
             </div>
           </div>
         </div>
@@ -2155,7 +2232,7 @@ const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEn
     const finalMinute = clampedTotalMinutes % 60;
 
     return {
-      time: `${finalHour}:${finalMinute.toString().padStart(2, '0')}`,
+      time: `${finalHour.toString().padStart(2, '0')}:${finalMinute.toString().padStart(2, '0')}`,
       minutes: clampedTotalMinutes
     };
   };
@@ -2410,95 +2487,94 @@ const fetchHeatmap = async (recruitmentId) => {
     
     if (!heatmapData || heatmapData.recruitmentId !== selectedRecruitment.recruitment_id) {
       fetchHeatmap(selectedRecruitment.recruitment_id);
-    }
+  }
+};
+
+const handleHeatmapMouseUp = () => {
+  setShowingHeatmap(false);
+};
+
+const handleSave = async () => {
+  if (!selectedRecruitment || !isEditable) return;
+  const dayStart = selectedRecruitment.day_start_time || "08:00"; 
+  const dayEnd = selectedRecruitment.day_end_time || "16:00";
+
+  const startMin = timeToMinutes(dayStart);
+  const endMin = timeToMinutes(dayEnd);
+  const durationMin = endMin - startMin;
+  const slotsPerDay = Math.floor(durationMin / 15);
+
+  const weightsArray = convertScheduleToWeights(
+    scheduleData, 
+    days, 
+    dayStart, 
+    slotsPerDay > 0 ? slotsPerDay : 32
+  );
+
+  const newPreferencesData = {
+    "FreeDays": complexPrefs.FreeDays,
+    "ShortDays": complexPrefs.ShortDays,
+    "UniformDays": complexPrefs.UniformDays,
+    "ConcentratedDays": complexPrefs.ConcentratedDays,
+    
+    "MinGapsLength": complexPrefs.MinGapsLength,
+    "MaxGapsLength": complexPrefs.MaxGapsLength,
+    
+    "MinDayLength": complexPrefs.MinDayLength,
+    "MaxDayLength": complexPrefs.MaxDayLength,
+    
+    "PreferredDayStartTimeslot": complexPrefs.PreferredDayStartTimeslot,
+    "PreferredDayEndTimeslot": complexPrefs.PreferredDayEndTimeslot,
+    
+    "TagOrder": complexPrefs.TagOrder,
+    
+    "PreferredTimeslots": weightsArray,
+    
+    "PreferredGroups": complexPrefs.PreferredGroups, 
   };
 
-  const handleHeatmapMouseUp = () => {
-    setShowingHeatmap(false);
+  const finalPayload = {
+      preferences_data: newPreferencesData
   };
 
-  const handleSave = async () => {
-    if (!selectedRecruitment || !isEditable) return;
-    
-    const dayStart = selectedRecruitment.day_start_time || "08:00"; 
-    const dayEnd = selectedRecruitment.day_end_time || "16:00";
-    
-    const startMin = timeToMinutes(dayStart);
-    const endMin = timeToMinutes(dayEnd);
-    const durationMin = endMin - startMin;
-    const slotsPerDay = Math.floor(durationMin / 15);
-    
-    const weightsArray = convertScheduleToWeights(
-        scheduleData, 
-        days, 
-        dayStart, 
-        slotsPerDay > 0 ? slotsPerDay : 32
-    );
+  const success = await savePreferences(finalPayload);
 
-    const newPreferencesData = {
-        "FreeDays": complexPrefs.FreeDays,
-        "ShortDays": complexPrefs.ShortDays,
-        "UniformDays": complexPrefs.UniformDays,
-        "ConcentratedDays": complexPrefs.ConcentratedDays,
-        
-        "MinGapsLength": complexPrefs.MinGapsLength,
-        "MaxGapsLength": complexPrefs.MaxGapsLength,
-        
-        "MinDayLength": complexPrefs.MinDayLength,
-        "MaxDayLength": complexPrefs.MaxDayLength,
-        
-        "PreferredDayStartTimeslot": complexPrefs.PreferredDayStartTimeslot,
-        "PreferredDayEndTimeslot": complexPrefs.PreferredDayEndTimeslot,
-        
-        "TagOrder": complexPrefs.TagOrder,
-        
-        "PreferredTimeslots": weightsArray,
-        
-        "PreferredGroups": complexPrefs.PreferredGroups, 
-    };
-    
-    const finalPayload = {
-        preferences_data: newPreferencesData
-    };
+  if (success) {
+    alert('Zmiany zapisane pomyślnie!');
+  }
+};
 
-    const success = await savePreferences(finalPayload);
-    
-    if (success) {
-      alert('Zmiany zapisane pomyślnie!');
-    }
-  };
+const handleClear = () => {
+  if (!isEditable) return;
 
-  const handleClear = () => {
-    if (!isEditable) return;
-    
-    if (window.confirm('Czy na pewno chcesz usunąć wszystkie preferencje? Ta akcja jest nieodwracalna.')) {
-      clearAllPreferences();alert('Wszystkie preferencje zostały wyczyszczone. Kliknij "Zachowaj zmiany", aby zapisać.');
-}
+  if (window.confirm('Czy na pewno chcesz usunąć wszystkie preferencje? Ta akcja jest nieodwracalna.')) {
+    clearAllPreferences();
+    alert('Wszystkie preferencje zostały wyczyszczone. Kliknij "Zachowaj zmiany", aby zapisać.');
+  }
 };
 const handleSlotClick = (e, day, slotIndex) => {
-e.stopPropagation();
-const slot = scheduleData[day][slotIndex];
-if (!slot) return;
-setEditingSlot({
+  e.stopPropagation();
+  const slot = scheduleData[day][slotIndex];
+  if (!slot) return;
+  setEditingSlot({
   ...slot,
   priority: slot.priority || 1,
   day: day,
   index: slotIndex
-});
-setModalMode('edit');
-setShowModal(true);
+  });
+  setModalMode('edit');
+  setShowModal(true);
 };
 const handleAddSlot = () => {
 if (!pendingSlot || !isEditable) return;
 const label = createSlotFromType(pendingSlot.type);
 const newSlot = {
-  start: pendingSlot.start,
-  end: pendingSlot.end,
-  type: pendingSlot.type,
-  label: label,
-  priority: pendingSlot.priority || 1
+start: pendingSlot.start,
+end: pendingSlot.end,
+type: pendingSlot.type,
+label: label,
+priority: pendingSlot.priority || 1
 };
-
 setScheduleData(prev => addSlot(prev, pendingSlot.day, newSlot));
 handleCloseModal();
 };
@@ -2506,13 +2582,12 @@ const handleUpdateSlot = () => {
 if (!editingSlot || !isEditable) return;
 const label = createSlotFromType(editingSlot.type);
 const updatedSlot = {
-  start: editingSlot.start,
-  end: editingSlot.end,
-  type: editingSlot.type,
-  label: label,
-  priority: editingSlot.priority || 1
+start: editingSlot.start,
+end: editingSlot.end,
+type: editingSlot.type,
+label: label,
+priority: editingSlot.priority || 1
 };
-
 setScheduleData(prev => 
   updateSlot(prev, editingSlot.day, editingSlot.index, updatedSlot)
 );
@@ -2520,8 +2595,8 @@ handleCloseModal();
 };
 const handleDeleteSlot = () => {
 if (!editingSlot || !isEditable) return;
-setScheduleData(prev => 
-  deleteSlot(prev, editingSlot.day, editingSlot.index)
+setScheduleData(prev =>
+deleteSlot(prev, editingSlot.day, editingSlot.index)
 );
 handleCloseModal();
 };
@@ -2535,22 +2610,21 @@ const displayError = recruitmentsError || preferencesError || saveError;
 return (
 <div className="new-entries-container">
 <EntriesStyles />
-  <div className="new-entries-content">
-    <div className="new-entries-main">
-      <EntriesSidebar
-        fileError={displayError}
-        onSave={handleSave}
-        onClear={handleClear}
-        recruitments={recruitments}
-        isLoading={isLoadingRecruitments}
-        selectedRecruitment={selectedRecruitment}
-        onSelectRecruitment={setSelectedRecruitment}
-        isSaving={isSaving}
-        onHeatmapMouseDown={handleHeatmapMouseDown}
-        onHeatmapMouseUp={handleHeatmapMouseUp}
-        showingHeatmap={showingHeatmap}
-      />
-      
+<div className="new-entries-content">
+<div className="new-entries-main">
+<EntriesSidebar
+         fileError={displayError}
+         onSave={handleSave}
+         onClear={handleClear}
+         recruitments={recruitments}
+         isLoading={isLoadingRecruitments}
+         selectedRecruitment={selectedRecruitment}
+         onSelectRecruitment={setSelectedRecruitment}
+         isSaving={isSaving}
+         onHeatmapMouseDown={handleHeatmapMouseDown}
+         onHeatmapMouseUp={handleHeatmapMouseUp}
+         showingHeatmap={showingHeatmap}
+       />
       <main className="new-entries-schedule">
         {isLoadingRecruitments ? (
           <div className="new-entries-loading-indicator">
