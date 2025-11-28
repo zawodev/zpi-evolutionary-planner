@@ -152,18 +152,12 @@ class Command(BaseCommand):
             ensure_room(org_beta, 'Beta Building', 'B202', 18),
         ]
 
-        # 7) Tags per recruitment (Tag ma teraz FK do Recruitment).
-        def rec_key(rec: Recruitment) -> str:
-            org_key = 'alpha' if rec.organization == org_alpha else 'beta'
-            status_key = rec.plan_status
-            return f"{org_key}-{status_key}"
-
-        rec_tags = {}
-        for rec in [rec_alpha_active, rec_alpha_draft, rec_beta_active]:
-            key = rec_key(rec)
-            t_proj, _ = Tag.objects.get_or_create(tag_name=f'projector-{key}', recruitment=rec)
-            t_lab, _ = Tag.objects.get_or_create(tag_name=f'lab-{key}', recruitment=rec)
-            rec_tags[rec] = {'projector': t_proj, 'lab': t_lab}
+        # 7) Tags per organization (Tag ma teraz FK do Organization).
+        org_tags = {}
+        for org in [org_alpha, org_beta]:
+            t_proj, _ = Tag.objects.get_or_create(tag_name=f'projector-{org.organization_name.lower().replace(" ", "-")}', organization=org)
+            t_lab, _ = Tag.objects.get_or_create(tag_name=f'lab-{org.organization_name.lower().replace(" ", "-")}', organization=org)
+            org_tags[org] = {'projector': t_proj, 'lab': t_lab}
 
         # 8) Subjects per recruitment (Subject wymaga recruitment)
         def ensure_subject(recruitment, name, duration_blocks=4, capacity=3, min_students=1):
@@ -248,20 +242,18 @@ class Command(BaseCommand):
         for room in rooms_beta:
             RoomRecruitment.objects.get_or_create(room=room, recruitment=rec_beta_active)
 
-        # 11b) RoomTag powiązane per recruitment (używamy RoomRecruitment aby powiązać poprawne pokoje)
-        # Każdemu pokojowi dla danej rekrutacji dodaj dwa tagi tej rekrutacji.
-        for rec, sgroups in [
-            (rec_alpha_active, sgroups_alpha_active),
-            (rec_alpha_draft, sgroups_alpha_draft),
-            (rec_beta_active, sgroups_beta_active),
-        ]:
-            tags_for_rec = rec_tags[rec]
-            for rr in RoomRecruitment.objects.filter(recruitment=rec).select_related('room'):
-                room = rr.room
-                RoomTag.objects.get_or_create(room=room, tag=tags_for_rec['projector'])
-                # co drugi pokój dostaje też 'lab'
-                if hash(str(room.room_id)) % 2 == 0:
-                    RoomTag.objects.get_or_create(room=room, tag=tags_for_rec['lab'])
+        # 11b) RoomTag powiązane per organization
+        # Każdemu pokojowi w organizacji dodaj dwa tagi tej organizacji.
+        for room in rooms_alpha:
+            tags_for_org = org_tags[org_alpha]
+            RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
+            if hash(str(room.room_id)) % 2 == 0:
+                RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
+        for room in rooms_beta:
+            tags_for_org = org_tags[org_beta]
+            RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
+            if hash(str(room.room_id)) % 2 == 0:
+                RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
 
         # 12) Link users to recruitments (participants + hosts)
         def attach_users_to_recruitment(users, recruitment):
@@ -362,11 +354,11 @@ class Command(BaseCommand):
             teachers_list = list(teachers_for_rec)
             teacher_index = {u.id: idx for idx, u in enumerate(teachers_list)}
 
-            # Tag lista: tylko tagi z tej rekrutacji
-            subject_tag_ids = list(SubjectTag.objects.filter(subject__in=subjects_list, tag__recruitment=recruitment).values_list('tag_id', flat=True))
-            room_tag_ids = list(RoomTag.objects.filter(room__in=rooms_list, tag__recruitment=recruitment).values_list('tag_id', flat=True))
+            # Tag lista: tylko tagi z organizacji rekrutacji
+            subject_tag_ids = list(SubjectTag.objects.filter(subject__in=subjects_list, tag__organization=recruitment.organization).values_list('tag_id', flat=True))
+            room_tag_ids = list(RoomTag.objects.filter(room__in=rooms_list, tag__organization=recruitment.organization).values_list('tag_id', flat=True))
             all_tag_ids = sorted(set(subject_tag_ids + room_tag_ids))
-            tag_list = list(Tag.objects.filter(tag_id__in=all_tag_ids, recruitment=recruitment).order_by('tag_name'))
+            tag_list = list(Tag.objects.filter(tag_id__in=all_tag_ids, organization=recruitment.organization).order_by('tag_name'))
             tag_index = {t.tag_id: idx for idx, t in enumerate(tag_list)}
 
             # Pola podstawowe
@@ -376,19 +368,19 @@ class Command(BaseCommand):
             groups_capacity = [sg.subject.capacity for sg in subject_groups_list]
             rooms_capacity = [r.capacity for r in rooms_list]
 
-            # GroupsTags: pary (SubjectGroup, Tag) z tagów powiązanych z subjectem w danej rekrutacji
+            # GroupsTags: pary (SubjectGroup, Tag) z tagów powiązanych z subjectem w organizacji rekrutacji
             group_tags_pairs = []
             for sg in subject_groups_list:
-                subj_tags = SubjectTag.objects.filter(subject=sg.subject, tag__recruitment=recruitment).select_related('tag')
+                subj_tags = SubjectTag.objects.filter(subject=sg.subject, tag__organization=recruitment.organization).select_related('tag')
                 for st in subj_tags:
                     tid = st.tag.tag_id
                     if tid in tag_index:
                         group_tags_pairs.append([subject_group_index[sg.subject_group_id], tag_index[tid]])
 
-            # RoomsTags: pary (Room, Tag) w danej rekrutacji
+            # RoomsTags: pary (Room, Tag) w organizacji rekrutacji
             rooms_tags_pairs = []
             for r in rooms_list:
-                for rt in r.room_tags.select_related('tag').filter(tag__recruitment=recruitment):
+                for rt in r.room_tags.select_related('tag').filter(tag__organization=recruitment.organization):
                     tid = rt.tag.tag_id
                     if tid in tag_index:
                         rooms_tags_pairs.append([room_index[r.room_id], tag_index[tid]])
@@ -540,15 +532,15 @@ class Command(BaseCommand):
             for sub in subs:
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
 
-        # SubjectTag assignments (po stworzeniu tagów i subjects) — per recruitment
+        # SubjectTag assignments (po stworzeniu tagów i subjects) — per organization
         def assign_subject_tags(subjects, tags_dict):
             # tags_dict: {'projector': Tag, 'lab': Tag}
             for s in subjects:
                 chosen = [tags_dict['projector'], tags_dict['lab']]
                 for t in chosen:
                     SubjectTag.objects.get_or_create(subject=s, tag=t)
-        assign_subject_tags(subjects_alpha_active, rec_tags[rec_alpha_active])
-        assign_subject_tags(subjects_alpha_draft, rec_tags[rec_alpha_draft])
-        assign_subject_tags(subjects_beta_active, rec_tags[rec_beta_active])
+        assign_subject_tags(subjects_alpha_active, org_tags[org_alpha])
+        assign_subject_tags(subjects_alpha_draft, org_tags[org_alpha])
+        assign_subject_tags(subjects_beta_active, org_tags[org_beta])
 
         self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models + preferences + tags per recruitment).'))
