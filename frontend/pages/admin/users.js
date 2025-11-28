@@ -1,6 +1,7 @@
 import styles from '@/styles/components/_admin.module.css';
 import { useState } from "react";
 import { useEffect } from 'react';
+import MsgModal from '@/components/adminsubpgs/MsgModal';
 import SingleUser from '@/components/adminsubpgs/SingleUser';
 export default function Users() {
     const [selectedCategory, setSelectedCategory] = useState("Users");
@@ -18,12 +19,19 @@ export default function Users() {
     // Form states - group
     const [groupName, setGroupName] = useState("");
     const [groupCat, setGroupCat] = useState("");
+    const [uGroups, setUGroups] = useState([]);
 
-    //groupstates
-    const [selectedGroup, setSelectedGroup] = useState("");
 
     //stupid fucking state
     const [user, setUser] = useState("");
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [MMessage, SetMM] = useState("");
+    const openModal = (text) => {
+        SetMM(text)
+        setIsModalOpen(true);
+    }
+    const closeModal = () => setIsModalOpen(false);
 
     const fetchUsers = async () => {
         setParticipants([]);
@@ -54,9 +62,62 @@ export default function Users() {
             console.log(error)
         }
     }
-
+    const fetchGroups = async () => {
+        const token = localStorage.getItem("access_token");
+        const org_id = localStorage.getItem("org_id");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/organizations/${org_id}/groups/`, {
+                method: "GET",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGroups(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+    const deleteGroup = async (group_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/groups/delete/${group_id}/`, {
+                method: "DELETE",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                openModal("grupa usunięta");
+                fetchGroups();
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+    const addUtoGroup = async (user_id, group_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/user-groups/add/`, {
+                method: "POST",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    user: user_id,
+                    group: group_id
+                })
+            });
+            if (response.ok) {
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
     const addUser = async () => {
-        if (!firstName || !surName || !userEmail) return;
+        if (!firstName || !surName || !userEmail) {
+            openModal("Dodaj brakujące pola");
+            return;
+        }
         const token = localStorage.getItem("access_token");
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/create/random/`, {
@@ -78,7 +139,15 @@ export default function Users() {
                 if (data.user.role === 'participant') {
                     setParticipants([...participants, data.user]);
                 }
-
+                const promises = uGroups.map(group => addUtoGroup(data.user.id, group.group_id));
+                Promise.all(promises)
+                    .then(() => {
+                        setUGroups([]);
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    });
+                openModal("Użytkownik dodany");
             }
         } catch (error) {
             console.log(error)
@@ -107,13 +176,19 @@ export default function Users() {
             if (response.ok) {
                 const data = await response.json();
                 console.log(data);
+                fetchGroups();
+                openModal("grupa Dodana");
             }
         } catch (error) {
             console.log(error)
         }
         setGroupName("");
+        setGroupCat("");
     };
-
+    const addGtoUGroup = (group_id) => {
+        const group = groups.find(g => g.group_id === group_id);
+        setUGroups([...uGroups, group]);
+    }
     const filteredParticipants = participants.filter(
         (u) =>
         (u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,6 +197,7 @@ export default function Users() {
 
     useEffect(() => {
         fetchUsers();
+        fetchGroups();
     }, []);
 
     return (
@@ -133,13 +209,13 @@ export default function Users() {
                         onClick={() => setSelectedCategory("Users")}
                         className="btn btn--secondary btn--form"
                     >
-                        Użytkownicy
+                        Dodaj użytkownika
                     </button>
                 </div>
                 <div className="login-button-wrapper">
                     <button
                         type="button"
-                        onClick={() => { setSelectedCategory("participants"); fetchUsers(); }}
+                        onClick={() => { fetchUsers(); setSelectedCategory("participants"); }}
                         className="btn btn--secondary btn--form"
                     >
                         Uczestniczący
@@ -148,7 +224,7 @@ export default function Users() {
                 <div className="login-button-wrapper">
                     <button
                         type="button"
-                        onClick={() => { setSelectedCategory("hosts"); fetchUsers(); }}
+                        onClick={() => { fetchUsers(); setSelectedCategory("hosts"); }}
                         className="btn btn--secondary btn--form"
                     >
                         Prowadzący
@@ -157,7 +233,7 @@ export default function Users() {
                 <div className="login-button-wrapper">
                     <button
                         type="button"
-                        onClick={() => setSelectedCategory("Groups")}
+                        onClick={() => { fetchGroups(); setSelectedCategory("Groups") }}
                         className="btn btn--secondary btn--form"
                     >
                         Grupy
@@ -229,23 +305,36 @@ export default function Users() {
                                     Sekretariat
                                 </button>
                             </div>
-                            {userRole === "attendee" && groups.length > 0 && (
+                            {userRole === "participant" && groups.length > 0 && (
                                 <div>
                                     <label>
-                                        Assign to Group:
+                                        Dodaj do grupy:
                                     </label>
                                     <select
-                                        value={selectedGroup}
-                                        onChange={(e) => setSelectedGroup(e.target.value)}
+                                        onChange={(e) => { const id = e.target.value; addGtoUGroup(id); }}
                                     >
-                                        <option value="">Select a group</option>
+                                        <option >Zaznacz grupę</option>
                                         {groups.map((g, i) => (
-                                            <option key={i} value={g.name}>
-                                                {g.name}
+                                            <option key={i} value={g.group_id}>
+                                                {g.group_name}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
+                            )}
+                            {uGroups.length != 0 && (
+                                <div>
+                                    <h3>Grupy użytkownika</h3>
+                                    <ul>
+                                        {uGroups.map((g, i) => (
+                                            <li key={i}>
+                                                {g.group_name} ({g.category})
+                                                <button onClick={() => setUGroups(uGroups.filter(group => group.group_id !== g.group_id))}>
+                                                    Usuń
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul></div>
                             )}
                             <div style={{ width: '100%', display: 'flex', justifyContent: "center", padding: "10vh" }}>
                                 <button
@@ -340,7 +429,10 @@ export default function Users() {
                             <ul>
                                 {groups.map((g, i) => (
                                     <li key={i}>
-                                        {g.name}
+                                        {g.group_name} ({g.category})
+                                        <button onClick={() => deleteGroup(g.group_id)}>
+                                            Usuń
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
@@ -352,6 +444,11 @@ export default function Users() {
                     <SingleUser user={user}></SingleUser>
                 )}
             </div>
+            <MsgModal
+                    isOpen={isModalOpen}
+                    onClose={closeModal}
+                    message={MMessage}
+                />
         </div>
     );
 }

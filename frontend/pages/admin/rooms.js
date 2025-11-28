@@ -2,6 +2,7 @@ import styles from '@/styles/components/_admin.module.css';
 import { useState } from "react";
 import { useEffect } from 'react';
 import SingleRoom from '@/components/adminsubpgs/SingleRoom';
+import MsgModal from '@/components/adminsubpgs/MsgModal';
 export default function Rooms() {
     const [selectedCategory, setSelectedCategory] = useState("AddRoom");
     const [rooms, setRooms] = useState([]);
@@ -16,6 +17,15 @@ export default function Rooms() {
     const [capacity, setCapacity] = useState("");
     const [tagName, setTagName] = useState("");
     const [selectedTag, setSelectedTag] = useState("");
+
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [MMessage, SetMM] = useState("");
+    const openModal = (text) => {
+        SetMM(text)
+        setIsModalOpen(true);
+    }
+    const closeModal = () => setIsModalOpen(false);
     const fetchRooms = async () => {
         const token = localStorage.getItem("access_token");
         try {
@@ -46,18 +56,22 @@ export default function Rooms() {
     };
 
     const addRoom = async () => {
-        if (!roomName) return;
+        if (!roomName || !roomSubName || !capacity) {
+            openModal("Wypełnij pola");
+        };
         const token = localStorage.getItem("access_token");
+        const org_id = localStorage.getItem("org_id");
         const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/rooms/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ building_name: roomName, room_number: roomSubName, capacity: capacity })
+            body: JSON.stringify({ building_name: roomName, room_number: roomSubName, capacity: capacity, organization: org_id })
         });
         if (response.ok) {
             const room = await response.json();
-            await addTagsToRoom(room.room_id)
+            await addTagsToRoom(room.room_id);
+            openModal("Pokój dodany");
         }
-
+        setCapacity(0);
         fetchRooms();
         setRoomName("");
         setRoomSubName("");
@@ -97,21 +111,37 @@ export default function Rooms() {
             });
             if (response.ok) {
                 const data = await response.json();
-                await setRoomTags([...roomTags, data]);
-                await fetchTags();
+                fetchTags();
             }
         } catch (error) {
             console.log(error)
         }
-        setTags([...tags,]);
         setTagName("");
     };
+    const removeRoomTag = (tag_id) => {
+        setRoomTags(roomTags.filter(tag => tag.tag_id !== tag_id));
+    }
 
     const filteredRooms = rooms.filter(
         (u) =>
         (u.building_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.room_number.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+    const deleteTag = async (tag_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/tags/${tag_id}/`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                fetchTags();
+            }
+        } catch (error) {
+            console.log(error)
+        }
+        setTagName("");
+    }
 
     useEffect(() => {
         fetchRooms();
@@ -209,6 +239,9 @@ export default function Rooms() {
                                     {roomTags.map((g, i) => (
                                         <li key={i}>
                                             {g.tag_name}
+                                            <button onClick={() => removeRoomTag(g.tag_id)}>
+                                                Usuń
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
@@ -279,6 +312,9 @@ export default function Rooms() {
                                 {tags.map((g, i) => (
                                     <li key={i}>
                                         {g.tag_name}
+                                        <button onClick={() => deleteTag(g.tag_id)}>
+                                            Usuń
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
@@ -289,6 +325,11 @@ export default function Rooms() {
                 {selectedCategory === "EditRoom" && (
                     <SingleRoom room={room}></SingleRoom>
                 )}
+                <MsgModal
+                    isOpen={isModalOpen}
+                    onClose={closeModal}
+                    message={MMessage}
+                />
             </div>
         </div>
     );
