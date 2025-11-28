@@ -223,9 +223,30 @@ def prepare_optimization_constraints(recruitment: Recruitment):
             return []
         return [i for i in range(first_idx, last_idx + 1)]
 
-    # Zbierz wszystkie spotkania rekrutacji
-    all_meetings = Meeting.objects.filter(recruitment=recruitment).select_related(
-        'room', 'group', 'subject_group__subject', 'subject_group__host_user'
+    # Zbierz wszystkie spotkania w oknie czasowym bieżącej rekrutacji, dla całej organizacji
+    window_start = getattr(recruitment, 'plan_start_date', None)
+    window_end = getattr(recruitment, 'expiration_date', None)
+
+    meetings_filter = {
+        'recruitment__organization': recruitment.organization,
+    }
+    # jeśli mamy zdefiniowane okno czasowe, uwzględniamy rekrutacje, które z nim się przecinają
+    if window_start and window_end:
+        meetings_filter.update({
+            'recruitment__plan_start_date__lte': window_end,
+            'recruitment__expiration_date__gte': window_start,
+        })
+    elif window_start and not window_end:
+        meetings_filter.update({
+            'recruitment__expiration_date__gte': window_start,
+        })
+    elif window_end and not window_start:
+        meetings_filter.update({
+            'recruitment__plan_start_date__lte': window_end,
+        })
+    # pobieramy spotkania niezależnie od tego, czy należą do bieżącej rekrutacji – liczy się nachodzenie w czasie
+    all_meetings = Meeting.objects.filter(**meetings_filter).select_related(
+        'room', 'group', 'subject_group__subject', 'subject_group__host_user', 'recruitment'
     )
 
     # Preindeksowanie
@@ -233,7 +254,7 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     teacher_unavail_map = {t.id: set() for t in teachers}
     student_unavail_map = {s.id: set() for s in students}
 
-    # Grupy uczestników per user oraz grupy -> studenci
+    # Grupy uczestników per user oraz grupy -> studenci (niezależnie od rekrutacji)
     user_groups_map = {}
     group_students_map = {}
     for ug in UserGroup.objects.filter(user__in=students).select_related('user', 'group'):
@@ -242,14 +263,14 @@ def prepare_optimization_constraints(recruitment: Recruitment):
 
     for m in all_meetings:
         m_indices = meeting_block_indices(m)
-        # room
+        # room – tylko jeśli to pokój z listy rooms (tej organizacji)
         if m.room_id in room_unavail_map:
             room_unavail_map[m.room_id].update(m_indices)
-        # teacher (host)
+        # teacher (host) – jeśli host jest w naszym zbiorze teachers
         host_id = m.subject_group.host_user_id
         if host_id in teacher_unavail_map:
             teacher_unavail_map[host_id].update(m_indices)
-        # students: wszyscy należący do grupy
+        # students: wszyscy należący do grupy – jeśli są w naszym zbiorze students
         group_id = m.group_id
         for stu_id in group_students_map.get(group_id, ()):  # szybkie rozwinięcie bez iteracji po wszystkich studentach
             student_unavail_map[stu_id].update(m_indices)
