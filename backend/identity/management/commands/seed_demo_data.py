@@ -45,17 +45,21 @@ class Command(BaseCommand):
             )
             if created:
                 user.set_password('Password123!')
-                user.save(update_fields=['password'])
+                # losowa waga 1-10 dla demo (uczestnicy/hostowie); admin/office stała 5
+                if role in ['host', 'participant']:
+                    user.weight = random.randint(1, 10)
+                user.save(update_fields=['password', 'weight'])
             # keep role/org in sync if changed later
             changed = False
             if user.role != role:
-                user.role = role
-                changed = True
+                user.role = role; changed = True
             if user.organization != org:
-                user.organization = org
-                changed = True
+                user.organization = org; changed = True
+            # jeśli rola host/participant i waga domyślna, ustaw pseudo-losową dla spójności
+            if role in ['host', 'participant'] and user.weight == 5:
+                user.weight = random.randint(1, 10); changed = True
             if changed:
-                user.save(update_fields=['role', 'organization'])
+                user.save(update_fields=['role', 'organization', 'weight'])
             return user
 
         admin = ensure_user('admin1', 'admin', None, 'Alice', 'Admin')
@@ -148,15 +152,18 @@ class Command(BaseCommand):
             ensure_room(org_beta, 'Beta Building', 'B202', 18),
         ]
 
-        # 7) Tags
-        tag_project, _ = Tag.objects.get_or_create(tag_name='projector')
-        tag_lab, _ = Tag.objects.get_or_create(tag_name='lab')
+        # 7) Tags per recruitment (Tag ma teraz FK do Recruitment).
+        def rec_key(rec: Recruitment) -> str:
+            org_key = 'alpha' if rec.organization == org_alpha else 'beta'
+            status_key = rec.plan_status
+            return f"{org_key}-{status_key}"
 
-        # RoomTag relations (a few examples per building)
-        for room in rooms_alpha + rooms_beta:
-            RoomTag.objects.get_or_create(room=room, tag=tag_project)
-        for room in (rooms_alpha + rooms_beta)[::2]:
-            RoomTag.objects.get_or_create(room=room, tag=tag_lab)
+        rec_tags = {}
+        for rec in [rec_alpha_active, rec_alpha_draft, rec_beta_active]:
+            key = rec_key(rec)
+            t_proj, _ = Tag.objects.get_or_create(tag_name=f'projector-{key}', recruitment=rec)
+            t_lab, _ = Tag.objects.get_or_create(tag_name=f'lab-{key}', recruitment=rec)
+            rec_tags[rec] = {'projector': t_proj, 'lab': t_lab}
 
         # 8) Subjects per recruitment (Subject wymaga recruitment)
         def ensure_subject(recruitment, name, duration_blocks=4, capacity=3, min_students=1):
@@ -241,6 +248,21 @@ class Command(BaseCommand):
         for room in rooms_beta:
             RoomRecruitment.objects.get_or_create(room=room, recruitment=rec_beta_active)
 
+        # 11b) RoomTag powiązane per recruitment (używamy RoomRecruitment aby powiązać poprawne pokoje)
+        # Każdemu pokojowi dla danej rekrutacji dodaj dwa tagi tej rekrutacji.
+        for rec, sgroups in [
+            (rec_alpha_active, sgroups_alpha_active),
+            (rec_alpha_draft, sgroups_alpha_draft),
+            (rec_beta_active, sgroups_beta_active),
+        ]:
+            tags_for_rec = rec_tags[rec]
+            for rr in RoomRecruitment.objects.filter(recruitment=rec).select_related('room'):
+                room = rr.room
+                RoomTag.objects.get_or_create(room=room, tag=tags_for_rec['projector'])
+                # co drugi pokój dostaje też 'lab'
+                if hash(str(room.room_id)) % 2 == 0:
+                    RoomTag.objects.get_or_create(room=room, tag=tags_for_rec['lab'])
+
         # 12) Link users to recruitments (participants + hosts)
         def attach_users_to_recruitment(users, recruitment):
             for u in users:
@@ -250,98 +272,213 @@ class Command(BaseCommand):
         attach_users_to_recruitment(participants_alpha[:10], rec_alpha_draft)
         attach_users_to_recruitment(participants_beta + hosts_beta, rec_beta_active)
 
-        # 13) Preferences (sample structures)
-        def sample_user_preferences(user, recruitment, groups_for_rec):
-            timeslots_in_cycle = 7
-            preferred_timeslots = [0 for _ in range(timeslots_in_cycle)]
-            preferred_groups = [0 for _ in range(len(groups_for_rec))]
+        # 13) Preferences (nowy format DEFAULT_*_PREFERENCES)
+        def subject_groups_for_recruitment(recruitment):
+            return list(SubjectGroup.objects.filter(subject__recruitment=recruitment))
+
+        def default_user_preferences(recruitment):
+            timeslots_in_cycle = 7  # zgodnie z dostarczonym wzorcem
+            groups_count = len(subject_groups_for_recruitment(recruitment))
             return {
-                'WidthHeightInfo': 0,
-                'GapsInfo': [0, 0, 0],
-                'PreferredTimeslots': preferred_timeslots,
-                'PreferredGroups': preferred_groups,
+                'FreeDays': 0,
+                'ShortDays': 0,
+                'UniformDays': 0,
+                'ConcentratedDays': 0,
+                'MinGapsLength': [0, 0],
+                'MaxGapsLength': [0, 0],
+                'MinDayLength': [0, 0],
+                'MaxDayLength': [0, 0],
+                'PreferredDayStartTimeslot': [0, 0],
+                'PreferredDayEndTimeslot': [0, 0],
+                'TagOrder': [0, 0, 0],
+                'PreferredTimeslots': [0 for _ in range(timeslots_in_cycle)],
+                'PreferredGroups': [0 for _ in range(groups_count)],
             }
 
-        def sample_host_preferences(host, recruitment):
-            timeslots_in_cycle = 7
-            preferred_timeslots = [0 for _ in range(timeslots_in_cycle)]
+        def default_host_preferences(recruitment):
+            timeslots_in_cycle = 7  # zgodnie z dostarczonym wzorcem
             return {
-                'WidthHeightInfo': 0,
-                'GapsInfo': [0, 0, 0],
-                'PreferredTimeslots': preferred_timeslots,
+                'FreeDays': 0,
+                'ShortDays': 0,
+                'UniformDays': 0,
+                'ConcentratedDays': 0,
+                'MinGapsLength': [0, 0],
+                'MaxGapsLength': [0, 0],
+                'MinDayLength': [0, 0],
+                'MaxDayLength': [0, 0],
+                'PreferredDayStartTimeslot': [0, 0],
+                'PreferredDayEndTimeslot': [0, 0],
+                'TagOrder': [0, 0, 0],
+                'PreferredTimeslots': [0 for _ in range(timeslots_in_cycle)],
             }
 
         for u in participants_alpha[:5]:
             UserPreferences.objects.get_or_create(
                 user=u, recruitment=rec_alpha_active,
-                defaults={'preferences_data': sample_user_preferences(u, rec_alpha_active, groups_alpha)}
+                defaults={'preferences_data': default_user_preferences(rec_alpha_active)}
             )
         for u in participants_beta[:5]:
             UserPreferences.objects.get_or_create(
                 user=u, recruitment=rec_beta_active,
-                defaults={'preferences_data': sample_user_preferences(u, rec_beta_active, groups_beta)}
+                defaults={'preferences_data': default_user_preferences(rec_beta_active)}
             )
         for h in hosts_alpha[:2]:
             UserPreferences.objects.get_or_create(
                 user=h, recruitment=rec_alpha_active,
-                defaults={'preferences_data': sample_host_preferences(h, rec_alpha_active)}
+                defaults={'preferences_data': default_host_preferences(rec_alpha_active)}
             )
         for h in hosts_beta[:2]:
             UserPreferences.objects.get_or_create(
                 user=h, recruitment=rec_beta_active,
-                defaults={'preferences_data': sample_host_preferences(h, rec_beta_active)}
+                defaults={'preferences_data': default_host_preferences(rec_beta_active)}
             )
 
         # 14) Constraints & HeatmapCache
         def build_constraints_for_recruitment(recruitment, groups_for_rec, rooms_for_rec, subjects_for_rec, students_for_rec, teachers_for_rec):
-            timeslots_daily = 32
-            days_in_cycle = 7
-            subj_index = {s.subject_id: idx for idx, s in enumerate(subjects_for_rec)}
-            room_index = {r.room_id: idx for idx, r in enumerate(rooms_for_rec)}
-            group_index = {g.group_id: idx for idx, g in enumerate(groups_for_rec)}
+            """
+            Buduje strukturę constraints zgodnie z najnowszymi wymaganiami (z uwzględnieniem Tag.recruitment):
+            - NumSubjects, NumGroups (SubjectGroups), NumTeachers, NumStudents, NumRooms, NumTags
+            - SubjectsDuration (dla każdego subject), GroupsPerSubject (liczba SubjectGroup na subject)
+            - GroupsTags: pary [subject_group_index, tag_index] z tagów powiązanych przez SubjectTag (tagi subjectu)
+            - RoomsTags: pary [room_index, tag_index]
+            - StudentsSubjects: lista list indeksów subjectów przypisanych do studenta (UserSubjects)
+            - TeachersGroups: lista list indeksów subject_group dla każdego nauczyciela (host)
+            - Rooms/Students/Teachers UnavailabilityTimeslots: listy indeksów zajętych timeslotów w całym cyklu
+            - StudentWeights, TeacherWeights (z pola weight użytkownika)
+            - MinStudentsPerGroup, GroupsCapacity, RoomsCapacity
+            """
+            # Indeksy bazowe
+            subjects_list = list(subjects_for_rec)
+            subject_index = {s.subject_id: idx for idx, s in enumerate(subjects_list)}
+            # Wszystkie SubjectGroup należące do tych subjectów
+            subject_groups_qs = SubjectGroup.objects.filter(subject__in=subjects_list).select_related('subject', 'host_user')
+            subject_groups_list = list(subject_groups_qs)
+            subject_group_index = {sg.subject_group_id: idx for idx, sg in enumerate(subject_groups_list)}
 
-            subjects_duration = [s.duration_blocks for s in subjects_for_rec]
-            groups_per_subject = [len(groups_for_rec) for _ in subjects_for_rec]
-            groups_capacity = [20 for _ in groups_for_rec]
-            rooms_capacity = [r.capacity for r in rooms_for_rec]
+            rooms_list = list(rooms_for_rec)
+            room_index = {r.room_id: idx for idx, r in enumerate(rooms_list)}
+            students_list = list(students_for_rec)
+            student_index = {u.id: idx for idx, u in enumerate(students_list)}
+            teachers_list = list(teachers_for_rec)
+            teacher_index = {u.id: idx for idx, u in enumerate(teachers_list)}
 
-            tag_list = list(Tag.objects.filter(tag_name__in=['projector', 'lab']).order_by('tag_name'))
+            # Tag lista: tylko tagi z tej rekrutacji
+            subject_tag_ids = list(SubjectTag.objects.filter(subject__in=subjects_list, tag__recruitment=recruitment).values_list('tag_id', flat=True))
+            room_tag_ids = list(RoomTag.objects.filter(room__in=rooms_list, tag__recruitment=recruitment).values_list('tag_id', flat=True))
+            all_tag_ids = sorted(set(subject_tag_ids + room_tag_ids))
+            tag_list = list(Tag.objects.filter(tag_id__in=all_tag_ids, recruitment=recruitment).order_by('tag_name'))
             tag_index = {t.tag_id: idx for idx, t in enumerate(tag_list)}
 
+            # Pola podstawowe
+            subjects_duration = [s.duration_blocks for s in subjects_list]
+            groups_per_subject = [s.subject_groups.filter(subject=s).count() for s in subjects_list]
+            min_students_per_group = [sg.subject.min_students for sg in subject_groups_list]
+            groups_capacity = [sg.subject.capacity for sg in subject_groups_list]
+            rooms_capacity = [r.capacity for r in rooms_list]
+
+            # GroupsTags: pary (SubjectGroup, Tag) z tagów powiązanych z subjectem w danej rekrutacji
+            group_tags_pairs = []
+            for sg in subject_groups_list:
+                subj_tags = SubjectTag.objects.filter(subject=sg.subject, tag__recruitment=recruitment).select_related('tag')
+                for st in subj_tags:
+                    tid = st.tag.tag_id
+                    if tid in tag_index:
+                        group_tags_pairs.append([subject_group_index[sg.subject_group_id], tag_index[tid]])
+
+            # RoomsTags: pary (Room, Tag) w danej rekrutacji
             rooms_tags_pairs = []
-            for r in rooms_for_rec:
-                for rt in r.room_tags.select_related('tag').all():
-                    if rt.tag_id in tag_index:
-                        rooms_tags_pairs.append([room_index[r.room_id], tag_index[rt.tag.tag_id]])
+            for r in rooms_list:
+                for rt in r.room_tags.select_related('tag').filter(tag__recruitment=recruitment):
+                    tid = rt.tag.tag_id
+                    if tid in tag_index:
+                        rooms_tags_pairs.append([room_index[r.room_id], tag_index[tid]])
 
-            groups_tags_pairs = []
-
+            # StudentsSubjects: listy indeksów subjectów wymaganych przez każdego studenta
             students_subjects = []
-            for stu in students_for_rec:
-                subject_ids = list(UserSubjects.objects.filter(user=stu).values_list('subject__subject_id', flat=True))
-                idxs = [subj_index[sid] for sid in subject_ids if sid in subj_index]
+            for stu in students_list:
+                subject_ids = list(UserSubjects.objects.filter(user=stu, subject__in=subjects_list).values_list('subject_id', flat=True))
+                idxs = [subject_index[sid] for sid in subject_ids if sid in subject_index]
                 students_subjects.append(idxs)
 
-            teachers_groups = [[i for i in range(len(groups_for_rec))] for _ in teachers_for_rec]
-            rooms_unavailability = [[] for _ in rooms_for_rec]
-            students_unavailability = [[] for _ in students_for_rec]
-            teachers_unavailability = [[] for _ in teachers_for_rec]
+            # TeachersGroups: dla każdego hosta lista indeksów SubjectGroup które prowadzi
+            teachers_groups = [[] for _ in teachers_list]
+            for sg in subject_groups_list:
+                host = sg.host_user
+                if host.id in teacher_index:
+                    teachers_groups[teacher_index[host.id]].append(subject_group_index[sg.subject_group_id])
+
+            # Unavailability timeslots
+            rooms_unavailability = [[] for _ in rooms_list]
+            students_unavailability = [[] for _ in students_list]
+            teachers_unavailability = [[] for _ in teachers_list]
+
+            meetings = Meeting.objects.filter(recruitment=recruitment).select_related('subject_group__subject', 'room', 'group', 'subject_group__host_user')
+            for mtg in meetings:
+                sg = mtg.subject_group
+                subj = sg.subject
+                duration_blocks = subj.duration_blocks
+                start = mtg.start_timeslot
+                occupied_range = list(range(start, start + duration_blocks))
+                # room
+                r_idx = room_index.get(mtg.room.room_id)
+                if r_idx is not None:
+                    rooms_unavailability[r_idx].extend(occupied_range)
+                # teacher (host)
+                host = sg.host_user
+                t_idx = teacher_index.get(host.id)
+                if t_idx is not None:
+                    teachers_unavailability[t_idx].extend(occupied_range)
+                # students: wszyscy z grupy identity.Group
+                user_ids = list(UserGroup.objects.filter(group=mtg.group).values_list('user_id', flat=True))
+                for uid in user_ids:
+                    s_idx = student_index.get(uid)
+                    if s_idx is not None:
+                        students_unavailability[s_idx].extend(occupied_range)
+
+            # deduplikacja i sortowanie
+            rooms_unavailability = [sorted(set(lst)) for lst in rooms_unavailability]
+            students_unavailability = [sorted(set(lst)) for lst in students_unavailability]
+            teachers_unavailability = [sorted(set(lst)) for lst in teachers_unavailability]
+
+            # Wagi
+            student_weights = [u.weight for u in students_list]
+            teacher_weights = [u.weight for u in teachers_list]
+
+            # Liczby
+            num_subjects = len(subjects_list)
+            num_groups = len(subject_groups_list)
+            num_teachers = len(teachers_list)
+            num_students = len(students_list)
+            num_rooms = len(rooms_list)
+            num_tags = len(tag_list)
+
+            # TimeslotsDaily & DaysInCycle na razie demo (32, 7) - mogą być pobrane z Recruitment w przyszłości
+            timeslots_daily = 32
+            days_in_cycle = 7
 
             return {
                 'TimeslotsDaily': timeslots_daily,
                 'DaysInCycle': days_in_cycle,
-                'MinStudentsPerGroup': groups_capacity,
+                'NumSubjects': num_subjects,
+                'NumGroups': num_groups,
+                'NumTeachers': num_teachers,
+                'NumStudents': num_students,
+                'NumRooms': num_rooms,
+                'NumTags': num_tags,
                 'SubjectsDuration': subjects_duration,
                 'GroupsPerSubject': groups_per_subject,
+                'MinStudentsPerGroup': min_students_per_group,
                 'GroupsCapacity': groups_capacity,
                 'RoomsCapacity': rooms_capacity,
-                'GroupsTags': groups_tags_pairs,
+                'GroupsTags': group_tags_pairs,
                 'RoomsTags': rooms_tags_pairs,
                 'StudentsSubjects': students_subjects,
                 'TeachersGroups': teachers_groups,
                 'RoomsUnavailabilityTimeslots': rooms_unavailability,
                 'StudentsUnavailabilityTimeslots': students_unavailability,
                 'TeachersUnavailabilityTimeslots': teachers_unavailability,
+                'StudentWeights': student_weights,
+                'TeacherWeights': teacher_weights,
             }
 
         recruitment_subject_map = {
@@ -403,13 +540,15 @@ class Command(BaseCommand):
             for sub in subs:
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
 
-        # SubjectTag assignments (po stworzeniu tagów i subjects)
-        def assign_subject_tags(subjects, tags):
+        # SubjectTag assignments (po stworzeniu tagów i subjects) — per recruitment
+        def assign_subject_tags(subjects, tags_dict):
+            # tags_dict: {'projector': Tag, 'lab': Tag}
             for s in subjects:
-                chosen = random.sample(tags, k=min(2, len(tags)))
+                chosen = [tags_dict['projector'], tags_dict['lab']]
                 for t in chosen:
                     SubjectTag.objects.get_or_create(subject=s, tag=t)
-        assign_subject_tags(subjects_alpha_active, [tag_project, tag_lab])
-        assign_subject_tags(subjects_beta_active, [tag_project, tag_lab])
+        assign_subject_tags(subjects_alpha_active, rec_tags[rec_alpha_active])
+        assign_subject_tags(subjects_alpha_draft, rec_tags[rec_alpha_draft])
+        assign_subject_tags(subjects_beta_active, rec_tags[rec_beta_active])
 
-        self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models).'))
+        self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models + preferences + tags per recruitment).'))
