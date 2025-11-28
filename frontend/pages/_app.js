@@ -26,6 +26,7 @@ import "@/styles/components/_sidebar.css";
 import "@/styles/components/_slots.css";
 
 // Layout styles
+import "@/styles/layout/_about.css";
 import "@/styles/layout/_auth.css";
 import "@/styles/layout/_contact.css";
 import "@/styles/layout/_features.css";
