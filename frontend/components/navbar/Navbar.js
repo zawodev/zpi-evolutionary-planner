@@ -28,7 +28,7 @@ export default function Navbar() {
         ) : (
           <>
             <Link href="/user/entries">
-              <button className="header-nav nav-entries">Zgłoszenia</button>
+              <button className="header-nav nav-entries">Rekrutacje</button>
             </Link>
             <Link href="/user/plan">
               <button className="header-nav nav-plans">Plany</button>

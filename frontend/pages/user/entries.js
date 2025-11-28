@@ -6,6 +6,7 @@ import { useRecruitments } from '../../hooks/useRecruitments';
 import { usePreferences } from '../../hooks/usePreferences';
 import { calculateUsedPriority, addSlot, updateSlot, deleteSlot, createSlotFromType, convertScheduleToWeights, convertWeightsToSchedule } from '../../utils/scheduleOperations';
 import { timeToMinutes } from '../../utils/scheduleDisplay';
+import { ChevronRight, Info } from 'lucide-react'; // Import icons
 
 // --- Helper Functions ---
 const getGridStartHour = (recruitment) => {
@@ -81,31 +82,16 @@ const getDragPreviewLocal = (isDragging, dragStart, dragEnd, dragDay, currentDay
 };
 
 const getHeatmapColor = (score) => {
-  if (score < 0.2) {
-    const hue = 220;
-    const saturation = 60;
-    const lightness = 85;
-    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
-  } else if (score < 0.4) {
-    const hue = 200;
-    const saturation = 70;
-    const lightness = 70;
-    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
-  } else if (score < 0.6) {
-    const hue = 180;
-    const saturation = 65;
-    const lightness = 60;
-    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
-  } else if (score < 0.8) {
-    const hue = 40;
-    const saturation = 85;
-    const lightness = 60;
-    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.9)`;
+  const rawWeight = score.rawWeight || 0;
+  const maxPositiveWeight = Math.abs(score.maxPositiveWeight) || 1;
+  const maxNegativeWeight = Math.abs(score.maxNegativeWeight) || 1;
+  
+  if (rawWeight > 0) {
+    const normalized = Math.min(1, rawWeight / maxPositiveWeight);
+    const opacity = normalized; // Od 0 do 1
+    return `hsla(355, 85%, 70%, ${opacity})`; 
   } else {
-    const hue = 15;
-    const saturation = 90;
-    const lightness = 55;
-    return `hsla(${hue}, ${saturation}%, ${lightness}%, 0.95)`;
+    return `hsla(355, 85%, 70%, 0)`; 
   }
 };
 
@@ -152,9 +138,9 @@ const EntriesStyles = () => (
     .new-entries-item {
       padding: 0.75rem 1rem;
       border-radius: 0.5rem;
-      background: #eff6ff;
-      border: 2px solid #dbeafe;
-      color: #1e40af;
+      background: #ffffff;
+      border: 2px solid #e5e7eb;
+      color: #1f2937;
       font-weight: 500;
       font-size: 0.875rem;
       cursor: pointer;
@@ -164,26 +150,28 @@ const EntriesStyles = () => (
     }
 
     .new-entries-item.read-only {
-        background: #f3f4f6;
+        background: #f9fafb;
         border: 2px solid #e5e7eb;
         color: #6b7280;
         cursor: default;
     }
 
     .new-entries-item:hover:not(.read-only) {
-      background: #dbeafe;
-      border-color: #bfdbfe;
+      background: #f3f4f6;
+      border-color: #d1d5db;
     }
 
     .new-entries-item.active:not(.read-only) {
-      background: #2563eb;
-      border-color: #2563eb;
-      color: white;
+      background: #ffffff;
+      border: 3px solid #3b82f6;
+      border-color: #3b82f6;
+      color: #1f2937;
     }
     
     .new-entries-item.active.read-only {
-        border-color: #4b5563;
-        background: #e5e7eb;
+        border-color: #9ca3af;
+        border: 3px solid #9ca3af;
+        background: #f9fafb;
         font-weight: 600;
     }
 
@@ -232,6 +220,22 @@ const EntriesStyles = () => (
 
     .new-entries-btn--secondary:active:not(:disabled) {
       background: #6d28d9;
+    }
+
+    .new-entries-btn--heatmap {
+      background: #8b5cf6;
+      color: white;
+      border: 2px solid #8b5cf6;
+    }
+
+    .new-entries-btn--heatmap:hover:not(:disabled) {
+      background: #7c3aed;
+      border-color: #7c3aed;
+    }
+
+    .new-entries-btn--heatmap:active:not(:disabled) {
+      background: #6d28d9;
+      border-color: #6d28d9;
     }
 
     .new-entries-btn--delete {
@@ -513,8 +517,8 @@ const EntriesStyles = () => (
       justify-content: center;
       font-size: 0.75rem;
       font-weight: 700;
-      color: #1f2937;
-      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+      color: transparent;
+      text-shadow: none;
       border: 1.5px solid rgba(255, 255, 255, 0.4);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
@@ -551,11 +555,8 @@ const EntriesStyles = () => (
       height: 32px;
       border-radius: 0.625rem;
       background: linear-gradient(to right, 
-        hsl(220, 60%, 85%),
-        hsl(200, 70%, 70%),
-        hsl(180, 65%, 60%),
-        hsl(40, 85%, 60%),
-        hsl(15, 90%, 55%)
+        rgba(247, 106, 106, 1) 0%,
+        rgba(255, 255, 255, 1) 100%
       );
       margin-bottom: 0.75rem;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1),
@@ -798,7 +799,7 @@ const EntriesStyles = () => (
       transition: opacity 0.2s;
     }
 
-    .new-entries-priority-slider:hover:not(:disabled) {
+    .new-entries-priority-slider:hover:not(.disabled) {
       opacity: 0.9;
     }
 
@@ -905,13 +906,13 @@ const EntriesStyles = () => (
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
-    .new-entries-modal-btn.primary:hover:not(:disabled) {
+    .new-entries-modal-btn.primary:hover:not(.disabled) {
       background: #1d4ed8;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       transform: translateY(-1px);
     }
 
-    .new-entries-modal-btn.primary:active:not(:disabled) {
+    .new-entries-modal-btn.primary:active:not(.disabled) {
       transform: translateY(0);
     }
 
@@ -920,7 +921,7 @@ const EntriesStyles = () => (
       color: #374151;
     }
 
-    .new-entries-modal-btn.secondary:hover:not(:disabled) {
+    .new-entries-modal-btn.secondary:hover:not(.disabled) {
       background: #e5e7eb;
     }
 
@@ -930,13 +931,13 @@ const EntriesStyles = () => (
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
-    .new-entries-modal-btn.danger:hover:not(:disabled) {
+    .new-entries-modal-btn.danger:hover:not(.disabled) {
       background: #b91c1c;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       transform: translateY(-1px);
     }
 
-    .new-entries-modal-btn.danger:active:not(:disabled) {
+    .new-entries-modal-btn.danger:active:not(.disabled) {
       transform: translateY(0);
     }
     
@@ -957,7 +958,6 @@ const EntriesStyles = () => (
       box-sizing: border-box;
     }
 
-    /* STYLE DLA ZAAWANSOWANYCH PREFERENCJI */
     .advanced-preferences-container {
       background: white;
       border-radius: 0.75rem;
@@ -1185,7 +1185,7 @@ const EntriesStyles = () => (
       color: #1f2937;
     }
 
-    .preference-input:hover:not(:disabled) {
+    .preference-input:hover:not(.disabled) {
       border-color: #d1d5db;
     }
 
@@ -1239,6 +1239,55 @@ const EntriesStyles = () => (
 
     .advanced-preferences-info-text strong {
       font-weight: 700;
+    }
+
+    .new-entries-loading-panel {
+      padding: 20px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      animation: pulse-border 1.5s infinite alternate;
+    }
+    
+    @keyframes pulse-border {
+        from { border: 2px solid #3b82f633; }
+        to { border: 2px solid #3b82f688; }
+    }
+
+    .new-entries-progress-bar-wrapper {
+      background: #bfdbfe;
+      border-radius: 8px;
+      overflow: hidden;
+      height: 16px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .new-entries-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #3b82f6);
+      transition: width 0.5s ease-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .new-entries-progress-text {
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .new-entries-remaining-time {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e40af;
+      margin: 0;
     }
 
     @media (max-width: 1200px) {
@@ -1298,8 +1347,6 @@ const EntriesStyles = () => (
   `}</style>
 );
 
-// --- KOMPONENTY DLA ZAAWANSOWANYCH PREFERENCJI ---
-
 const ChevronRightIcon = ({ size, style, className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -1345,7 +1392,6 @@ const WEIGHT_LABELS = {
   '5': 'Duża chęć',
 };
 
-// Komponent dla pojedynczych wag
 const SimplePreferenceInput = ({ title, weight, onWeightChange, description, isEditable }) => {
     return (
         <div className="preference-item">
@@ -1378,7 +1424,6 @@ const SimplePreferenceInput = ({ title, weight, onWeightChange, description, isE
     );
 };
 
-// Komponent dla par wartość/waga
 const ComplexPreferenceInput = ({ 
     title, 
     value, 
@@ -1392,7 +1437,6 @@ const ComplexPreferenceInput = ({
     unit,
     isEditable 
 }) => {
-    const isAvoid = weight < 0;
     const isNeutral = weight === 0;
 
     return (
@@ -1617,7 +1661,6 @@ const AdvancedPreferencesSection = ({ complexPrefs, setComplexPrefs, isEditable 
     );
 };
 
-// --- POZOSTAŁE KOMPONENTY ---
 
 const EntriesSidebar = ({ 
   fileError, 
@@ -1632,106 +1675,244 @@ const EntriesSidebar = ({
   onHeatmapMouseUp,
   showingHeatmap
 }) => {
-  const editableRecruitments = recruitments.filter(rec => rec.plan_status === 'draft' || rec.plan_status === 'active');
-  const readOnlyRecruitments = recruitments.filter(rec => rec.plan_status !== 'draft' && rec.plan_status !== 'active');
+    const editableRecruitments = recruitments.filter(rec => rec.plan_status === 'draft' || rec.plan_status === 'optimizing');
+    const readOnlyRecruitments = recruitments.filter(rec => rec.plan_status !== 'draft' && rec.plan_status !== 'optimizing');
+    
+    const isEditableNow = selectedRecruitment?.plan_status === 'draft' || selectedRecruitment?.plan_status === 'optimizing';
 
-  return (
-    <aside className="new-entries-sidebar">
-      <div className="new-entries-section">
-        <h3 className="new-entries-section-title">Aktywne (do edycji):</h3>
-        {isLoading && <div className="new-entries-item">Ładowanie...</div>}
-        {fileError && <div className="new-entries-error-message">{fileError}</div>}
-        {!isLoading && !fileError && editableRecruitments.length > 0 ? (
-          editableRecruitments.map(rec => (
-            <div
-              key={rec.recruitment_id}
-              className={`new-entries-item ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
-              onClick={() => onSelectRecruitment(rec)}
-            >
-              <span>{rec.recruitment_name} ({rec.plan_status})</span>
+    return (
+        <aside className="new-entries-sidebar">
+            <div className="new-entries-section">
+                <h3 className="new-entries-section-title"> Otwarte</h3>
+                {isLoading && <div className="new-entries-item">Ładowanie...</div>}
+                {fileError && <div className="new-entries-error-message">{fileError}</div>}
+                {!isLoading && !fileError && editableRecruitments.length > 0 ? (
+                    editableRecruitments.map(rec => {
+                        const getStatusBadge = (status) => {
+                            switch(status) {
+                                case 'draft': return { label: 'szkic', color: '#fef9c3', textColor: '#92400e' };
+                                case 'active': return { label: 'W użyciu', color: '#bbf7d0', textColor: '#065f46' };
+                                case 'optimizing': return { label: 'opt.', color: '#bbf7d0', textColor: '#065f46'};
+                                default: return { label: status, color: '#e5e7eb', textColor: '#374151' };
+                            }
+                        };
+                        const badge = getStatusBadge(rec.plan_status);
+                        return (
+                            <div
+                                key={rec.recruitment_id}
+                                className={`new-entries-item ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''} ${!isEditableNow ? 'read-only' : ''}`}
+                                onClick={() => onSelectRecruitment(rec)}
+                                style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px'}}
+                            >
+                                <span style={{flex: 1}}>{rec.recruitment_name}</span>
+                                <span style={{background: badge.color, color: badge.textColor, padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', whiteSpace: 'nowrap'}}>
+                                    {badge.label}
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    !isLoading && !fileError && <div className="new-entries-item read-only">Brak aktywnych rekrutacji.</div>
+                )}
             </div>
-          ))
-        ) : (
-          !isLoading && !fileError && <div className="new-entries-item read-only">Brak aktywnych rekrutacji.</div>
-        )}
-      </div>
 
-      <div className="new-entries-section">
-        <h3 className="new-entries-section-title">Zakończone (tylko do odczytu):</h3>
-        {isLoading && <div className="new-entries-item">Ładowanie...</div>}
-        {!isLoading && !fileError && readOnlyRecruitments.length > 0 ? (
-          readOnlyRecruitments.map(rec => (
-            <div
-              key={rec.recruitment_id}
-              className={`new-entries-item read-only ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
-              onClick={() => onSelectRecruitment(rec)}
-            >
-              <span>{rec.recruitment_name} ({rec.plan_status})</span>
+            <div className="new-entries-section">
+                <h3 className="new-entries-section-title">Zamknięte</h3>
+                {isLoading && <div className="new-entries-item">Ładowanie...</div>}
+                {!isLoading && !fileError && readOnlyRecruitments.length > 0 ? (
+                    readOnlyRecruitments.map(rec => {
+                        const getStatusBadge = (status) => {
+                            switch(status) {
+                                case 'active': return { label: 'akt.', color: '#fecaca', textColor: '#991b1b' };
+                                case 'completed': return { label: 'Ukończona', color: '#d1d5db', textColor: '#374151' };
+                                case 'failed': return { label: 'Błąd', color: '#fee2e2', textColor: '#dc2626' };
+                                case 'cancelled': return { label: 'Anulowana', color: '#e0e7ff', textColor: '#3730a3' };
+                                case 'archived': return { label: 'arch.', color: '#f3f4f6', textColor: '#6b7280' };
+                                default: return { label: status, color: '#e5e7eb', textColor: '#374151' };
+                            }
+                        };
+                        const badge = getStatusBadge(rec.plan_status);
+                        return (
+                            <div
+                                key={rec.recruitment_id}
+                                className={`new-entries-item read-only ${selectedRecruitment?.recruitment_id === rec.recruitment_id ? 'active' : ''}`}
+                                onClick={() => onSelectRecruitment(rec)}
+                                style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px'}}
+                            >
+                                <span style={{flex: 1}}>{rec.recruitment_name}</span>
+                                <span style={{background: badge.color, color: badge.textColor, padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', whiteSpace: 'nowrap'}}>
+                                    {badge.label}
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    !isLoading && !fileError && <div className="new-entries-item read-only">Brak zakończonych rekrutacji.</div>
+                )}
             </div>
-          ))
-        ) : (
-          !isLoading && !fileError && <div className="new-entries-item read-only">Brak zakończonych rekrutacji.</div>
-        )}
-      </div>
-
-      <div className="new-entries-section">
-        <h3 className="new-entries-section-title">Akcje:</h3>
-        
-        <button
-          onMouseDown={onHeatmapMouseDown}
-          onMouseUp={onHeatmapMouseUp}
-          onMouseLeave={onHeatmapMouseUp}
-          onTouchStart={onHeatmapMouseDown}
-          onTouchEnd={onHeatmapMouseUp}
-          className="new-entries-btn new-entries-btn--secondary"
-          disabled={!selectedRecruitment}
-          style={{
-            background: showingHeatmap ? '#6d28d9' : '#8b5cf6'
-          }}
-        >
-          {showingHeatmap ? 'Wyświetlanie Heatmapy' : 'Pokaż Heatmapę'}
-        </button>
-        
-        <div className="new-entries-pt-md"></div>
-
-        <button
-          onClick={onSave}
-          className="new-entries-btn new-entries-btn--primary"
-          disabled={!selectedRecruitment || isSaving || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
-        >
-          {isSaving ? 'Zapisywanie...' : 'Zachowaj zmiany'}
-        </button>
-        
-        <div className="new-entries-pt-md"></div>
-        <button
-          onClick={onClear}
-          className="new-entries-btn new-entries-btn--delete"
-          disabled={!selectedRecruitment || !(selectedRecruitment.plan_status === 'draft' || selectedRecruitment.plan_status === 'active')}
-        >
-          Wyczyść Preferencje
-        </button>
-      </div>
-    </aside>
-  );
+        </aside>
+    );
 };
 
-const ScheduleHeader = ({ selectedRecruitment, usedPriority, maxPriority }) => {
+const ScheduleHeader = ({ 
+  selectedRecruitment, 
+  usedPriority, 
+  maxPriority, 
+  optimizationStatus,
+  isLoadingStatus,
+  timeUntilNextJob,
+  isSaving,
+  onSave,
+  onClear,
+  onHeatmapMouseDown,
+  onHeatmapMouseUp,
+  showingHeatmap
+}) => {
   const recruitmentName = selectedRecruitment ? selectedRecruitment.recruitment_name : '...';
-  const countdown = "3d 7h";
   
   const status = selectedRecruitment?.plan_status || 'brak statusu';
-  const isEditable = status === 'draft' || status === 'active';
+  const isOptimizationActive = status === 'optimizing';
+  const isStatusAvailable = optimizationStatus && !isLoadingStatus;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Brak';
+    try {
+      return new Date(dateString).toLocaleDateString('pl-PL', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch {
+      return 'Błąd daty';
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (typeof seconds !== 'number' || seconds < 0) return 'Brak';
+    const totalSeconds = Math.floor(seconds);
+    const days = Math.floor(totalSeconds / (3600 * 24));
+    const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    
+    let parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0 && days === 0) parts.push(`${minutes}m`);
+
+    return parts.length > 0 ? parts.join(' ') : (seconds > 0 ? '<1m' : 'Brak');
+  };
+  
+  const formatTimeHMMSS = (seconds) => {
+    if (typeof seconds !== 'number' || seconds < 0 || isNaN(seconds)) return '0:00:00';
+    const totalSeconds = Math.floor(seconds);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    
+    return `${String(h).padStart(1, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const getStatusLabel = (status) => {
+      switch (status) {
+          case 'draft': return 'Draft';
+          case 'active': return 'W użyciu';
+          case 'optimizing': return 'Optymalizacja w toku';
+          case 'completed': return 'Zakończona (sukces)';
+          case 'failed': return 'Zakończona (błąd)';
+          case 'cancelled': return 'Anulowana';
+          case 'archived': return 'Zarchiwizowana';
+          default: return 'Nieznany status';
+      }
+  };
+
+  const isEditable = status === 'draft' || status === 'active' || status === 'optimizing';
+
+  const progressPercent = isStatusAvailable ? (optimizationStatus.time_progress * 100).toFixed(1) : 0;
+  const remainingTimeHMMSS = isStatusAvailable ? formatTimeHMMSS(optimizationStatus.estimated_to_end_time) : '0:00:00';
+  
+  const showProgressPanel = isOptimizationActive && (isLoadingStatus || isStatusAvailable);
+
 
   return (
     <div className="new-entries-header">
-      <h2 className="new-entries-title">Wybrane Zgłoszenia: {recruitmentName}</h2>
-      <div className="new-entries-stats">
-        <div className="new-entries-label soft-blue">
-          Punkty Priorytetu: {usedPriority}/{maxPriority}
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px'}}>
+        <h2 className="new-entries-title">Wybrana Rekrutacja: {recruitmentName}</h2>
+        
+        <div style={{display: 'flex', gap: '8px'}}>
+          <button
+              onMouseDown={onHeatmapMouseDown}
+              onMouseUp={onHeatmapMouseUp}
+              onMouseLeave={onHeatmapMouseUp}
+              onTouchStart={onHeatmapMouseDown}
+              onTouchEnd={onHeatmapMouseUp}
+              className="new-entries-btn new-entries-btn--heatmap"
+              disabled={!selectedRecruitment}
+              style={{width: 'auto', padding: '0.5rem 1rem'}}
+          >
+              {showingHeatmap ? 'Wyświetlanie Heatmapy' : 'Pokaż Heatmapę'}
+          </button>
+          
+          <button
+              onClick={onSave}
+              className="new-entries-btn new-entries-btn--primary"
+              disabled={!selectedRecruitment || isSaving || !isEditable}
+              style={{width: 'auto', padding: '0.5rem 1rem'}}
+          >
+              {isSaving ? 'Zapisywanie...' : 'Zachowaj'}
+          </button>
+          
+          <button
+              onClick={onClear}
+              className="new-entries-btn new-entries-btn--delete"
+              disabled={!selectedRecruitment || !isEditable}
+              style={{width: 'auto', padding: '0.5rem 1rem'}}
+          >
+              Wyczyść
+          </button>
         </div>
-        <div className="new-entries-label soft-blue">
-          {isEditable ? `Zamknięcie za: ${countdown}` : 'Rekrutacja zakończona.'}
+      </div>
+
+      <div className="new-entries-stats" style={{flexDirection: 'column', gap: '20px'}}>
+
+        {/* Sekcja 1: Podstawowe informacje o rekrutacji */}
+        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+            <div className="new-entries-label soft-blue">
+                Status: <span style={{fontWeight: 'bold'}}>{getStatusLabel(status)}</span>
+            </div>
+            <div className="new-entries-label soft-blue">
+                Punkty Priorytetu: <span style={{fontWeight: 'bold'}}>{usedPriority}</span>
+            </div>
+            <div className="new-entries-label soft-blue">
+                Edycja: <span style={{fontWeight: 'bold'}}>{isEditable ? 'Włączona' : 'Wyłączona'}</span>
+            </div>
         </div>
+
+        {/* Panel Ładowania - W trakcie optymalizacji (tylko optimizing) */}
+        {showProgressPanel && (
+            <div className="new-entries-loading-panel">
+                {isLoadingStatus ? (
+                     <p className="new-entries-remaining-time" style={{color: '#92400e'}}>Ładowanie metryk...</p>
+                ) : (
+                    <>
+                        <p className="new-entries-remaining-time">
+                            Szacowany czas do końca: <span style={{fontWeight: 'bold'}}>{formatTime(optimizationStatus.estimated_to_end_time)}</span>
+                        </p>
+                        
+                        <div className="new-entries-progress-bar-wrapper">
+                            <div 
+                                className="new-entries-progress-fill" 
+                                style={{width: `${progressPercent}%`}}
+                            >
+                            </div>
+                        </div>
+                        
+                         <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#374151', padding: '0 5px'}}>
+                            <span>Rund: {optimizationStatus.pessimistic_progress_text}</span>
+                            <span>Czas do uwzględnienia zmian w preferencjach: {formatTimeHMMSS(timeUntilNextJob)}</span>
+                         </div>
+                     </>
+                )}
+            </div>
+        )}
+
       </div>
     </div>
   );
@@ -1784,13 +1965,14 @@ const DragPreview = ({ top, height, startTime, endTime }) => {
   );
 };
 
+
 const HeatmapCell = ({ hour, score, gridStartHour }) => {
   const hourHeight = 60;
   const top = (hour - gridStartHour) * hourHeight;
   const height = hourHeight;
   
   const backgroundColor = getHeatmapColor(score);
-  const percentage = Math.round(score * 100);
+  const rawWeight = score.rawWeight || 0;
 
   return (
     <div
@@ -1800,9 +1982,8 @@ const HeatmapCell = ({ hour, score, gridStartHour }) => {
         height: `${height}px`,
         backgroundColor: backgroundColor
       }}
-      title={`Score: ${score.toFixed(2)} (${percentage}%)`}
+      title={`Średnia Waga: ${rawWeight.toFixed(2)}`}
     >
-      {percentage}%
     </div>
   );
 };
@@ -1856,7 +2037,7 @@ const ScheduleColumn = ({
           <HeatmapCell
             key={`heatmap-${day}-${item.hour}-${index}`}
             hour={item.hour}
-            score={item.score}
+            score={item}
             gridStartHour={gridStartHour}
           />
         ))
@@ -1887,11 +2068,8 @@ const HeatmapLegend = () => {
       <div className="new-entries-heatmap-legend-title">Legenda popularności:</div>
       <div className="new-entries-heatmap-legend-gradient"></div>
       <div className="new-entries-heatmap-legend-labels">
-        <span>0% (Niska)</span>
-        <span>25%</span>
-        <span>50%</span>
-        <span>75%</span>
-        <span>100% (Wysoka)</span>
+        <span>Duże zainteresowanie (Czerwień)</span>
+        <span>Brak zainteresowania (Biel)</span>
       </div>
     </div>
   );
@@ -2273,30 +2451,22 @@ const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEn
     const startMinutes = Math.min(dragStart.minutes, dragEnd.minutes);
     const endMinutes = Math.max(dragStart.minutes, dragEnd.minutes);
     
-    if (endMinutes - startMinutes < 30) {
+    if (endMinutes - startMinutes < 15) {
       resetDrag();
       return;
     }
-
-    const startHour = Math.floor(startMinutes / 60);
-    const endHour = Math.ceil(endMinutes / 60);
     
-    const finalEndHour = Math.max(endHour, startHour + 1);
-    const finalStartHour = startHour; 
-
+    const startHour = Math.floor(startMinutes / 60);
+    const startMinute = startMinutes % 60;
+    const endHour = Math.floor(endMinutes / 60);
+    const endMinute = endMinutes % 60; 
+    
     onDragComplete({
       day: dragDay,
-      start: finalStartHour,
-      end: finalEndHour
+      start: formatTimeString(startHour, startMinute),
+      end: formatTimeString(endHour, endMinute),
     });
     resetDrag();
-  };
-
-  const resetDrag = () => {
-    setIsDragging(false);
-    setDragStart(null);
-    setDragEnd(null);
-    setDragDay(null);
   };
 
   useEffect(() => {
@@ -2310,6 +2480,13 @@ const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEn
       };
     }
   }, [isDragging, dragStart, dragEnd, dragDay, onDragComplete, isEditable, gridStartHour, gridEndHour]);
+
+  const resetDrag = () => {
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+    setDragDay(null);
+  };
 
   return {
     isDragging,
@@ -2332,6 +2509,8 @@ export default function EntriesPage() {
   const [showingHeatmap, setShowingHeatmap] = useState(false);
   const [heatmapData, setHeatmapData] = useState(null);
   const [isLoadingHeatmap, setIsLoadingHeatmap] = useState(false);
+  const [optimizationStatus, setOptimizationStatus] = useState(null); 
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false); 
 
   const gridStartHour = getGridStartHour(selectedRecruitment);
   const gridEndHour = getGridEndHour(selectedRecruitment);
@@ -2350,7 +2529,9 @@ export default function EntriesPage() {
     error: recruitmentsError 
   } = useRecruitments(user?.id);
   
-  const isEditable = selectedRecruitment?.plan_status === 'draft' || selectedRecruitment?.plan_status === 'active';
+  const isEditable = selectedRecruitment?.plan_status === 'draft' || 
+                     selectedRecruitment?.plan_status === 'active' || 
+                     selectedRecruitment?.plan_status === 'optimizing';
 
   const {
     scheduleData,
@@ -2370,6 +2551,8 @@ export default function EntriesPage() {
   const [pendingSlot, setPendingSlot] = useState(null);
   const [editingSlot, setEditingSlot] = useState(null);
   const [maxPriority] = useState(40);
+  
+  const [timeUntilNextJob, setTimeUntilNextJob] = useState(0);
 
   const {
     isDragging,
@@ -2381,8 +2564,8 @@ export default function EntriesPage() {
   } = useScheduleDragCustom((dragResult) => {
     setPendingSlot({
       day: dragResult.day,
-      start: formatTimeString(dragResult.start, 0), 
-      end: formatTimeString(dragResult.end, 0),
+      start: dragResult.start, 
+      end: dragResult.end,
       type: 'prefer',
       priority: 1
     });
@@ -2394,9 +2577,11 @@ const processWeightsToHeatmap = (weightsArray, gridStartHour, days) => {
     if (!weightsArray || weightsArray.length === 0) return [];
 
     const normalizedWeights = weightsArray.map(w => parseFloat(w) || 0);
-    const maxWeight = Math.max(...normalizedWeights);
-    const minWeight = Math.min(...normalizedWeights);
-    const range = maxWeight - minWeight;
+    
+    const maxPositiveWeight = Math.max(0, ...normalizedWeights);
+    const maxNegativeWeight = Math.min(0, ...normalizedWeights);
+    
+    const maxAbsWeight = Math.max(maxPositiveWeight, Math.abs(maxNegativeWeight));
 
     const timeslotsInCycle = normalizedWeights.length;
     const timeslotsPerDay = timeslotsInCycle / days.length;
@@ -2422,23 +2607,15 @@ const processWeightsToHeatmap = (weightsArray, gridStartHour, days) => {
 
             const averageWeight = hourlyWeight / slotsPerHour;
             
-            let score;
-            if (range === 0) {
-                score = 0.5;
-            } else {
-                score = (averageWeight - minWeight) / range;
-            }
-            
-            score = Math.max(0, Math.min(1, score));
-
             const hour = gridStartHour + Math.floor(slotIndexInDay / slotsPerHour);
             
             if (hour < gridEndHour) {
                 processedData.push({
                     day_of_week: dayIndex,
                     hour: hour,
-                    score: score,
-                    rawWeight: averageWeight
+                    rawWeight: averageWeight,
+                    maxPositiveWeight: maxAbsWeight,
+                    maxNegativeWeight: maxAbsWeight,
                 });
             }
         }
@@ -2493,6 +2670,75 @@ const fetchHeatmap = async (recruitmentId) => {
 const handleHeatmapMouseUp = () => {
   setShowingHeatmap(false);
 };
+
+  useEffect(() => {
+    const status = selectedRecruitment?.plan_status;
+    
+    if (!selectedRecruitment || status === 'draft' || status === 'active' || status === 'archived') {
+        setOptimizationStatus(null);
+        return;
+    }
+    
+    const fetchOptimizationStatus = async () => {
+        setIsLoadingStatus(true);
+        setOptimizationStatus(null);
+        const recruitmentId = selectedRecruitment.recruitment_id;
+        const token = localStorage.getItem('access_token');
+        const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+        const url = `${baseUrl}/api/v1/optimizer/jobs/recruitment/${recruitmentId}/status/`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                setOptimizationStatus(data);
+                setTimeUntilNextJob(data.current_job_estimated_to_next_job_start || 0);
+            } else if (response.status === 404) {
+                 setOptimizationStatus({
+                     plan_status: selectedRecruitment.plan_status,
+                     jobs_count: 0,
+                     max_round_execution_time: selectedRecruitment.max_round_execution_time || 300,
+                     estimated_to_end_time: 0,
+                     pessimistic_progress_text: '0/0',
+                     optimization_start_date: selectedRecruitment.optimization_start_date
+                 });
+            } else {
+                console.error(`Błąd ładowania statusu optymalizacji: ${response.statusText}`);
+                setOptimizationStatus(null);
+            }
+        } catch (error) {
+            console.error('Error fetching optimization status:', error);
+            setOptimizationStatus(null);
+        } finally {
+            setIsLoadingStatus(false);
+        }
+    };
+    
+    fetchOptimizationStatus();
+  }, [selectedRecruitment]);
+
+  useEffect(() => {
+    if (!optimizationStatus || optimizationStatus.plan_status !== 'optimizing') {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeUntilNextJob(prev => {
+        const newValue = Math.max(0, prev - 1);
+        return newValue;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [optimizationStatus]);
+
 
 const handleSave = async () => {
   if (!selectedRecruitment || !isEditable) return;
@@ -2644,6 +2890,15 @@ return (
               selectedRecruitment={selectedRecruitment}
               usedPriority={calculateUsedPriority(scheduleData, days)}
               maxPriority={maxPriority}
+              optimizationStatus={optimizationStatus} 
+              isLoadingStatus={isLoadingStatus}
+              timeUntilNextJob={timeUntilNextJob}
+              isSaving={isSaving}
+              onSave={handleSave}
+              onClear={handleClear}
+              onHeatmapMouseDown={handleHeatmapMouseDown}
+              onHeatmapMouseUp={handleHeatmapMouseUp}
+              showingHeatmap={showingHeatmap}
             />
             
             {isLoadingHeatmap && showingHeatmap && (
