@@ -1,4 +1,4 @@
-export default function MsgModal({ isOpen, onCloseYes, onCloseNo, message }) {
+export default function ConfirmModal({ isOpen, onCloseYes, onCloseNo, message }) {
     if (!isOpen) {
         return null;
     }
