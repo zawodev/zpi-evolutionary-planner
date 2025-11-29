@@ -489,15 +489,14 @@ class UserUpdateView(APIView):
 
 
 class RemoveUserFromOrganizationView(APIView):
-    """Remove (detach) a user from their organization.
+    """Delete a user from the system.
 
     Behavior:
-    - Sets user's organization to null (does not delete the user or organization).
+    - Permanently deletes the user account.
     - Allowed for admin (any user) or office user belonging to the same organization as the target user.
 
     Responses:
     - 204 on success.
-    - 400 if user has no organization.
     - 403 if requester lacks permission.
     - 404 if user does not exist.
     """
@@ -505,8 +504,6 @@ class RemoveUserFromOrganizationView(APIView):
 
     def delete(self, request, user_pk):
         target_user = get_object_or_404(User, pk=user_pk)
-        if target_user.organization is None:
-            return Response({"detail": "User is not assigned to any organization"}, status=status.HTTP_400_BAD_REQUEST)
 
         requester = request.user
         # Admin always allowed
@@ -515,9 +512,9 @@ class RemoveUserFromOrganizationView(APIView):
             if requester.organization is None or requester.organization != target_user.organization:
                 return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
-        target_user.organization = None
-        target_user.save(update_fields=['organization'])
-        return Response({"detail": "User removed from organization"}, status=status.HTTP_204_NO_CONTENT)
+        # Perform full deletion of the user
+        target_user.delete()
+        return Response({"detail": "User deleted"}, status=status.HTTP_204_NO_CONTENT)
 
 
 class UserSubjectsAddView(APIView):
