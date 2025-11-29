@@ -4,7 +4,7 @@ from .models import OptimizationJob, OptimizationProgress
 
 @admin.register(OptimizationJob)
 class OptimizationJobAdmin(admin.ModelAdmin):
-    list_display = [field.name for field in OptimizationJob._meta.fields if field.name != 'problem_data' and field.name != 'final_solution']
+    list_display = [field.name for field in OptimizationJob._meta.fields if field.name != 'problem_data' and field.name != 'final_solution' and field.name != 'first_solution']
     list_filter = ['status', 'created_at']
     search_fields = ['id', 'recruitment__recruitment_name']
     readonly_fields = [

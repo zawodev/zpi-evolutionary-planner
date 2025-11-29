@@ -163,6 +163,14 @@ class RoomRecruitment(models.Model):
 class Tag(models.Model):
     tag_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tag_name = models.CharField(max_length=100, unique=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        db_column='organizationid',
+        related_name='tags',
+        blank=True,
+        null=True
+    )
 
     class Meta:
         db_table = 'scheduling_tags'
