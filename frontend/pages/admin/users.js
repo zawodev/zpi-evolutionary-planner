@@ -10,12 +10,14 @@ export default function Users() {
     const [hosts, setHosts] = useState([]);
     const [groups, setGroups] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchTermH, setSearchTermH] = useState("");
 
     // Form states - user
     const [firstName, setFName] = useState("");
     const [surName, setSName] = useState("");
     const [userEmail, setUserEmail] = useState("");
     const [userRole, setUserRole] = useState("participant");
+    const [userWeight, setUserWeight] = useState(250);
     // Form states - group
     const [groupName, setGroupName] = useState("");
     const [groupCat, setGroupCat] = useState("");
@@ -118,6 +120,10 @@ export default function Users() {
             openModal("Dodaj brakujące pola");
             return;
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+            openModal("Niepoprawny adres email");
+            return;
+        }
         const token = localStorage.getItem("access_token");
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/create/random/`, {
@@ -128,7 +134,8 @@ export default function Users() {
                     email: userEmail,
                     first_name: firstName,
                     last_name: surName,
-                    role: userRole
+                    role: userRole,
+                    weight: userWeight,
                 })
             });
             if (response.ok) {
@@ -156,6 +163,7 @@ export default function Users() {
         setFName("");
         setSName("");
         setUserEmail("");
+        setUserWeight(250);
     };
 
     const addGroup = async () => {
@@ -194,7 +202,11 @@ export default function Users() {
         (u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-
+    const filteredHosts = hosts.filter(
+        (u) =>
+        (u.first_name.toLowerCase().includes(searchTermH.toLowerCase()) || u.last_name.toLowerCase().includes(searchTermH.toLowerCase()) ||
+            u.email.toLowerCase().includes(searchTermH.toLowerCase()))
+    );
     useEffect(() => {
         fetchUsers();
         fetchGroups();
@@ -305,6 +317,35 @@ export default function Users() {
                                     Sekretariat
                                 </button>
                             </div>
+                            <h3>Waga użytkownika:{userWeight} (użytkownicy z większą wagą dostają lepsze plany)</h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <button type="button" onClick={() => {
+                                    setUserWeight((prev) => {
+                                        const newVal = parseInt((prev - 1));
+                                        return newVal < 1 ? 1 : newVal;
+                                    });
+                                }}>
+                                    -
+                                </button>
+                                <input
+                                    type="range"
+                                    min={"1"}
+                                    max={"500"}
+                                    step={"1"}
+                                    value={userWeight}
+                                    onChange={(e) => setUserWeight(parseInt(e.target.value))}
+                                    className="login-input-wrapper"
+                                    style={{ flexGrow: 1 }}
+                                />
+                                <button type="button" onClick={() => {
+                                    setUserWeight((prev) => {
+                                        const newVal = parseFloat((prev + 1));
+                                        return newVal > 100 ? 100 : newVal;
+                                    });
+                                }}>
+                                    +
+                                </button>
+                            </div>
                             {userRole === "participant" && groups.length > 0 && (
                                 <div>
                                     <label>
@@ -359,11 +400,11 @@ export default function Users() {
                         />
                         <ul>
                             {filteredParticipants.map((u, i) => (
-                                <li key={i} onClick={() => {
-                                    setUser(u);
-                                    setSelectedCategory("EditUser");
-                                }}>
-                                    {u.first_name} {u.last_name} ({u.email})
+                                <li key={i} >
+                                    {u.first_name} {u.last_name} ({u.email}) <button onClick={() => {
+                                        setUser(u);
+                                        setSelectedCategory("EditUser");
+                                    }} > Edytuj</button>
                                 </li>
                             ))}
                             {filteredParticipants.length === 0 && (
@@ -376,14 +417,20 @@ export default function Users() {
                 {selectedCategory === "hosts" && (
                     <div>
                         <h2>Prowadzący</h2>
+                        <input
+                            type="text"
+                            placeholder="Search participants..."
+                            value={searchTermH}
+                            onChange={(e) => setSearchTermH(e.target.value)}
+                        />
                         <ul>
-                            {hosts
+                            {filteredHosts
                                 .map((u, i) => (
-                                    <li key={i} onClick={() => {
-                                        setUser(u);
-                                        setSelectedCategory("EditUser");
-                                    }}>
-                                        {u.first_name} {u.last_name} ({u.email})
+                                    <li key={i} >
+                                        {u.first_name} {u.last_name} ({u.email}) <button onClick={() => {
+                                            setUser(u);
+                                            setSelectedCategory("EditUser");
+                                        }} > Edytuj</button>
                                     </li>
                                 ))}
                             {hosts.length === 0 && (
@@ -423,9 +470,8 @@ export default function Users() {
                             </div>
                         </div>
 
-                        {/* Groups list */}
                         <div>
-                            <h3>All Groups</h3>
+                            <h3>Wszystkie grupy</h3>
                             <ul>
                                 {groups.map((g, i) => (
                                     <li key={i}>
@@ -445,10 +491,10 @@ export default function Users() {
                 )}
             </div>
             <MsgModal
-                    isOpen={isModalOpen}
-                    onClose={closeModal}
-                    message={MMessage}
-                />
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                message={MMessage}
+            />
         </div>
     );
 }

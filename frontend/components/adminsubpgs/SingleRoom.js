@@ -22,7 +22,7 @@ export default function SingleRoom({ room }) {
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/rooms/${room.room_id}/tags/`, {
                 method: 'GET',
-                credentials: include,
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             });
             if (response.ok) {
