@@ -22,7 +22,10 @@ export default function Navbar() {
               <button className="header-nav nav-func">Pokoje</button>
             </Link>
             <Link href="/admin/createrec">
-              <button className="header-nav nav-contact">Stwórz rejestrację</button>
+              <button className="header-nav nav-contact">Stwórz rekrutacje</button>
+            </Link>
+            <Link href="/admin/managerecs">
+              <button className="header-nav nav-about">Zarządzaj rekrutacjami</button>
             </Link>
           </>
         ) : (
