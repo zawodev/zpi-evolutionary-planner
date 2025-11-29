@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useEffect } from 'react';
 import styles from '@/styles/components/_admin.module.css';
 import MsgModal from "./MsgModal";
+import { useRouter } from 'next/router';
+import ConfirmModal from "./ConfirmModal";
 export default function SingleUser({ user }) {
+
     const [firstName, setFName] = useState(user.first_name);
     const [surName, setSName] = useState(user.last_name);
     const [userEmail, setUserEmail] = useState(user.email);
@@ -11,6 +14,11 @@ export default function SingleUser({ user }) {
     const [userGroups, setUgroups] = useState([]);
     const [groups, setGroups] = useState([]);
 
+    const [isWarnModalOpen, setIsWarnModalOpen] = useState(false);
+    const openWarnModal = (text) => {
+        SetMM(text)
+        setIsWarnModalOpen(true);
+    }
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [MMessage, SetMM] = useState("");
@@ -47,6 +55,22 @@ export default function SingleUser({ user }) {
             if (response.ok) {
                 const data = await response.json();
                 setUgroups(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+    const deleteUser = async () => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/remove_from_organization/`, {
+                method: "DELETE",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                setIsWarnModalOpen(false);
+                window.location.reload();
             }
         } catch (error) {
             console.log(error)
@@ -247,12 +271,27 @@ export default function SingleUser({ user }) {
                             ))}
                         </ul></div>
                 )}
-                <div style={{ width: '100%', display: 'flex', justifyContent: "center", padding: "10vh" }}>
+                <div
+                    style={{
+                        width: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                        gap: "20px",     
+                        padding: "10vh"
+                    }}
+                >
                     <button
                         onClick={editUser}
                         className={`btn btn--form ${styles.btnadd}`}
                     >
-                        Edytuj użytkownika
+                        Wprowadź zmiany
+                    </button>
+
+                    <button
+                        onClick={() => openWarnModal("Czy na pewno chcesz usunąć użytkownika?")}
+                        className={`btn btn--form ${styles.btnadd}`} style={{ background: "#f24242ff" }}
+                    >
+                        Usuń użytkownika
                     </button>
                 </div>
             </div>
@@ -261,6 +300,13 @@ export default function SingleUser({ user }) {
                 onClose={closeModal}
                 message={MMessage}
             />
+            <ConfirmModal
+                isOpen={isWarnModalOpen}
+                onCloseYes={deleteUser}
+                onCloseNo={() => setIsWarnModalOpen(false)}
+                message={MMessage}
+            />
+
         </div>
     );
 }
