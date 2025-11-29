@@ -1,5 +1,5 @@
 import styles from '@/styles/components/_admin.module.css';
-import { use, useState } from "react";
+import { useState } from "react";
 import { useEffect } from 'react';
 import BanSlotsModal from '@/components/adminsubpgs/RecBanHours';
 import MsgModal from '@/components/adminsubpgs/MsgModal';
@@ -36,16 +36,51 @@ export default function createRec() {
     const [bannedBlocks, setBannedBlocks] = useState([[]]); // is this real?
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [recGroups, setRecGroups] = useState([]); //global groups (all subjects)
-
-
+    //copying recs states
+    const [recs, setRecs] = useState([]);
+    const [prevSubs, setPrevSubs] = useState([]);
     const [isMModalOpen, setIsMModalOpen] = useState(false);
     const [MMessage, SetMM] = useState("");
+    //editing subject state
+    const [editIndex, setEditIndex] = useState("");
     const openModal = (text) => {
         SetMM(text)
         setIsMModalOpen(true);
     }
     const closeModal = () => setIsMModalOpen(false);
 
+    const fetchRecs = async () => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/recruitments/', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setRecs(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+        console.log(tags);
+    };
+    const fetchPrevSubs = async () => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subjects/', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setPrevSubs(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+        console.log(tags);
+    };
     const fetchTags = async () => {
         const token = localStorage.getItem("access_token");
         try {
@@ -147,7 +182,7 @@ export default function createRec() {
             console.log(error)
         }
     }
-    const createSub = async (rec_id, name, part, cap, dur, tags, hosts, break_before,break_after) => {
+    const createSub = async (rec_id, name, part, cap, dur, tags, hosts, break_before, break_after) => {
         const token = localStorage.getItem("access_token");
         console.log(rec_id)
         try {
@@ -230,6 +265,7 @@ export default function createRec() {
                 });
                 recGroups.forEach(g => addGrouptoSub(data.recruitment_id, g.group_id));
                 openModal(`Dodano rekrutacje ${data.recruitment_name}`);
+                fetchRecs();
             }
         } catch (error) {
             console.log(error)
@@ -281,16 +317,30 @@ export default function createRec() {
         const newt = recGroups.filter(obj => obj.group_id !== group_id);
         setRecGroups(newt);
     }
-
+    const setEditSub = (s) => {
+        setSubName(s.subject_name);
+        setCapacity(s.capacity);
+        setDuration(s.duration);
+        setSubTags(s.tags);
+        setParp(s.min_students);
+        setTeachers(s.hosts);
+        setSubGroups(s.groups);
+        setBreakB(s.break_before);
+        setBreakA(s.break_after);
+    }
     const addSub = () => {
-        if (!subName || !capacity|| !duration) {
+        if (!subName || !capacity || !duration) {
             openModal("Wypełnij pola");
             return;
         };
-        if (capacity < minParp) {
+        if (Number(capacity) < Number(minParp)) {
             openModal("Minimalna liczba studentów nie może przkraczać maksymalnej");
             return;
         };
+        if (subTeachers.length === 0) {
+            openModal("Co najmniej jeden prowadzący wymagany");
+            return;
+        }
         const newSub = {
             subject_name: subName,
             capacity: capacity,
@@ -313,12 +363,63 @@ export default function createRec() {
         setDuration("");
         console.log(subjects);
     }
-
+    const copyRec = (rec_id) => {
+        setSubjects([]);
+        const rec = recs.find(r => r.recruitment_id === rec_id);
+        const subs = prevSubs.filter(s => s.recruitment === rec_id);
+        console.log(subs);
+        setRecruitmentName(rec.recruitment_name);
+        setDayStartTime(rec.day_start_time);
+        setDayEndTime(rec.day_end_time);
+        setDefaultTokenCount(rec.default_token_count);
+        setPlanStatus("draft");
+        setRoundBreakLength(rec.max_round_execution_time);
+        const newSub = subs.map(s => ({
+            subject_name: s.subject_name,
+            capacity: s.capacity,
+            duration: s.duration_blocks,
+            tags: subTags,
+            min_students: s.min_students,
+            hosts: subTeachers,
+            groups: subGroups,
+            break_before: s.break_before,
+            break_after: s.break_after
+        }));
+        setSubjects(newSub);
+        openModal(`Skopiowano ustawienia z ${rec.recruitment_name}. Dodaj czasy rozpoczęcia w zakładce Stwórz rekrutacje`);
+    }
+    const editSubject = () => {
+        if (subTeachers.length === 0) {
+            openModal("Co najmniej jeden prowadzący wymagany");
+            return;
+        }
+        const newSub = {
+            subject_name: subName,
+            capacity: capacity,
+            duration: duration,
+            tags: subTags,
+            min_students: minParp,
+            hosts: subTeachers,
+            groups: subGroups,
+            break_before: breakB,
+            break_after: breakA
+        }
+        setSubjects(subjects.map((s, i) => {
+            if (i === editIndex) {
+                return newSub;
+            }
+            return s;
+        }));
+        openModal('Edycja zakończona');
+        setSelectedCategory("MngSub");
+    }
 
     useEffect(() => {
         fetchTags();
         fetchHosts();
         fetchGroups();
+        fetchRecs();
+        fetchPrevSubs();
     }, []);
 
     return (
@@ -342,9 +443,264 @@ export default function createRec() {
                         Stwórz rekrutacje
                     </button>
                 </div>
+                <div className="login-button-wrapper">
+                    <button
+                        type="button"
+                        onClick={() => { setSelectedCategory("MngSub"); console.log(subjects) }}
+                        className="btn btn--secondary btn--form"
+                    >
+                        Zarządzaj przedmiotami
+                    </button>
+                </div>
+                <div className="login-button-wrapper">
+                    <button
+                        type="button"
+                        onClick={() => { setSelectedCategory("CopyRec"); console.log(subjects) }}
+                        className="btn btn--secondary btn--form"
+                    >
+                        Skopiuj ustawienia z poprzedniej rekrutacji
+                    </button>
+                </div>
             </div>
 
             <div className={styles.right}>
+                {selectedCategory === "CopyRec" && (
+                    <div>
+                        {recs.length > 0 ? (
+                            <div>
+                                {recs.map((r, i) => (
+                                    <li key={i}>
+                                        <div className="login-button-wrapper">
+                                            <button
+                                                type="button"
+                                                onClick={() => { copyRec(r.recruitment_id) }}
+                                                className="btn btn--secondary btn--form"
+                                            >
+                                                {r.recruitment_name}
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </div>
+                        ) : (
+                            <p>Brak poprzednich rekrutacji.</p>
+                        )}
+                    </div>
+                )}
+                {selectedCategory === "MngSub" && (
+                    <div>
+                        {subjects.length > 0 ? (
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Przedmiot</th>
+                                        <th>Maksymalna liczba uczestników</th>
+                                        <th>Długość (15 minutowe bloki)</th>
+                                        <th>Wymagane cechy sali</th>
+                                        <th>Minimum uczestników</th>
+                                        <th>Prowadzący</th>
+                                        <th>Przerwa przed</th>
+                                        <th>Przerwa po</th>
+                                        <th>Edytuj</th>
+                                        <th>Usuń</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {subjects.map((s, i) => (
+                                        <tr>
+                                            <td>{s.subject_name}</td>
+                                            <td>{s.capacity}</td>
+                                            <td>{s.duration}</td>
+                                            <td>
+                                                <ul>
+                                                    {s.tags.length === 0 ? (<p>Brak</p>) :
+                                                        (
+                                                            s.tags.map((t) => (
+                                                                <li>
+                                                                    {t.tag_name}
+                                                                </li>
+                                                            ))
+                                                        )
+                                                    }
+                                                </ul>
+                                            </td>
+                                            <td>{s.min_students}</td>
+                                            <td>
+                                                <ul>
+                                                    {s.hosts.length === 0 ? (<p>Brak</p>) :
+                                                        (
+                                                            s.hosts.map((h) => (
+                                                                <li>
+                                                                    {h.first_name} {h.last_name} ({h.email})
+                                                                </li>
+                                                            ))
+                                                        )
+                                                    }
+                                                </ul>
+                                            </td>
+                                            <td>{s.break_before}</td>
+                                            <td>{s.break_after}</td>
+                                            <td><button onClick={() => { setEditSub(s); setEditIndex(i); setSelectedCategory("EditSubject") }}>Edytuj</button></td>
+                                            <td><button onClick={() => setSubjects(subjects.filter(sub => sub !== s))}>Usuń</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <p>Brak przedmiotów dla tej rekrutacji.</p>
+                        )}
+                    </div>
+                )}
+                {selectedCategory === "EditSubject" && (
+                    <div>
+                        <h2 >Edytuj przedmiot</h2>
+                        <div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="text"
+                                    placeholder="Nazwa przedmiotu"
+                                    className="input input--login"
+                                    value={subName}
+                                    onChange={(e) => setSubName(e.target.value)}
+                                />
+                            </div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="number"
+                                    placeholder="Ile uczestników maksymalnie w jednej grupie"
+                                    className="input input--login"
+                                    value={capacity}
+                                    onChange={(e) => setCapacity(e.target.value)}
+                                />
+                            </div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="number"
+                                    placeholder="Ile 15 minutowych 'bloków trwa spotkanie"
+                                    className="input input--login"
+                                    value={duration}
+                                    onChange={(e) => setDuration(e.target.value)}
+                                />
+                            </div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="number"
+                                    placeholder="Minimalna liczba uczestników do stworzenia grupy"
+                                    className="input input--login"
+                                    value={minParp}
+                                    onChange={(e) => setParp(e.target.value)}
+                                />
+                            </div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="number"
+                                    placeholder="Liczba bloków przerwy przed"
+                                    className="input input--login"
+                                    value={breakB}
+                                    onChange={(e) => setBreakB(e.target.value)}
+                                />
+                            </div>
+                            <div className="login-input-wrapper">
+                                <input
+                                    type="number"
+                                    placeholder="Liczba bloków przerwy po"
+                                    className="input input--login"
+                                    value={breakA}
+                                    onChange={(e) => setBreakA(e.target.value)}
+                                />
+                            </div>
+                            {tags.length > 0 && (
+                                <div>
+                                    <label>
+                                        Dodaj cechy pokoju wymagane do prowadzenia spotkania:
+                                    </label>
+                                    <select
+                                        onChange={(e) => addSubTag(e.target.value)}
+                                    >
+                                        <option value="">Dodaj cechę</option>
+                                        {tags.map((g, i) => (
+                                            <option key={i} value={g.tag_id}>
+                                                {g.tag_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {hosts.length > 0 && (
+                                <div>
+                                    <label>
+                                        Dodaj prowadzących którzy prowadzą spotkanie:
+                                    </label>
+                                    <select
+                                        onChange={(e) => { addSubTeach(e.target.value); e.target.value = ""; }}
+                                    >
+                                        <option >Dodaj prowadzącego</option>
+                                        {hosts.map((u, i) => (
+                                            <option key={i} value={u.id}>
+                                                {u.first_name} {u.last_name} ({u.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {/*{groups.length > 0 && (
+                                <div>
+                                    <label>
+                                        Dodaj uczestników którzy muszą być na tym spotkaniu (ta opcja nadpisuje globalne grupy rekrutacji):
+                                    </label>
+                                    <select
+                                        onChange={(e) => addSubGroup(e.target.value)}
+                                    >
+                                        <option>Dodaj grupę uczestników</option>
+                                        {groups.map((u, i) => (
+                                            <option key={i} value={u.group_id}>
+                                                {u.group_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )} */}
+                            <div>
+                                <h3>Cechy spotkania</h3>
+                                <ul>
+                                    {subTags.map((g, i) => (
+                                        <li key={i}>
+                                            {g.tag_name} <button onClick={() => deleteSubTag(g.tag_id)}>Usuń</button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div>
+                                <h3>Prowadzący spotkania - każdy prowadzi inne</h3>
+                                <ul>
+                                    {subTeachers.map((u, i) => (
+                                        <li key={i}>
+                                            {u.first_name} {u.last_name} ({u.email}) <button onClick={() => deleteSubTeach(u.id)}>Usuń</button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            {/*<div>
+                                <h3>Uczestnicy spotkania</h3>
+                                <ul>
+                                    {subGroups.map((u, i) => (
+                                        <li key={i}>
+                                            {u.group_name} <button onClick={() => deleteSubGroup(u.group_id)}>Usuń</button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div> */}
+                            <div style={{ width: '100%', display: 'flex', justifyContent: "center", padding: "10vh" }}>
+                                <button
+                                    onClick={editSubject}
+                                    className={`btn btn--form ${styles.btnadd}`}
+                                >
+                                    Edytuj przedmiot
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {selectedCategory === "AddSubject" && (
                     <div>
                         <h2 >Dodaj przedmiot</h2>
@@ -530,21 +886,21 @@ export default function createRec() {
                             />
                             <label>Początek wybierania preferencji</label>
                             <input
-                                type="date"
+                                type="datetime-local"
                                 value={prefDate}
                                 onChange={(e) => setPrefDate(e.target.value)}
                                 className="login-input-wrapper"
                             />
                             <label>Koniec wybierania preferencji</label>
                             <input
-                                type="date"
+                                type="datetime-local"
                                 value={prefDateEnd}
                                 onChange={(e) => setPrefDateEnd(e.target.value)}
                                 className="login-input-wrapper"
                             />
                             <label>Początek harmonogramu</label>
                             <input
-                                type="date"
+                                type="datetime-local"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
                                 className="login-input-wrapper"
@@ -552,7 +908,7 @@ export default function createRec() {
 
                             <label>Koniec harmonogramu</label>
                             <input
-                                type="date"
+                                type="datetime-local"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
                                 className="login-input-wrapper"

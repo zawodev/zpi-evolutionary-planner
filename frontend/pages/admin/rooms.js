@@ -103,11 +103,12 @@ export default function Rooms() {
 
     const addTag = async () => {
         const token = localStorage.getItem("access_token");
+        const org = localStorage.getItem("org_id");
         try {
             const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/tags/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ tag_name: tagName })
+                body: JSON.stringify({ tag_name: tagName, organization: org })
             });
             if (response.ok) {
                 const data = await response.json();

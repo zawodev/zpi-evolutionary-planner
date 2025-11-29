@@ -7,7 +7,7 @@ export default function SingleUser({ user }) {
     const [surName, setSName] = useState(user.last_name);
     const [userEmail, setUserEmail] = useState(user.email);
     const [userRole, setUserRole] = useState(user.role);
-
+    const [userWeight, setUserWeight] = useState(user.weight);
     const [userGroups, setUgroups] = useState([]);
     const [groups, setGroups] = useState([]);
 
@@ -72,7 +72,14 @@ export default function SingleUser({ user }) {
         }
     }
     const editUser = async () => {
-        if (!firstName || !surName || !userEmail) return;
+        if (!firstName || !surName || !userEmail) {
+            openModal("Dodaj brakujące pola");
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+            openModal("Niepoprawny adres email");
+            return;
+        }
         const token = localStorage.getItem("access_token");
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/update/`, {
@@ -83,7 +90,8 @@ export default function SingleUser({ user }) {
                     email: userEmail,
                     first_name: firstName,
                     last_name: surName,
-                    role: userRole
+                    role: userRole,
+                    weight: userWeight
                 })
             });
             if (response.ok) {
@@ -177,6 +185,35 @@ export default function SingleUser({ user }) {
                             }`}
                     >
                         Sekretariat
+                    </button>
+                </div>
+                <h3>Waga użytkownika:{userWeight} (użytkownicy z większą wagą dostają lepsze plany)</h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button type="button" onClick={() => {
+                        setUserWeight((prev) => {
+                            const newVal = parseInt((prev - 1));
+                            return newVal < 1 ? 1 : newVal;
+                        });
+                    }}>
+                        -
+                    </button>
+                    <input
+                        type="range"
+                        min={"1"}
+                        max={"500"}
+                        step={"1"}
+                        value={userWeight}
+                        onChange={(e) => setUserWeight(parseInt(e.target.value))}
+                        className="login-input-wrapper"
+                        style={{ flexGrow: 1 }}
+                    />
+                    <button type="button" onClick={() => {
+                        setUserWeight((prev) => {
+                            const newVal = parseFloat((prev + 1));
+                            return newVal > 100 ? 100 : newVal;
+                        });
+                    }}>
+                        +
                     </button>
                 </div>
                 {userRole === "participant" && groups.length > 0 && (
