@@ -118,12 +118,22 @@ class OfficeCreateUserSerializer(RegisterSerializer):
     - Creator must be office or admin (enforced in view permission).
     - Created user's role must be one of: 'office', 'host', 'participant'.
     - Created user's organization is automatically set to the creator's organization and any provided organization_id is ignored.
+    - Accepts optional 'weight' field copied to user model.
     """
+    weight = serializers.FloatField(required=False)
+
+    class Meta(RegisterSerializer.Meta):
+        fields = RegisterSerializer.Meta.fields + ('weight',)
 
     def validate_role(self, value):
         allowed = {'office', 'host', 'participant'}
         if value not in allowed:
             raise serializers.ValidationError(f"Role must be one of: {', '.join(sorted(allowed))}")
+        return value
+
+    def validate_weight(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Weight must be non-negative")
         return value
 
     def create(self, validated_data):
@@ -139,6 +149,7 @@ class OfficeCreateUserSerializer(RegisterSerializer):
             raise serializers.ValidationError('Creator user has no organization assigned')
 
         role_value = validated_data.get('role', 'participant')
+        weight_value = validated_data.get('weight', None)
 
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -149,6 +160,9 @@ class OfficeCreateUserSerializer(RegisterSerializer):
             password=validated_data['password'],
             organization=creator.organization
         )
+        if weight_value is not None:
+            user.weight = weight_value
+            user.save(update_fields=['weight'])
         return user
 
 
