@@ -47,7 +47,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'organization')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'organization', 'weight')
 
     def get_organization(self, obj):
         if obj.organization:
