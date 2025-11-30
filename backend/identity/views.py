@@ -15,7 +15,6 @@ import secrets
 from django.conf import settings
 import json
 from scheduling.serializers import MeetingDetailSerializer, RecruitmentSerializer
-from datetime import datetime
 
 User = get_user_model()
 
@@ -281,45 +280,17 @@ class SetUserPasswordView(APIView):
 
 
 class ActiveMeetingsByUserView(APIView):
-    """Zwraca meetingi użytkownika (host lub participant) z aktywnych rekrutacji, w zadanym przedziale dat.
+    """Return all meetings (with full nested objects) where the given user is host_user or belongs to the meeting group and recruitment is active.
 
-    Query params (wymagane):
-    - start_date YYYY-MM-DD
-    - end_date YYYY-MM-DD
-    Jeśli brak któregoś z parametrów -> 400.
+    Response now contains nested recruitment, room, group, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
     """
     permission_classes = [permissions.IsAuthenticated]
 
-    def _parse_date(self, value, name):
-        if not value:
-            raise ValueError(f'Missing {name}')
-        try:
-            return datetime.fromisoformat(value).date()
-        except ValueError:
-            raise ValueError(f'Invalid {name} format, expected YYYY-MM-DD')
-
     def get(self, request, user_pk):
-        user = get_object_or_404(User, pk=user_pk)
-        start_raw = request.query_params.get('start_date')
-        end_raw = request.query_params.get('end_date')
-        try:
-            start_date = self._parse_date(start_raw, 'start_date')
-            end_date = self._parse_date(end_raw, 'end_date')
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        if end_date < start_date:
-            return Response({'detail': 'end_date earlier than start_date'}, status=status.HTTP_400_BAD_REQUEST)
-
-        qs = get_active_meetings_for_user(user, start_date=start_date, end_date=end_date)
+        get_object_or_404(User, pk=user_pk)
+        qs = get_active_meetings_for_user(user_pk)
         serializer = MeetingDetailSerializer(qs, many=True)
-        return Response({
-            'user_id': str(user.id),
-            'role': user.role,
-            'start_date': start_date.isoformat(),
-            'end_date': end_date.isoformat(),
-            'count': len(serializer.data),
-            'results': serializer.data
-        })
+        return Response(serializer.data)
 
 
 class UserRecruitmentAddView(APIView):

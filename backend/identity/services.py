@@ -1,52 +1,34 @@
-from typing import Union, Optional
-from datetime import date
+from typing import Union
 from django.db.models import QuerySet, Q
 from .models import User, Group
 
 
-def get_active_meetings_for_user(user_or_id: Union[User, int, str], start_date: Optional[date] = None, end_date: Optional[date] = None) -> QuerySet:
+def get_active_meetings_for_user(user_or_id: Union[User, int, str]) -> QuerySet:
     """
-    Zwraca QuerySet Meeting dla użytkownika (host lub participant) ze wszystkich rekrutacji ze statusem 'active'
-    które nachodzą na podany zakres czasowy.
+    Returns a QuerySet of all Meeting objects where the given user (instance or PK)
+    is either the host_user (via subject_group) OR belongs to the Group assigned to the Meeting,
+    and recruitment.plan_status == 'active'.
 
-    Zakres czasowy:
-    - Rekrutacja uwzględniona jeśli (plan_start_date <= end_date lub plan_start_date jest NULL) AND
-      (expiration_date >= start_date lub expiration_date jest NULL).
-    - Jeśli start_date / end_date nie są podane, zwraca wszystkie aktywne meetingi bez ograniczenia datami.
-
-    Parametry:
-    - user_or_id: User albo jego PK
-    - start_date, end_date: obiekty date (opcjonalne)
+    The function accepts a User instance or a user PK (UUID/string) and returns
+    meetings ordered by day_of_week and start_hour.
     """
     from scheduling.models import Meeting
     user_id = user_or_id.pk if hasattr(user_or_id, 'pk') else user_or_id
 
+    # Get groups the user belongs to
     user_groups = Group.objects.filter(group_users__user_id=user_id)
-
-    base_filter = Q(recruitment__plan_status='active') & (
-        Q(subject_group__host_user_id=user_id) | Q(group__in=user_groups)
-    )
-
-    if start_date and end_date:
-        date_overlap = (
-            (Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)) &
-            (Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True))
-        )
-        base_filter &= date_overlap
-    elif start_date and not end_date:
-        date_overlap = Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True)
-        base_filter &= date_overlap
-    elif end_date and not start_date:
-        date_overlap = Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)
-        base_filter &= date_overlap
 
     qs = (
         Meeting.objects
-        .filter(base_filter)
+        .filter(
+            Q(subject_group__host_user_id=user_id) |
+            Q(group__in=user_groups),
+            recruitment__plan_status='active'
+        )
         .select_related(
             'recruitment', 'subject_group__subject', 'subject_group__host_user', 'room', 'group'
         )
-        .order_by('recruitment__recruitment_name','day_of_cycle','start_timeslot')
+        .order_by('day_of_week', 'start_timeslot')
         .distinct()
     )
     return qs
