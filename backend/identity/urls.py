@@ -29,6 +29,7 @@ from .views import (
     SubjectsByUserView,
     UsersBySubjectView,
     BulkAddGroupUsersToRecruitmentView,
+    BulkAddGroupUsersToSubjectView,
 )
 
 urlpatterns = [
@@ -65,6 +66,8 @@ urlpatterns = [
 
     path('user-subjects/add/', UserSubjectsAddView.as_view(), name='user-subject-add'),
     path('user-subjects/delete/', UserSubjectsDeleteView.as_view(), name='user-subject-delete'),
+    path('user-subjects/bulk_add_group/', BulkAddGroupUsersToSubjectView.as_view(), name='user-subjects-bulk-add-group'),
+
     path('users/<user_pk>/subjects/', SubjectsByUserView.as_view(), name='subjects-by-user'),
     path('subjects/<uuid:subject_pk>/users/', UsersBySubjectView.as_view(), name='users-by-subject'),
 ]
