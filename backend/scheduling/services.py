@@ -1,5 +1,5 @@
-from typing import Union, Optional
-from django.db.models import QuerySet, Q
+from typing import Union
+from django.db.models import QuerySet
 from django.utils import timezone
 from django.db import transaction, models
 from .models import Meeting, Room, Recruitment, Subject, SubjectGroup, RoomTag, Tag, SubjectTag
@@ -10,44 +10,20 @@ from identity.models import UserGroup, UserSubjects
 User = get_user_model()
 
 
-def get_active_meetings_for_room(room_or_id: Union[Room, str, int], start_date: Optional[timezone.datetime] = None, end_date: Optional[timezone.datetime] = None) -> QuerySet:
+def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
     """
     Return a QuerySet of Meeting objects for the given room (instance or PK)
-    where the related recruitment has plan_status == 'active' and overlaps the provided time window.
-
-    Time window overlap rules (same as identity.services.get_active_meetings_for_user):
-    - Include recruitment if (plan_start_date <= end_date OR plan_start_date is NULL) AND
-      (expiration_date >= start_date OR expiration_date is NULL).
-    - If no start/end provided, return all active meetings without date limitation.
-
-    Parameters:
-    - room_or_id: Room instance or primary key
-    - start_date, end_date: optional date/datetime bounds
+    where the related recruitment has plan_status == 'active'.
 
     Notes:
-    - Sorted by recruitment name, day_of_cycle, start_timeslot for consistency.
+    - Sorting is by day_of_week then start_timeslot to reflect the current Meeting model.
     - select_related includes recruitment, room, subject_group (with subject and host_user), and group.
     """
     room_id = room_or_id.pk if hasattr(room_or_id, 'pk') else room_or_id
 
-    base_filter = Q(room_id=room_id) & Q(recruitment__plan_status='active')
-
-    if start_date and end_date:
-        date_overlap = (
-            (Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)) &
-            (Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True))
-        )
-        base_filter &= date_overlap
-    elif start_date and not end_date:
-        date_overlap = Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True)
-        base_filter &= date_overlap
-    elif end_date and not start_date:
-        date_overlap = Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)
-        base_filter &= date_overlap
-
     qs = (
         Meeting.objects
-        .filter(base_filter)
+        .filter(room_id=room_id, recruitment__plan_status='active')
         .select_related(
             'recruitment',
             'room',
@@ -56,8 +32,7 @@ def get_active_meetings_for_room(room_or_id: Union[Room, str, int], start_date: 
             'subject_group__subject',
             'subject_group__host_user',
         )
-        .order_by('recruitment__recruitment_name','day_of_cycle', 'start_timeslot')
-        .distinct()
+        .order_by('day_of_week', 'start_timeslot')
     )
     return qs
 
@@ -248,30 +223,9 @@ def prepare_optimization_constraints(recruitment: Recruitment):
             return []
         return [i for i in range(first_idx, last_idx + 1)]
 
-    # Zbierz wszystkie spotkania w oknie czasowym bieżącej rekrutacji, dla całej organizacji
-    window_start = getattr(recruitment, 'plan_start_date', None)
-    window_end = getattr(recruitment, 'expiration_date', None)
-
-    meetings_filter = {
-        'recruitment__organization': recruitment.organization,
-    }
-    # jeśli mamy zdefiniowane okno czasowe, uwzględniamy rekrutacje, które z nim się przecinają
-    if window_start and window_end:
-        meetings_filter.update({
-            'recruitment__plan_start_date__lte': window_end,
-            'recruitment__expiration_date__gte': window_start,
-        })
-    elif window_start and not window_end:
-        meetings_filter.update({
-            'recruitment__expiration_date__gte': window_start,
-        })
-    elif window_end and not window_start:
-        meetings_filter.update({
-            'recruitment__plan_start_date__lte': window_end,
-        })
-    # pobieramy spotkania niezależnie od tego, czy należą do bieżącej rekrutacji – liczy się nachodzenie w czasie
-    all_meetings = Meeting.objects.filter(**meetings_filter).select_related(
-        'room', 'group', 'subject_group__subject', 'subject_group__host_user', 'recruitment'
+    # Zbierz wszystkie spotkania rekrutacji
+    all_meetings = Meeting.objects.filter(recruitment=recruitment).select_related(
+        'room', 'group', 'subject_group__subject', 'subject_group__host_user'
     )
 
     # Preindeksowanie
@@ -279,7 +233,7 @@ def prepare_optimization_constraints(recruitment: Recruitment):
     teacher_unavail_map = {t.id: set() for t in teachers}
     student_unavail_map = {s.id: set() for s in students}
 
-    # Grupy uczestników per user oraz grupy -> studenci (niezależnie od rekrutacji)
+    # Grupy uczestników per user oraz grupy -> studenci
     user_groups_map = {}
     group_students_map = {}
     for ug in UserGroup.objects.filter(user__in=students).select_related('user', 'group'):
@@ -288,14 +242,14 @@ def prepare_optimization_constraints(recruitment: Recruitment):
 
     for m in all_meetings:
         m_indices = meeting_block_indices(m)
-        # room – tylko jeśli to pokój z listy rooms (tej organizacji)
+        # room
         if m.room_id in room_unavail_map:
             room_unavail_map[m.room_id].update(m_indices)
-        # teacher (host) – jeśli host jest w naszym zbiorze teachers
+        # teacher (host)
         host_id = m.subject_group.host_user_id
         if host_id in teacher_unavail_map:
             teacher_unavail_map[host_id].update(m_indices)
-        # students: wszyscy należący do grupy – jeśli są w naszym zbiorze students
+        # students: wszyscy należący do grupy
         group_id = m.group_id
         for stu_id in group_students_map.get(group_id, ()):  # szybkie rozwinięcie bez iteracji po wszystkich studentach
             student_unavail_map[stu_id].update(m_indices)
