@@ -210,6 +210,7 @@ export default function Rooms() {
                             <div className="login-input-wrapper">
                                 <input
                                     type="number"
+                                    min={0}
                                     placeholder="Pojemność pokoju"
                                     className="input input--login"
                                     value={capacity}
