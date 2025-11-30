@@ -1,6 +1,6 @@
 /* frontend/evoplanner_frontend/pages/plan.js */
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Filter, Calendar, Clock, MapPin, BookOpen, Users, FlaskConical, MessageCircle, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Calendar, Clock, MapPin, BookOpen, Users, FlaskConical, MessageCircle, FileText, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 // --- Helper Functions ---
@@ -362,6 +362,12 @@ const ScheduleItem = ({ item }) => {
             <span>{item.group}</span>
           </div>
         )}
+        {item.hostName && (
+          <div className="schedule-item-detail-row">
+            <User size={12} />
+            <span>{item.hostName}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -480,17 +486,17 @@ export default function PlanUzytkownika() {
       const dateStr = eventDate ? eventDate.toISOString().split('T')[0] : 'Unknown';
 
 
-      const recruitment = recruitments.find(r => r.recruitment_id === meeting.recruitment);
+      const recruitment = recruitments.find(r => r.recruitment_id === meeting.recruitment.recruitment_id);
       const dayStartMinutes = parseStartTime(recruitment?.day_start_time);
 
       const startT = timeslotToTime(meeting.start_timeslot, dayStartMinutes);
 
-      const durationBlocks = meeting.duration || 6; 
+      const durationBlocks = meeting.duration || meeting.subject_group?.subject?.duration_blocks || 6; 
       const endT = timeslotToTime(meeting.start_timeslot + durationBlocks, dayStartMinutes);
 
       let eventType = 'Zajęcia';
-      if (meeting.group_name) {
-        const groupLower = meeting.group_name.toLowerCase();
+      if (meeting.group?.group_name) {
+        const groupLower = meeting.group.group_name.toLowerCase();
         if (groupLower.includes('wykład') || groupLower.includes('wyklad')) {
           eventType = 'Wykład';
         } else if (groupLower.includes('lab')) {
@@ -511,16 +517,27 @@ export default function PlanUzytkownika() {
           : meeting.room.room_number || 'TBA';
       }
 
+      // Extract host name
+      let hostName = null;
+      if (meeting.subject_group?.host_user) {
+        const host = meeting.subject_group.host_user;
+        hostName = `${host.first_name} ${host.last_name}`.trim() || host.username;
+      }
+
+      // Extract subject name
+      const subjectName = meeting.subject_group?.subject?.subject_name || 'Zajęcia';
+
       return {
         id: meeting.meeting_id,
-        recruitmentId: meeting.recruitment,
-        title: meeting.subject_name || 'Zajęcia',
+        recruitmentId: meeting.recruitment.recruitment_id,
+        title: subjectName,
         type: eventType,
-        group: meeting.group_name || '',
+        group: meeting.group?.group_name || '',
         room: roomDisplay,
         date: dateStr,
         startTime: startT,
-        endTime: endT
+        endTime: endT,
+        hostName: hostName
       };
     });
   }, [meetings, weekDays, recruitments]);
