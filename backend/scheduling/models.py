@@ -110,7 +110,7 @@ class Recruitment(models.Model):
     )
     plan_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     default_token_count = models.IntegerField(default=3) # NOT USED ANYMORE
-    max_round_execution_time = models.IntegerField(default=300) # in seconds
+    max_round_execution_time = models.IntegerField(default=30) # in seconds
 
     class Meta:
         db_table = 'scheduling_recruitments'

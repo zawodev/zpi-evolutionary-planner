@@ -9,6 +9,7 @@ urlpatterns = [
     path('jobs/latest/', views.LatestOptimizationJobView.as_view(), name='job-latest'),
     path('jobs/recruitment/<uuid:recruitment_id>/latest/', views.LatestOptimizationJobView.as_view(), name='job-latest-recruitment'),
     path('jobs/recruitment/<uuid:recruitment_id>/status/', views.recruitment_optimization_status, name='recruitment-optimization-status'),
+    path('jobs/recruitment/<uuid:recruitment_id>/force/', views.force_recruitment_optimization, name='force-recruitment-optimization'),
     
     path('jobs/<uuid:id>/', views.OptimizationJobDetailView.as_view(), name='job-detail'),
     path('jobs/<uuid:job_id>/cancel/', views.cancel_job, name='job-cancel'),
