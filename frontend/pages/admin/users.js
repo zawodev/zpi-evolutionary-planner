@@ -23,7 +23,8 @@ export default function Users() {
     const [groupCat, setGroupCat] = useState("");
     const [uGroups, setUGroups] = useState([]);
 
-
+    const isValidEmail = (email) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     //stupid fucking state
     const [user, setUser] = useState("");
 
@@ -75,7 +76,8 @@ export default function Users() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setGroups(data);
+                const filteredData = data.filter(g => g.category!=='meeting')
+                setGroups(filteredData);
             }
         } catch (error) {
             console.log(error)
@@ -265,6 +267,7 @@ export default function Users() {
                                         type="text"
                                         placeholder="Imię"
                                         className="input input--login"
+                                        style={!firstName ? { border: "2px solid red" } : {}}
                                         value={firstName}
                                         onChange={(e) => setFName(e.target.value)}
                                     />
@@ -274,6 +277,7 @@ export default function Users() {
                                         type="text"
                                         placeholder="Nazwisko"
                                         className="input input--login"
+                                        style={!surName ? { border: "2px solid red" } : {}}
                                         value={surName}
                                         onChange={(e) => setSName(e.target.value)}
                                     />
@@ -284,6 +288,7 @@ export default function Users() {
                                     type="email"
                                     placeholder="Adres email"
                                     className="input input--login"
+                                    style={userEmail && !isValidEmail(userEmail) ? { border: "2px solid red" } : {}}
                                     value={userEmail}
                                     onChange={(e) => setUserEmail(e.target.value)}
                                 />
@@ -449,6 +454,7 @@ export default function Users() {
                                     type="text"
                                     placeholder="Nazwa grupy"
                                     className="input input--login"
+                                    style={!groupName ? { border: "2px solid red" } : {}}
                                     value={groupName}
                                     onChange={(e) => setGroupName(e.target.value)}
                                 />
@@ -456,6 +462,7 @@ export default function Users() {
                                     type="text"
                                     placeholder="Kategoria grupy"
                                     className="input input--login"
+                                    style={!groupCat ? { border: "2px solid red" } : {}}
                                     value={groupCat}
                                     onChange={(e) => setGroupCat(e.target.value)}
                                 />

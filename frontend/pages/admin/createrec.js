@@ -8,11 +8,11 @@ export default function createRec() {
     //Subject
     const [subjects, setSubjects] = useState([]);
     const [subName, setSubName] = useState("");
-    const [capacity, setCapacity] = useState("");
-    const [duration, setDuration] = useState("");
-    const [minParp, setParp] = useState("");
-    const [breakB, setBreakB] = useState("");
-    const [breakA, setBreakA] = useState("");
+    const [capacity, setCapacity] = useState(30);
+    const [duration, setDuration] = useState(30);
+    const [minParp, setParp] = useState(5);
+    const [breakB, setBreakB] = useState(0);
+    const [breakA, setBreakA] = useState(15);
     //susbset of tags, hosts and groups for subject
     const [subTags, setSubTags] = useState([]);
     const [subTeachers, setTeachers] = useState([]);
@@ -108,7 +108,8 @@ export default function createRec() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setGroups(data);
+                const grupy = data.filter(g => g.category !== 'meeting');
+                setGroups(grupy);
             }
         } catch (error) {
             console.log(error)
@@ -151,7 +152,7 @@ export default function createRec() {
     const addHosttoSub = async (subject_id, id) => {
         const token = localStorage.getItem("access_token");
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subject-groups/', {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subject-groups/create-with-recruitment/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
@@ -183,6 +184,9 @@ export default function createRec() {
         }
     }
     const createSub = async (rec_id, name, part, cap, dur, tags, hosts, break_before, break_after) => {
+        const dur_blocks = parseInt(dur) / 15;
+        const bb = parseInt(break_before) / 15;
+        const ba = parseInt(break_after) / 15;
         const token = localStorage.getItem("access_token");
         console.log(rec_id)
         try {
@@ -191,12 +195,12 @@ export default function createRec() {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                     subject_name: name,
-                    duration_blocks: dur,
+                    duration_blocks: dur_blocks,
                     capacity: cap,
                     min_students: part,
                     recruitment: rec_id,
-                    break_before: break_before,
-                    break_after: break_after
+                    break_before: bb,
+                    break_after: ba
                 })
             });
             if (response.ok) {
@@ -260,10 +264,22 @@ export default function createRec() {
             if (response.ok) {
                 const data = await response.json();
                 console.log(subjects);
-                subjects.forEach(sub => {
-                    createSub(data.recruitment_id, sub.subject_name, sub.min_students, sub.capacity, sub.duration, sub.tags, sub.hosts, sub.break_before, sub.break_after);
-                });
-                recGroups.forEach(g => addGrouptoSub(data.recruitment_id, g.group_id));
+                for (const sub of subjects) {
+                    await createSub(
+                        data.recruitment_id,
+                        sub.subject_name,
+                        sub.min_students,
+                        sub.capacity,
+                        sub.duration,
+                        sub.tags,
+                        sub.hosts,
+                        sub.break_before,
+                        sub.break_after
+                    );
+                }
+                for (const g of recGroups) {
+                    await addGrouptoSub(data.recruitment_id, g.group_id);
+                }
                 openModal(`Dodano rekrutacje ${data.recruitment_name}`);
                 fetchRecs();
             }
@@ -284,11 +300,8 @@ export default function createRec() {
         setSubTags(newst);
     }
     const addSubTeach = (host_id) => {
-        const repeat = subTeachers.some((t) => t.id === host_id);
-        if (!repeat) {
-            const host = hosts.find(h => h.id === host_id)
-            setTeachers([...subTeachers, host]);
-        }
+        const host = hosts.find(h => h.id === host_id)
+        setTeachers([...subTeachers, host]);
     }
     const deleteSubTeach = (host_id) => {
         const newt = subTeachers.filter(obj => obj.id !== host_id);
@@ -358,9 +371,9 @@ export default function createRec() {
         setSubTags([]);
         setTeachers([]);
         setSubGroups([]);
-        setCapacity("");
-        setParp("");
-        setDuration("");
+        setCapacity(30);
+        setParp(5);
+        setDuration(30);
         console.log(subjects);
     }
     const copyRec = (rec_id) => {
@@ -386,7 +399,7 @@ export default function createRec() {
             break_after: s.break_after
         }));
         setSubjects(newSub);
-        openModal(`Skopiowano ustawienia z ${rec.recruitment_name}. Dodaj czasy rozpoczęcia w zakładce Stwórz rekrutacje`);
+        openModal(`Skopiowano ustawienia z ${rec.recruitment_name}. Dodaj czasy rozpoczęcia w zakładce Stwórz rekrutacje i prowadzących w Zarządzaj przedmiotami`);
     }
     const editSubject = () => {
         if (subTeachers.length === 0) {
@@ -396,13 +409,13 @@ export default function createRec() {
         const newSub = {
             subject_name: subName,
             capacity: capacity,
-            duration: duration,
+            duration: (parseInt(duration) / 15),
             tags: subTags,
             min_students: minParp,
             hosts: subTeachers,
             groups: subGroups,
-            break_before: breakB,
-            break_after: breakA
+            break_before: (parseInt(breakB) / 15),
+            break_after: (parseInt(breakA) / 15)
         }
         setSubjects(subjects.map((s, i) => {
             if (i === editIndex) {
@@ -495,7 +508,7 @@ export default function createRec() {
                                     <tr>
                                         <th>Przedmiot</th>
                                         <th>Maksymalna liczba uczestników</th>
-                                        <th>Długość (15 minutowe bloki)</th>
+                                        <th>Czas trwania</th>
                                         <th>Wymagane cechy sali</th>
                                         <th>Minimum uczestników</th>
                                         <th>Prowadzący</th>
@@ -565,8 +578,10 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Ile uczestników maksymalnie w jednej grupie</h3>
                                 <input
                                     type="number"
+                                    min={0}
                                     placeholder="Ile uczestników maksymalnie w jednej grupie"
                                     className="input input--login"
                                     value={capacity}
@@ -574,17 +589,26 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Ile czasu trwa spotkanie (w minutach)</h3>
                                 <input
                                     type="number"
-                                    placeholder="Ile 15 minutowych 'bloków trwa spotkanie"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Ile czasu trwa spotkanie"
                                     className="input input--login"
                                     value={duration}
-                                    onChange={(e) => setDuration(e.target.value)}
+                                    onChange={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setDuration(rounded);
+                                    }}
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Minimalna liczba uczestników do stworzenia grupy</h3>
                                 <input
                                     type="number"
+                                    min={0}
                                     placeholder="Minimalna liczba uczestników do stworzenia grupy"
                                     className="input input--login"
                                     value={minParp}
@@ -592,21 +616,35 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Czas przerwy przed</h3>
                                 <input
                                     type="number"
-                                    placeholder="Liczba bloków przerwy przed"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Czas przerwy przed"
                                     className="input input--login"
                                     value={breakB}
-                                    onChange={(e) => setBreakB(e.target.value)}
+                                    onChange={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setBreakB(rounded);
+                                    }}
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Czas przerwy po</h3>
                                 <input
                                     type="number"
-                                    placeholder="Liczba bloków przerwy po"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Czas przerwy po"
                                     className="input input--login"
                                     value={breakA}
-                                    onChange={(e) => setBreakA(e.target.value)}
+                                    onChange={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setBreakA(rounded);
+                                    }}
                                 />
                             </div>
                             {tags.length > 0 && (
@@ -715,8 +753,10 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Ile uczestników maksymalnie w jednej grupie</h3>
                                 <input
                                     type="number"
+                                    min={0}
                                     placeholder="Ile uczestników maksymalnie w jednej grupie"
                                     className="input input--login"
                                     value={capacity}
@@ -724,17 +764,29 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Ile czasu trwa spotkanie (w minutach)</h3>
                                 <input
                                     type="number"
-                                    placeholder="Ile 15 minutowych 'bloków trwa spotkanie"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Ile czasu trwa spotkanie"
                                     className="input input--login"
                                     value={duration}
-                                    onChange={(e) => setDuration(e.target.value)}
+                                    onChange={(e) => {
+                                        setDuration(e.target.value);
+                                    }}
+                                    onBlur={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setDuration(rounded);
+                                    }}
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Minimalna liczba uczestników do stworzenia grupy</h3>
                                 <input
                                     type="number"
+                                    min={0}
                                     placeholder="Minimalna liczba uczestników do stworzenia grupy"
                                     className="input input--login"
                                     value={minParp}
@@ -742,21 +794,41 @@ export default function createRec() {
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Czas przerwy przed</h3>
                                 <input
                                     type="number"
-                                    placeholder="Liczba bloków przerwy przed"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Czas przerwy przed"
                                     className="input input--login"
                                     value={breakB}
-                                    onChange={(e) => setBreakB(e.target.value)}
+                                    onChange={(e) => {
+                                        setBreakB(e.target.value);
+                                    }}
+                                    onBlur={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setBreakB(rounded);
+                                    }}
                                 />
                             </div>
                             <div className="login-input-wrapper">
+                                <h3>Czas przerwy po</h3>
                                 <input
                                     type="number"
-                                    placeholder="Liczba bloków przerwy po"
+                                    min={0}
+                                    step={15}
+                                    placeholder="Czas przerwy po"
                                     className="input input--login"
                                     value={breakA}
-                                    onChange={(e) => setBreakA(e.target.value)}
+                                    onChange={(e) => {
+                                        setBreakA(e.target.value);
+                                    }}
+                                    onBlur={(e) => {
+                                        const raw = Number(e.target.value);
+                                        const rounded = Math.round(raw / 15) * 15;
+                                        setBreakA(rounded);
+                                    }}
                                 />
                             </div>
                             {tags.length > 0 && (
