@@ -485,14 +485,9 @@ export default function PlanUzytkownika() {
       const eventDate = weekDays[meeting.day_of_week];
       const dateStr = eventDate ? eventDate.toISOString().split('T')[0] : 'Unknown';
 
-
-      const recruitment = recruitments.find(r => r.recruitment_id === meeting.recruitment.recruitment_id);
-      const dayStartMinutes = parseStartTime(recruitment?.day_start_time);
-
-      const startT = timeslotToTime(meeting.start_timeslot, dayStartMinutes);
-
-      const durationBlocks = meeting.duration || meeting.subject_group?.subject?.duration_blocks || 6; 
-      const endT = timeslotToTime(meeting.start_timeslot + durationBlocks, dayStartMinutes);
+      // Use start_time and end_time directly from the API
+      const startT = meeting.start_time ? meeting.start_time.substring(0, 5) : '00:00';
+      const endT = meeting.end_time ? meeting.end_time.substring(0, 5) : '00:15';
 
       let eventType = 'Zajęcia';
       if (meeting.group?.group_name) {
