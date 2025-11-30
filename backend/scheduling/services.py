@@ -1,5 +1,5 @@
-from typing import Union
-from django.db.models import QuerySet
+from typing import Union, Optional
+from django.db.models import QuerySet, Q
 from django.utils import timezone
 from django.db import transaction, models
 from .models import Meeting, Room, Recruitment, Subject, SubjectGroup, RoomTag, Tag, SubjectTag
@@ -10,20 +10,44 @@ from identity.models import UserGroup, UserSubjects
 User = get_user_model()
 
 
-def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
+def get_active_meetings_for_room(room_or_id: Union[Room, str, int], start_date: Optional[timezone.datetime] = None, end_date: Optional[timezone.datetime] = None) -> QuerySet:
     """
     Return a QuerySet of Meeting objects for the given room (instance or PK)
-    where the related recruitment has plan_status == 'active'.
+    where the related recruitment has plan_status == 'active' and overlaps the provided time window.
+
+    Time window overlap rules (same as identity.services.get_active_meetings_for_user):
+    - Include recruitment if (plan_start_date <= end_date OR plan_start_date is NULL) AND
+      (expiration_date >= start_date OR expiration_date is NULL).
+    - If no start/end provided, return all active meetings without date limitation.
+
+    Parameters:
+    - room_or_id: Room instance or primary key
+    - start_date, end_date: optional date/datetime bounds
 
     Notes:
-    - Sorting is by day_of_week then start_timeslot to reflect the current Meeting model.
+    - Sorted by recruitment name, day_of_cycle, start_timeslot for consistency.
     - select_related includes recruitment, room, subject_group (with subject and host_user), and group.
     """
     room_id = room_or_id.pk if hasattr(room_or_id, 'pk') else room_or_id
 
+    base_filter = Q(room_id=room_id) & Q(recruitment__plan_status='active')
+
+    if start_date and end_date:
+        date_overlap = (
+            (Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)) &
+            (Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True))
+        )
+        base_filter &= date_overlap
+    elif start_date and not end_date:
+        date_overlap = Q(recruitment__expiration_date__gte=start_date) | Q(recruitment__expiration_date__isnull=True)
+        base_filter &= date_overlap
+    elif end_date and not start_date:
+        date_overlap = Q(recruitment__plan_start_date__lte=end_date) | Q(recruitment__plan_start_date__isnull=True)
+        base_filter &= date_overlap
+
     qs = (
         Meeting.objects
-        .filter(room_id=room_id, recruitment__plan_status='active')
+        .filter(base_filter)
         .select_related(
             'recruitment',
             'room',
@@ -32,7 +56,8 @@ def get_active_meetings_for_room(room_or_id: Union[Room, str, int]) -> QuerySet:
             'subject_group__subject',
             'subject_group__host_user',
         )
-        .order_by('day_of_week', 'start_timeslot')
+        .order_by('recruitment__recruitment_name','day_of_cycle', 'start_timeslot')
+        .distinct()
     )
     return qs
 
