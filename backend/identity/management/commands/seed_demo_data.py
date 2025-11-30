@@ -26,6 +26,32 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.NOTICE('Seeding demo data...'))
 
+        # Ensure superuser 'admin' with password 'admin' exists for demo access
+        admin_user, created = User.objects.get_or_create(
+            username='admin',
+            defaults={
+                'email': 'admin@example.com',
+                'first_name': 'Admin',
+                'last_name': 'User',
+                'is_staff': True,
+                'is_superuser': True,
+                'role': 'admin' if hasattr(User, 'role') else None,
+            }
+        )
+        # Guarantee flags and password regardless of prior existence (demo convenience)
+        needs_save = False
+        if not getattr(admin_user, 'is_staff', False):
+            admin_user.is_staff = True; needs_save = True
+        if not getattr(admin_user, 'is_superuser', False):
+            admin_user.is_superuser = True; needs_save = True
+        if hasattr(admin_user, 'role') and getattr(admin_user, 'role', None) != 'admin':
+            admin_user.role = 'admin'; needs_save = True
+        # Always set the demo password
+        admin_user.set_password('admin'); needs_save = True
+        if needs_save:
+            admin_user.save()
+        self.stdout.write(self.style.SUCCESS("Superuser ensured: username='admin', password='admin'"))
+
         # 1) Organizations
         org_alpha, _ = Organization.objects.get_or_create(organization_name='Demo Org Alpha')
         org_beta, _ = Organization.objects.get_or_create(organization_name='Demo Org Beta')
@@ -126,9 +152,9 @@ class Command(BaseCommand):
                 rec.save(update_fields=['plan_status'])
             return rec
 
-        rec_alpha_active = ensure_recruitment(org_alpha, 'Alpha Spring Recruitment', 'active')
-        rec_alpha_draft = ensure_recruitment(org_alpha, 'Alpha Draft Recruitment', 'draft')
-        rec_beta_active = ensure_recruitment(org_beta, 'Beta Spring Recruitment', 'active')
+        rec_alpha_active = ensure_recruitment(org_alpha, 'Alpha Spring Recruitment', 'archived')
+        rec_alpha_draft = ensure_recruitment(org_alpha, 'Alpha Draft Recruitment', 'archived')
+        rec_beta_active = ensure_recruitment(org_beta, 'Beta Spring Recruitment', 'archived')
 
         # 6) Rooms (wymagają organization FK)
         def ensure_room(org, building, number, capacity):
@@ -153,14 +179,14 @@ class Command(BaseCommand):
         ]
 
         # 7) Tags per organization (Tag ma teraz FK do Organization).
-        org_tags = {}
-        for org in [org_alpha, org_beta]:
-            t_proj, _ = Tag.objects.get_or_create(tag_name=f'projector-{org.organization_name.lower().replace(" ", "-")}', organization=org)
-            t_lab, _ = Tag.objects.get_or_create(tag_name=f'lab-{org.organization_name.lower().replace(" ", "-")}', organization=org)
-            org_tags[org] = {'projector': t_proj, 'lab': t_lab}
+        # org_tags = {}
+        # for org in [org_alpha, org_beta]:
+        #     t_proj, _ = Tag.objects.get_or_create(tag_name=f'projector-{org.organization_name.lower().replace(" ", "-")}', organization=org)
+        #     t_lab, _ = Tag.objects.get_or_create(tag_name=f'lab-{org.organization_name.lower().replace(" ", "-")}', organization=org)
+        #     org_tags[org] = {'projector': t_proj, 'lab': t_lab}
 
         # 8) Subjects per recruitment (Subject wymaga recruitment)
-        def ensure_subject(recruitment, name, duration_blocks=4, capacity=3, min_students=1):
+        def ensure_subject(recruitment, name, duration_blocks=4, capacity=30, min_students=1):
             sub, _ = Subject.objects.get_or_create(
                 recruitment=recruitment,
                 subject_name=name,
@@ -213,28 +239,6 @@ class Command(BaseCommand):
         sgroups_alpha_draft = ensure_subject_groups(subjects_alpha_draft, hosts_alpha)
         sgroups_beta_active = ensure_subject_groups(subjects_beta_active, hosts_beta)
 
-        # 10) Meetings
-        def ensure_meetings(recruitment, sgroups, groups, rooms, base_day_start=9):
-            meetings = []
-            for i, sg in enumerate(sgroups):
-                for j, grp in enumerate(groups):
-                    room = rooms[(i + j) % len(rooms)]
-                    mtg, _ = Meeting.objects.get_or_create(
-                        recruitment=recruitment,
-                        subject_group=sg,
-                        group=grp,
-                        room=room,
-                        start_timeslot=base_day_start + j,
-                        day_of_week=(i + j) % 5,
-                        day_of_cycle=(i + j) % 7,
-                    )
-                    meetings.append(mtg)
-            return meetings
-
-        meetings_alpha_active = ensure_meetings(rec_alpha_active, sgroups_alpha_active, groups_alpha, rooms_alpha)
-        meetings_alpha_draft = ensure_meetings(rec_alpha_draft, sgroups_alpha_draft, groups_alpha, rooms_alpha)
-        meetings_beta_active = ensure_meetings(rec_beta_active, sgroups_beta_active, groups_beta, rooms_beta)
-
         # 11) RoomRecruitment relacje (powiązanie pomieszczeń z rekrutacjami w organizacji)
         for room in rooms_alpha:
             for rec in [rec_alpha_active, rec_alpha_draft]:
@@ -244,16 +248,16 @@ class Command(BaseCommand):
 
         # 11b) RoomTag powiązane per organization
         # Każdemu pokojowi w organizacji dodaj dwa tagi tej organizacji.
-        for room in rooms_alpha:
-            tags_for_org = org_tags[org_alpha]
-            RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
-            if hash(str(room.room_id)) % 2 == 0:
-                RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
-        for room in rooms_beta:
-            tags_for_org = org_tags[org_beta]
-            RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
-            if hash(str(room.room_id)) % 2 == 0:
-                RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
+        # for room in rooms_alpha:
+        #     tags_for_org = org_tags[org_alpha]
+        #     RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
+        #     if hash(str(room.room_id)) % 2 == 0:
+        #         RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
+        # for room in rooms_beta:
+        #     tags_for_org = org_tags[org_beta]
+        #     RoomTag.objects.get_or_create(room=room, tag=tags_for_org['projector'])
+        #     if hash(str(room.room_id)) % 2 == 0:
+        #         RoomTag.objects.get_or_create(room=room, tag=tags_for_org['lab'])
 
         # 12) Link users to recruitments (participants + hosts)
         def attach_users_to_recruitment(users, recruitment):
@@ -269,39 +273,60 @@ class Command(BaseCommand):
             return list(SubjectGroup.objects.filter(subject__recruitment=recruitment))
 
         def default_user_preferences(recruitment):
-            timeslots_in_cycle = 7  # zgodnie z dostarczonym wzorcem
+            # Zachowaj strukturę, ale wypełnij losowymi, sensownymi wartościami
+            timeslots_in_cycle = 7  # zgodnie z dotychczasowym wzorcem (liczba pozycji w PreferredTimeslots)
             groups_count = len(subject_groups_for_recruitment(recruitment))
+
+            # Helpery do losowania
+            def rand_pair(a_min, a_max, b_min=None, b_max=None):
+                b_min = a_min if b_min is None else b_min
+                b_max = a_max if b_max is None else b_max
+                return [random.randint(a_min, a_max), random.randint(b_min, b_max)]
+
+            def rand_list(length, lo=-3, hi=8):
+                return [random.randint(lo, hi) for _ in range(length)]
+
             return {
-                'FreeDays': 0,
-                'ShortDays': 0,
-                'UniformDays': 0,
-                'ConcentratedDays': 0,
-                'MinGapsLength': [0, 0],
-                'MaxGapsLength': [0, 0],
-                'MinDayLength': [0, 0],
-                'MaxDayLength': [0, 0],
-                'PreferredDayStartTimeslot': [0, 0],
-                'PreferredDayEndTimeslot': [0, 0],
-                'TagOrder': [0, 0, 0],
-                'PreferredTimeslots': [0 for _ in range(timeslots_in_cycle)],
-                'PreferredGroups': [0 for _ in range(groups_count)],
+                'FreeDays': random.randint(0, 5),
+                'ShortDays': random.randint(0, 3),
+                'UniformDays': random.randint(0, 3),
+                'ConcentratedDays': random.randint(0, 3),
+                'MinGapsLength': rand_pair(0, 2),
+                'MaxGapsLength': rand_pair(0, 6, 0, 6),
+                'MinDayLength': rand_pair(0, 4),
+                'MaxDayLength': rand_pair(6, 10),
+                'PreferredDayStartTimeslot': rand_pair(0, 8),
+                'PreferredDayEndTimeslot': rand_pair(8, 16),
+                'TagOrder': [[]],
+                'PreferredTimeslots': rand_list(timeslots_in_cycle, -3, 8),
+                'PreferredGroups': rand_list(groups_count, -5, 8),
             }
 
         def default_host_preferences(recruitment):
-            timeslots_in_cycle = 7  # zgodnie z dostarczonym wzorcem
+            # Zachowaj strukturę, ale wypełnij losowymi, sensownymi wartościami
+            timeslots_in_cycle = 7  # zgodnie z dotychczasowym wzorcem (liczba pozycji w PreferredTimeslots)
+
+            def rand_pair(a_min, a_max, b_min=None, b_max=None):
+                b_min = a_min if b_min is None else b_min
+                b_max = a_max if b_max is None else b_max
+                return [random.randint(a_min, a_max), random.randint(b_min, b_max)]
+
+            def rand_list(length, lo=-3, hi=8):
+                return [random.randint(lo, hi) for _ in range(length)]
+
             return {
-                'FreeDays': 0,
-                'ShortDays': 0,
-                'UniformDays': 0,
-                'ConcentratedDays': 0,
-                'MinGapsLength': [0, 0],
-                'MaxGapsLength': [0, 0],
-                'MinDayLength': [0, 0],
-                'MaxDayLength': [0, 0],
-                'PreferredDayStartTimeslot': [0, 0],
-                'PreferredDayEndTimeslot': [0, 0],
-                'TagOrder': [0, 0, 0],
-                'PreferredTimeslots': [0 for _ in range(timeslots_in_cycle)],
+                'FreeDays': random.randint(0, 5),
+                'ShortDays': random.randint(0, 3),
+                'UniformDays': random.randint(0, 3),
+                'ConcentratedDays': random.randint(0, 3),
+                'MinGapsLength': rand_pair(0, 2),
+                'MaxGapsLength': rand_pair(0, 6, 0, 6),
+                'MinDayLength': rand_pair(0, 4),
+                'MaxDayLength': rand_pair(6, 10),
+                'PreferredDayStartTimeslot': rand_pair(0, 8),
+                'PreferredDayEndTimeslot': rand_pair(8, 16),
+                'TagOrder': [[]],
+                'PreferredTimeslots': rand_list(timeslots_in_cycle, -3, 8),
             }
 
         for u in participants_alpha[:5]:
@@ -533,14 +558,14 @@ class Command(BaseCommand):
                 UserSubjects.objects.get_or_create(user=user, subject=sub)
 
         # SubjectTag assignments (po stworzeniu tagów i subjects) — per organization
-        def assign_subject_tags(subjects, tags_dict):
-            # tags_dict: {'projector': Tag, 'lab': Tag}
-            for s in subjects:
-                chosen = [tags_dict['projector'], tags_dict['lab']]
-                for t in chosen:
-                    SubjectTag.objects.get_or_create(subject=s, tag=t)
-        assign_subject_tags(subjects_alpha_active, org_tags[org_alpha])
-        assign_subject_tags(subjects_alpha_draft, org_tags[org_alpha])
-        assign_subject_tags(subjects_beta_active, org_tags[org_beta])
+        # def assign_subject_tags(subjects, tags_dict):
+        #     # tags_dict: {'projector': Tag, 'lab': Tag}
+        #     for s in subjects:
+        #         chosen = [tags_dict['projector'], tags_dict['lab']]
+        #         for t in chosen:
+        #             SubjectTag.objects.get_or_create(subject=s, tag=t)
+        # assign_subject_tags(subjects_alpha_active, org_tags[org_alpha])
+        # assign_subject_tags(subjects_alpha_draft, org_tags[org_alpha])
+        # assign_subject_tags(subjects_beta_active, org_tags[org_beta])
 
         self.stdout.write(self.style.SUCCESS('Demo data seeding complete (updated models + preferences + tags per recruitment).'))
