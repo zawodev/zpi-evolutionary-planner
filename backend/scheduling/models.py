@@ -72,6 +72,7 @@ class Recruitment(models.Model):
     STATUS_CHOICES = [
         ('archived', 'Archived'),
         ('draft', 'Draft'),
+        ('queued', 'Queued'),
         ('optimizing', 'Optimizing'),
         ('active', 'Active'),
     ]

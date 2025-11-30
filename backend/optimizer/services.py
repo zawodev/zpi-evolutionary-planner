@@ -557,6 +557,12 @@ class ProgressListener:
 
                 if iteration == 0:
                     job.first_solution = solution_data
+                    # Update recruitment status to optimizing
+                    recruitment = job.recruitment
+                    if recruitment.plan_status == 'queued':
+                        recruitment.plan_status = 'optimizing'
+                        recruitment.save()
+                        logger.info(f"Recruitment {recruitment.recruitment_id} status changed to optimizing")
                 
                 # Check if job is completed (iteration = -1)
                 if iteration == -1:
