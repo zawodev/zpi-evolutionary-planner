@@ -1,26 +1,53 @@
 import { useState } from "react";
 import { useEffect } from "react";
 import styles from '@/styles/components/_admin.module.css';
-
+import MsgModal from "./MsgModal";
+import ConfirmModal from "./ConfirmModal";
 export default function SingleRoom({ room }) {
     const [roomTags, setRoomTags] = useState([]);
-    const [addTags, setATags] = useState([]);
     const [tags, setTags] = useState([]);
     const [roomName, setRoomName] = useState(room.building_name);
     const [roomSubName, setRoomSubName] = useState(room.room_number);
     const [capacity, setCapacity] = useState(room.capacity);
-    const [selectedTag, setSelectedTag] = useState("");
 
+    const [isWarnModalOpen, setIsWarnModalOpen] = useState(false);
+    const openWarnModal = (text) => {
+        SetMM(text)
+        setIsWarnModalOpen(true);
+    }
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [MMessage, SetMM] = useState("");
+    const openModal = (text) => {
+        SetMM(text)
+        setIsModalOpen(true);
+    }
+    const closeModal = () => setIsModalOpen(false);
+    const deleteRoom = async () => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/rooms/${room.room_id}/`, {
+                method: "DELETE",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                setIsWarnModalOpen(false);
+                window.location.reload();
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
     const fetchRoomTags = async () => {
         const token = localStorage.getItem("access_token");
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/rooms/${room.room_id}/tags/`, {
                 method: 'GET',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             });
             if (response.ok) {
-                const data = await response.json();
-                setRoomTags(data);
+                window
             }
         } catch (error) {
             console.log(error)
@@ -43,13 +70,24 @@ export default function SingleRoom({ room }) {
         }
     }
 
-    const addRoomTag = (tag_id) => {
+    const addRoomTag = async (tag_id) => {
         const tag = tags.find((t) => t.tag_id === tag_id);
         const repeat = roomTags.some((t) => t.tag_id === tag_id);
+        const token = localStorage.getItem("access_token");
         if (!repeat) {
-            setATags([...addTags, tag]);
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/room-tags/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ tag: tag_id, room: room.room_id })
+                });
+                if (response.ok) {
+                    fetchRoomTags();
+                }
+            } catch (error) {
+                console.log(error)
+            }
         }
-        setSelectedTag("");
     }
     const editRoom = async () => {
         const token = localStorage.getItem("access_token");
@@ -57,19 +95,29 @@ export default function SingleRoom({ room }) {
             const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/rooms/${room.room_id}/`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body:  JSON.stringify({ building_name: roomName, room_number: roomSubName, capacity: capacity })
+                body: JSON.stringify({ building_name: roomName, room_number: roomSubName, capacity: capacity })
             });
-            for (const aTag of addTags) {
-                const response2 = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/room-tags/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body:  JSON.stringify({ tag: aTag.tag_id, room:room.room_id })
-            });
+            if (response.ok) {
+                openModal("Pokój zmieniony");
             }
         } catch (error) {
             console.log(error)
         }
     };
+    const deleteRoomTag = async (room_tag_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/room-tags/${room_tag_id}/`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                fetchRoomTags();
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
     useEffect(() => {
         fetchRoomTags();
         fetchTags();
@@ -113,7 +161,6 @@ export default function SingleRoom({ room }) {
                             Dodaj cechy pokoju:
                         </label>
                         <select
-                            value={selectedTag}
                             onChange={(e) => addRoomTag(e.target.value)}
                         >
                             <option value="">Dodaj cechę</option>
@@ -128,22 +175,51 @@ export default function SingleRoom({ room }) {
                 <div>
                     <h3>Cechy pokoju</h3>
                     <ul>
-                        {[...addTags,...roomTags].map((g, i) => (
+                        {roomTags.map((g, i) => (
                             <li key={i}>
                                 {g.tag_name}
+                                <button onClick={() => deleteRoomTag(g.tag_id)}>
+                                    Usuń
+                                </button>
                             </li>
                         ))}
                     </ul>
                 </div>
-                <div style={{ width: '100%', display: 'flex', justifyContent: "center", padding: "10vh" }}>
+                <div
+                    style={{
+                        width: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                        gap: "20px",     
+                        padding: "10vh"
+                    }}
+                >
                     <button
                         onClick={editRoom}
                         className={`btn btn--form ${styles.btnadd}`}
                     >
                         Wprowadź zmiany
                     </button>
+
+                    <button
+                        onClick={() => openWarnModal("Czy na pewno chcesz usunąć pokój?")}
+                        className={`btn btn--form ${styles.btnadd}`} style={{ background: "#f24242ff" }}
+                    >
+                        Usuń pokój
+                    </button>
                 </div>
             </div>
+            <MsgModal
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                message={MMessage}
+            />
+            <ConfirmModal
+                isOpen={isWarnModalOpen}
+                onCloseYes={deleteRoom}
+                onCloseNo={() => setIsWarnModalOpen(false)}
+                message={MMessage}
+            />
         </div>
     );
 }

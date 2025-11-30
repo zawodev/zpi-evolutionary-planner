@@ -26,9 +26,9 @@ export default function About() {
             role: 'Backend Developer',
             description: 'Fundament Systemu. Specjalista od bezpiecznej architektury serwerowej. Stworzył wydajną implementację REST API, zapewniając błyskawiczną komunikację między bazą danych a aplikacją.',
             skills: ['Python', 'Django', 'REST API', 'PostgreSQL'],
-            image: '/images/team/kacper.jpg',
-            github: 'https://github.com/YOUR_GITHUB_USERNAME', // todo: podmień te linki na własne
-            linkedin: 'https://linkedin.com/in/YOUR_LINKEDIN' // todo: podmień te linki na własne
+            image: '/images/team/kacper.jpeg',
+            github: 'https://github.com/KaZak9u',
+            linkedin: 'https://www.linkedin.com/in/kacper-zakrzewski-377715300/'
         },
         {
             name: 'Piotr Bonar',
@@ -36,7 +36,7 @@ export default function About() {
             description: 'Twórca doświadczeń. Przekuł skomplikowaną logikę harmonogramów w przejrzysty i intuicyjny interfejs, dbając o każdy detal wizualny panelu użytkownika.',
             skills: ['React', 'Next.js', 'UI/UX', 'Design System'],
             image: '/images/team/piotr.jpg',
-            github: 'https://github.com/YOUR_GITHUB_USERNAME', // todo: podmień te linki na własne
+            github: 'https://github.com/pbonar',
             linkedin: 'https://linkedin.com/in/YOUR_LINKEDIN' // todo: podmień te linki na własne
         },
         {
@@ -44,9 +44,9 @@ export default function About() {
             role: 'Frontend & Tech Writer',
             description: 'Członek zespołu. Stworzył rzeczy. Zadbał o kompletną dokumentację techniczną projektu.',
             skills: ['React', 'Next.js', 'Admin Tools', 'Documentation'],
-            image: '/images/team/jakub.jpg',
-            github: 'https://github.com/YOUR_GITHUB_USERNAME', // todo: podmień te linki na własne
-            linkedin: 'https://linkedin.com/in/YOUR_LINKEDIN' // todo: podmień te linki na własne
+            image: '/images/team/jakub.png',
+            github: 'https://github.com/Jborys49',
+            linkedin: 'https://www.linkedin.com/in/jakub-borsuk-7a1497334/'
         }
     ];
 
