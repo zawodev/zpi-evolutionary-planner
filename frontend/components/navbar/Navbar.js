@@ -11,7 +11,10 @@ export default function Navbar() {
 
   return (
     <header className="header">
-      <div className="logo logo--header">OptiSlots</div>
+      <div className="logo logo--header" style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+        <img src="/images/monkey-logo.png" alt="OptiSlots Logo" style={{height: '40px', width: 'auto'}} />
+        OptiSlots
+      </div>
       <nav>
         {user ? (user.role === 'office' ? (
           <>
@@ -59,12 +62,17 @@ export default function Navbar() {
         <div className="header-icon header-icon--main"></div>
         <div className="login-btn-wrapper">
           {user ? (
-            <button
-              onClick={handleLogout}
-              className="btn btn--primary btn--neutral"
-            >
-              Wyloguj
-            </button>
+            <>
+              <span style={{marginRight: '1rem', color: '#374151', fontWeight: '500'}}>
+                Witaj, <strong>{user.username}</strong>
+              </span>
+              <button
+                onClick={handleLogout}
+                className="btn btn--primary btn--neutral"
+              >
+                Wyloguj
+              </button>
+            </>
           ) : (
             <Link href="/login">
               <button className="btn btn--primary btn--login">Zaloguj się!</button>

@@ -329,7 +329,7 @@ def convert_solution_to_meetings(job_id: str) -> None:
 
                 # Create Identity Group for this meeting
                 # Group name format: "Meeting_<recruitment_name>_<subject_name>_<group_idx>"
-                group_name = f"Meeting_{recruitment.recruitment_name}_{subject_group.subject.subject_name}_{group_idx}"
+                group_name = f"Grupa {group_idx}"
                 
                 logger.info(f"Creating identity group with name: {group_name}")
 
