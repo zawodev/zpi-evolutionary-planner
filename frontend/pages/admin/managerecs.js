@@ -41,7 +41,6 @@ export default function manageRecs() {
                             <div className="login-button-wrapper">
                                 <button
                                     type="button"
-                                    onClick={() => copyRec(r.recruitment_id)}
                                     className="btn btn--secondary btn--form"
                                 >
                                     {r.recruitment_name}
