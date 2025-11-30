@@ -13,6 +13,7 @@ export default function createRec() {
     const [minParp, setParp] = useState(5);
     const [breakB, setBreakB] = useState(0);
     const [breakA, setBreakA] = useState(15);
+    const [rooms, setRooms] = useState([]);
     //susbset of tags, hosts and groups for subject
     const [subTags, setSubTags] = useState([]);
     const [subTeachers, setTeachers] = useState([]);
@@ -49,6 +50,22 @@ export default function createRec() {
     }
     const closeModal = () => setIsMModalOpen(false);
 
+    const clearRec = () => {
+        setRecGroups([]);
+        setSubjects([]);
+        setRecruitmentName("");
+        setDayStartTime("");
+        setDayEndTime("");
+        setStartDate("");
+        setEndDate("");
+        setPrefDate("");
+        setPrefDateEnd("");
+        setCycleType("weekly");
+        setPlanStatus("draft");
+        setDefaultTokenCount(40);
+        setRoundBreakLength(10);
+    }
+
     const fetchRecs = async () => {
         const token = localStorage.getItem("access_token");
         try {
@@ -65,6 +82,42 @@ export default function createRec() {
         }
         console.log(tags);
     };
+    const fetchRooms = async () => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/rooms/', {
+                method: "GET",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setRooms(data)
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+    const postRoomRec = async (rec_id,room_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/room-recruitments/', {
+                method: "POST",
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    room: room_id,
+                    recruitment: rec_id
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setRooms(data)
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
     const fetchPrevSubs = async () => {
         const token = localStorage.getItem("access_token");
         try {
@@ -126,6 +179,21 @@ export default function createRec() {
             if (response.ok) {
                 const data = await response.json();
                 setHosts(data);
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    };
+    const fetchTagsForSub = async (sub_id) => {
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/subjects/${sub_id}/tags/`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data;
             }
         } catch (error) {
             console.log(error)
@@ -280,8 +348,12 @@ export default function createRec() {
                 for (const g of recGroups) {
                     await addGrouptoSub(data.recruitment_id, g.group_id);
                 }
+                for (const r of rooms) {
+                    await postRoomRec(data.recruitment_id, r.room_id);
+                }
                 openModal(`Dodano rekrutacje ${data.recruitment_name}`);
                 fetchRecs();
+                fetchPrevSubs();
             }
         } catch (error) {
             console.log(error)
@@ -376,7 +448,7 @@ export default function createRec() {
         setDuration(30);
         console.log(subjects);
     }
-    const copyRec = (rec_id) => {
+    const copyRec = async (rec_id) => {
         setSubjects([]);
         const rec = recs.find(r => r.recruitment_id === rec_id);
         const subs = prevSubs.filter(s => s.recruitment === rec_id);
@@ -387,17 +459,19 @@ export default function createRec() {
         setDefaultTokenCount(rec.default_token_count);
         setPlanStatus("draft");
         setRoundBreakLength(rec.max_round_execution_time);
-        const newSub = subs.map(s => ({
-            subject_name: s.subject_name,
-            capacity: s.capacity,
-            duration: s.duration_blocks,
-            tags: subTags,
-            min_students: s.min_students,
-            hosts: subTeachers,
-            groups: subGroups,
-            break_before: s.break_before,
-            break_after: s.break_after
-        }));
+        const newSub = await Promise.all(
+            subs.map(async (s) => ({
+                subject_name: s.subject_name,
+                capacity: s.capacity,
+                duration: Number(s.duration_blocks * 15),
+                tags: await fetchTagsForSub(s.subject_id),
+                min_students: s.min_students,
+                hosts: [],
+                groups: subGroups,
+                break_before: Number(s.break_before*15),
+                break_after: Number(s.break_after * 15)
+            }))
+        );
         setSubjects(newSub);
         openModal(`Skopiowano ustawienia z ${rec.recruitment_name}. Dodaj czasy rozpoczęcia w zakładce Stwórz rekrutacje i prowadzących w Zarządzaj przedmiotami`);
     }
@@ -409,13 +483,13 @@ export default function createRec() {
         const newSub = {
             subject_name: subName,
             capacity: capacity,
-            duration: (parseInt(duration) / 15),
+            duration: (parseInt(duration)),
             tags: subTags,
             min_students: minParp,
             hosts: subTeachers,
             groups: subGroups,
-            break_before: (parseInt(breakB) / 15),
-            break_after: (parseInt(breakA) / 15)
+            break_before: (parseInt(breakB)),
+            break_after: (parseInt(breakA))
         }
         setSubjects(subjects.map((s, i) => {
             if (i === editIndex) {
@@ -433,6 +507,7 @@ export default function createRec() {
         fetchGroups();
         fetchRecs();
         fetchPrevSubs();
+        fetchRooms();
     }, []);
 
     return (
@@ -465,41 +540,9 @@ export default function createRec() {
                         Zarządzaj przedmiotami
                     </button>
                 </div>
-                <div className="login-button-wrapper">
-                    <button
-                        type="button"
-                        onClick={() => { setSelectedCategory("CopyRec"); console.log(subjects) }}
-                        className="btn btn--secondary btn--form"
-                    >
-                        Skopiuj ustawienia z poprzedniej rekrutacji
-                    </button>
-                </div>
             </div>
 
             <div className={styles.right}>
-                {selectedCategory === "CopyRec" && (
-                    <div>
-                        {recs.length > 0 ? (
-                            <div>
-                                {recs.map((r, i) => (
-                                    <li key={i}>
-                                        <div className="login-button-wrapper">
-                                            <button
-                                                type="button"
-                                                onClick={() => { copyRec(r.recruitment_id) }}
-                                                className="btn btn--secondary btn--form"
-                                            >
-                                                {r.recruitment_name}
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </div>
-                        ) : (
-                            <p>Brak poprzednich rekrutacji.</p>
-                        )}
-                    </div>
-                )}
                 {selectedCategory === "MngSub" && (
                     <div>
                         {subjects.length > 0 ? (
@@ -926,6 +969,26 @@ export default function createRec() {
 
                 {selectedCategory === "AddRec" && (
                     <div>
+                        <div style={{
+                            width: "100%",
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: "20px",
+                        }}>
+                            <li>
+                                <select
+                                    onChange={(e) => { copyRec(e.target.value); e.target.value = "" }}
+                                >
+                                    <option value="">Skopiuj ustawienia z innej rekrutacji</option>
+                                    {recs.map((r, i) => (
+                                        <option key={i} value={r.recruitment_id}>
+                                            {r.recruitment_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </li>
+                            <button onClick={clearRec}>Wyczyść</button>
+                        </div>
                         <h2>Stwórz rekrutacje</h2>
 
                         <div className="login-input-wrapper">
@@ -1014,9 +1077,9 @@ export default function createRec() {
                                 onChange={(e) => setDefaultTokenCount(e.target.value)}
                                 className="login-input-wrapper"
                             />
-                            <label>Długość tury - sekundy</label>
+                            <label>Długość tury - minuty = ~{parseInt(Number(roundBreakLength/60))}</label>
                             <input
-                                type="range" min="120" max="7200"
+                                type="range" min="60" max="7200"
                                 placeholder="Długość tury - sekundy"
                                 value={roundBreakLength}
                                 onChange={(e) => setRoundBreakLength(e.target.value)}

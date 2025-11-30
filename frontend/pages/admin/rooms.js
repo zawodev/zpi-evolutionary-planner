@@ -30,7 +30,7 @@ export default function Rooms() {
         const token = localStorage.getItem("access_token");
         try {
             const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/rooms/', {
-                METHOD: "GET",
+                method: "GET",
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
             });
