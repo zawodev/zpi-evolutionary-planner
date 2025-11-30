@@ -47,7 +47,8 @@ export default function SingleRoom({ room }) {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             });
             if (response.ok) {
-                window
+                const data = await response.json();
+                setRoomTags(data);
             }
         } catch (error) {
             console.log(error)

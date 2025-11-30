@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useEffect } from 'react';
 import styles from '@/styles/components/_admin.module.css';
 import MsgModal from "./MsgModal";
-import { useRouter } from 'next/router';
 import ConfirmModal from "./ConfirmModal";
 export default function SingleUser({ user }) {
 
@@ -27,6 +26,10 @@ export default function SingleUser({ user }) {
         setIsModalOpen(true);
     }
     const closeModal = () => setIsModalOpen(false);
+
+    const isValidEmail = (email) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
     const fetchGroups = async () => {
         const token = localStorage.getItem("access_token");
         const org_id = localStorage.getItem("org_id");
@@ -38,7 +41,8 @@ export default function SingleUser({ user }) {
             });
             if (response.ok) {
                 const data = await response.json();
-                setGroups(data);
+                const grupy = data.filter(g => g.category !== 'meeting');
+                setGroups(grupy);
             }
         } catch (error) {
             console.log(error)
@@ -54,7 +58,8 @@ export default function SingleUser({ user }) {
             });
             if (response.ok) {
                 const data = await response.json();
-                setUgroups(data);
+                const grupy = data.filter(g => g.category!=='meeting')
+                setUgroups(grupy);
             }
         } catch (error) {
             console.log(error)
@@ -160,6 +165,7 @@ export default function SingleUser({ user }) {
                             placeholder="Imię"
                             className="input input--login"
                             value={firstName}
+                            style={!firstName ? { border: "2px solid red" } : {}}
                             onChange={(e) => setFName(e.target.value)}
                         />
                     </div>
@@ -169,6 +175,7 @@ export default function SingleUser({ user }) {
                             placeholder="Nazwisko"
                             className="input input--login"
                             value={surName}
+                            style={!surName ? { border: "2px solid red" } : {}}
                             onChange={(e) => setSName(e.target.value)}
                         />
                     </div>
@@ -177,7 +184,8 @@ export default function SingleUser({ user }) {
                     <input
                         type="email"
                         placeholder="Adres email"
-                        className="input input--login"
+                        className={`input input--login ${userEmail && !isValidEmail(userEmail) ? "input--error" : ""}`}
+                        style={userEmail && !isValidEmail(userEmail) ? { border: "2px solid red" } : {}}
                         value={userEmail}
                         onChange={(e) => setUserEmail(e.target.value)}
                     />
@@ -276,7 +284,7 @@ export default function SingleUser({ user }) {
                         width: "100%",
                         display: "flex",
                         justifyContent: "center",
-                        gap: "20px",     
+                        gap: "20px",
                         padding: "10vh"
                     }}
                 >
