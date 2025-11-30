@@ -11,7 +11,10 @@ export default function Navbar() {
 
   return (
     <header className="header">
-      <div className="logo logo--header">OptiSlots</div>
+      <div className="logo logo--header" style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+        <img src="/images/monkey-logo.png" alt="OptiSlots Logo" style={{height: '40px', width: 'auto'}} />
+        OptiSlots
+      </div>
       <nav>
         {user ? (user.role === 'office' ? (
           <>
