@@ -12,6 +12,7 @@ class OptimizationJob(models.Model):
         ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('cancelled', 'Cancelled'),
+        ('archived', 'Archived'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

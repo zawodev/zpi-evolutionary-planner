@@ -69,7 +69,7 @@ def trigger_optimization(recruitment):
     from optimizer.services import OptimizerService, convert_preferences_to_problem_data
 
     with transaction.atomic():
-        recruitment.plan_status = 'optimizing'
+        recruitment.plan_status = 'queued'
         recruitment.save()
         logger.info(f"started optimization for recruitment {recruitment.recruitment_id}")
 
@@ -87,6 +87,7 @@ def trigger_optimization(recruitment):
             raise
 
         try:
+            # here
             optimizer_service = OptimizerService()
             job = optimizer_service.submit_job({
                 'recruitment_id': str(recruitment.recruitment_id),
@@ -298,6 +299,10 @@ def check_and_trigger_optimizations():
         if should_start_optimization(recruitment):
             logger.info(f"preparing optimization constraints for recruitment {recruitment.recruitment_id}")
             prepare_optimization_constraints(recruitment)
+
+            # Archive existing jobs
+            recruitment.optimization_jobs.all().update(status='archived')
+
             logger.info(f"triggering optimization for recruitment {recruitment.recruitment_id}")
             trigger_optimization(recruitment)
 

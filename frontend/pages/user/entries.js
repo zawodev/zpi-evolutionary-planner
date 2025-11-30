@@ -1774,6 +1774,55 @@ const ScheduleHeader = ({
   const isOptimizationActive = status === 'optimizing';
   const isStatusAvailable = optimizationStatus && !isLoadingStatus;
 
+  // Live countdown timer and progress
+  const [liveCountdown, setLiveCountdown] = React.useState({
+    totalRemaining: 0,
+    currentJobRemaining: 0
+  });
+  
+  const [liveProgress, setLiveProgress] = React.useState(0);
+  const [lastApiUpdate, setLastApiUpdate] = React.useState(null);
+
+  React.useEffect(() => {
+    if (isStatusAvailable) {
+      // Initialize countdown and progress from API data
+      setLiveCountdown({
+        totalRemaining: optimizationStatus.estimates.total_remaining_seconds,
+        currentJobRemaining: optimizationStatus.estimates.current_job_remaining_seconds
+      });
+      setLiveProgress(optimizationStatus.meta.now_progress);
+      setLastApiUpdate(Date.now()); // Mark that we received new data
+    }
+  }, [optimizationStatus, isStatusAvailable]);
+
+  React.useEffect(() => {
+    if (!isStatusAvailable) return;
+
+    // Update countdown and progress every second
+    const interval = setInterval(() => {
+      setLiveCountdown(prev => ({
+        totalRemaining: Math.max(0, prev.totalRemaining - 1),
+        currentJobRemaining: Math.max(0, prev.currentJobRemaining - 1)
+      }));
+      
+      // Calculate live progress based on current time
+      if (optimizationStatus?.meta?.start_date && optimizationStatus?.meta?.estimated_end_date) {
+        const startTime = new Date(optimizationStatus.meta.start_date).getTime();
+        const endTime = new Date(optimizationStatus.meta.estimated_end_date).getTime();
+        const nowTime = Date.now();
+        const totalSpan = endTime - startTime;
+        
+        if (totalSpan > 0) {
+          const elapsed = nowTime - startTime;
+          const progress = Math.max(0, Math.min(1, elapsed / totalSpan));
+          setLiveProgress(progress);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isStatusAvailable, optimizationStatus]);
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Brak';
     try {
@@ -1785,29 +1834,31 @@ const ScheduleHeader = ({
     }
   };
 
-  const formatTime = (seconds) => {
+  const formatRemainingTime = (seconds) => {
     if (typeof seconds !== 'number' || seconds < 0) return 'Brak';
     const totalSeconds = Math.floor(seconds);
-    const days = Math.floor(totalSeconds / (3600 * 24));
-    const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+    
+    // If less than 60 minutes, show minutes and seconds
+    if (totalSeconds < 3600) {
+      const minutes = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
+      if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+      }
+      return `${secs}s`;
+    }
+    
+    // Otherwise show hours and minutes
+    const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     
-    let parts = [];
-    if (days > 0) parts.push(`${days}d`);
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0 && days === 0) parts.push(`${minutes}m`);
-
-    return parts.length > 0 ? parts.join(' ') : (seconds > 0 ? '<1m' : 'Brak');
-  };
-  
-  const formatTimeHMMSS = (seconds) => {
-    if (typeof seconds !== 'number' || seconds < 0 || isNaN(seconds)) return '0:00:00';
-    const totalSeconds = Math.floor(seconds);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
+    if (hours > 0 && minutes > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h`;
+    }
     
-    return `${String(h).padStart(1, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${minutes}m`;
   };
 
   const getStatusLabel = (status) => {
@@ -1824,9 +1875,6 @@ const ScheduleHeader = ({
   };
 
   const isEditable = status === 'draft' || status === 'active' || status === 'optimizing';
-
-  const progressPercent = isStatusAvailable ? (optimizationStatus.time_progress * 100).toFixed(1) : 0;
-  const remainingTimeHMMSS = isStatusAvailable ? formatTimeHMMSS(optimizationStatus.estimated_to_end_time) : '0:00:00';
   
   const showProgressPanel = isOptimizationActive && (isLoadingStatus || isStatusAvailable);
 
@@ -1887,28 +1935,105 @@ const ScheduleHeader = ({
 
         {/* Panel Ładowania - W trakcie optymalizacji (tylko optimizing) */}
         {showProgressPanel && (
-            <div className="new-entries-loading-panel">
+            <div className="new-entries-loading-panel" key={`progress-${lastApiUpdate}`}>
                 {isLoadingStatus ? (
-                     <p className="new-entries-remaining-time" style={{color: '#92400e'}}>Ładowanie metryk...</p>
+                     <p className="new-entries-remaining-time" style={{color: '#92400e'}}>Ładowanie metryk optymalizacji...</p>
                 ) : (
                     <>
-                        <p className="new-entries-remaining-time">
-                            Szacowany czas do końca: <span style={{fontWeight: 'bold'}}>{formatTime(optimizationStatus.estimated_to_end_time)}</span>
-                        </p>
-                        
-                        <div className="new-entries-progress-bar-wrapper">
-                            <div 
-                                className="new-entries-progress-fill" 
-                                style={{width: `${progressPercent}%`}}
-                            >
+                        {/* Nagłówek z głównymi informacjami */}
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+                            <div>
+                                <span style={{fontSize: '0.85rem', color: '#374151', fontWeight: '500'}}>
+                                    Postęp: <strong style={{color: '#1f2937'}}>{optimizationStatus.counts.current}/{optimizationStatus.counts.total}</strong>
+                                </span>
+                            </div>
+                            <div>
+                                <span style={{fontSize: '0.85rem', color: '#374151', fontWeight: '500'}}>
+                                    Czas do końca: <strong style={{color: '#1f2937'}}>{formatRemainingTime(liveCountdown.totalRemaining)}</strong>
+                                </span>
                             </div>
                         </div>
                         
-                         <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#374151', padding: '0 5px'}}>
-                            <span>Rund: {optimizationStatus.pessimistic_progress_text}</span>
-                            <span>Czas do uwzględnienia zmian w preferencjach: {formatTimeHMMSS(timeUntilNextJob)}</span>
-                         </div>
-                     </>
+                        {/* Pasek postępu z segmentami jobów */}
+                        <div className="new-entries-progress-bar-wrapper" style={{position: 'relative', marginBottom: '8px'}}>
+                            {/* Główny pasek bazowy */}
+                            <div style={{
+                                position: 'absolute',
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                backgroundColor: '#e5e7eb',
+                                borderRadius: '8px'
+                            }}></div>
+                            
+                            {/* Segmenty dla każdego joba */}
+                            {optimizationStatus.timeline && optimizationStatus.timeline.map((event, idx) => {
+                                // Determine segment type based on live progress position
+                                const segmentMiddle = (event.start + event.end) / 2;
+                                let effectiveType = event.type;
+                                
+                                // Override type based on current progress
+                                if (liveProgress > event.end) {
+                                    effectiveType = 'past'; // Progress bar has passed this segment
+                                } else if (liveProgress >= event.start && liveProgress <= event.end) {
+                                    effectiveType = 'current'; // Progress bar is within this segment
+                                } else {
+                                    effectiveType = 'future'; // Progress bar hasn't reached this yet
+                                }
+                                
+                                const getSegmentColor = (type) => {
+                                    if (type === 'past') return 'rgba(59, 130, 246, 0.4)'; // niebieski z opacity - zakończone
+                                    if (type === 'current') return '#3b82f6'; // pełny niebieski - w trakcie
+                                    return '#d1d5db'; // jasny szary - przyszłe
+                                };
+                                
+                                const getSegmentBorder = (type) => {
+                                    if (type === 'current') return '2px solid #2563eb';
+                                    return '1px solid rgba(255,255,255,0.4)';
+                                };
+                                
+                                return (
+                                    <div 
+                                        key={idx}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${event.start * 100}%`,
+                                            width: `${(event.end - event.start) * 100}%`,
+                                            height: '100%',
+                                            backgroundColor: getSegmentColor(effectiveType),
+                                            border: getSegmentBorder(effectiveType),
+                                            boxSizing: 'border-box',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        title={`Job ${idx + 1}: ${effectiveType === 'past' ? 'Zakończony' : effectiveType === 'current' ? 'W trakcie' : 'Planowany'}`}
+                                    />
+                                );
+                            })}
+                            
+                            {/* Znacznik aktualnego momentu (NOW) */}
+                            <div 
+                                style={{
+                                    position: 'absolute',
+                                    left: `${liveProgress * 100}%`,
+                                    top: '-4px',
+                                    bottom: '-4px',
+                                    width: '3px',
+                                    backgroundColor: '#dc2626',
+                                    borderRadius: '2px',
+                                    zIndex: 10,
+                                    boxShadow: '0 0 4px rgba(220, 38, 38, 0.5)'
+                                }}
+                                title="Obecny moment"
+                            />
+                        </div>
+                        
+                        {/* Dodatkowe informacje */}
+                        <div style={{display: 'flex', justifyContent: 'flex-start', fontSize: '0.75rem', color: '#6b7280'}}>
+                            <span>
+                                Obecny job: <strong>{formatRemainingTime(liveCountdown.currentJobRemaining)}</strong> do końca
+                            </span>
+                        </div>
+                    </>
                 )}
             </div>
         )}
@@ -2722,6 +2847,15 @@ const handleHeatmapMouseUp = () => {
     };
     
     fetchOptimizationStatus();
+    
+    // Refresh optimization status every 15 seconds for sync
+    if (status === 'optimizing') {
+        const refreshInterval = setInterval(() => {
+            fetchOptimizationStatus();
+        }, 15000); // 15 seconds
+        
+        return () => clearInterval(refreshInterval);
+    }
   }, [selectedRecruitment]);
 
   useEffect(() => {
