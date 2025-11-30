@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     SubjectView,
     SubjectGroupView,
+    SubjectGroupCreateWithRecruitmentView,
     RecruitmentView,
     RoomView,
     TagView,
@@ -22,6 +23,7 @@ urlpatterns = [
 
     path('subject-groups/', SubjectGroupView.as_view(), name='subject-groups'),
     path('subject-groups/<uuid:pk>/', SubjectGroupView.as_view(), name='subject-group-detail'),
+    path('subject-groups/create-with-recruitment/', SubjectGroupCreateWithRecruitmentView.as_view(), name='subject-group-create-with-recruitment'),
 
     path('recruitments/', RecruitmentView.as_view(), name='recruitments'),
     path('recruitments/<uuid:pk>/', RecruitmentView.as_view(), name='recruitment-detail'),

@@ -20,6 +20,8 @@ from .serializers import (
     SubjectTagSerializer,
 )
 from .services import get_active_meetings_for_room, get_users_for_recruitment
+from identity.models import UserRecruitment
+from identity.serializers import UserSerializer
 
 
 class BaseCrudView(APIView):
@@ -76,6 +78,37 @@ class SubjectGroupView(BaseCrudView):
     model = SubjectGroup
     serializer_class = SubjectGroupSerializer
     lookup_field = 'subject_group_id'
+
+
+class SubjectGroupCreateWithRecruitmentView(APIView):
+    """Create SubjectGroup and automatically link the host user to the subject's recruitment.
+
+    Request body must include:
+    - subject (UUID) — existing Subject ID
+    - host_user (UUID) — existing User ID
+
+    Side effects:
+    - Creates UserRecruitment(user=host_user, recruitment=subject.recruitment) if missing.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def post(self, request):
+        serializer = SubjectGroupSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        subject_id = serializer.validated_data.get('subject').subject_id if serializer.validated_data.get('subject') else request.data.get('subject')
+        host_user = serializer.validated_data.get('host_user')
+
+        subject = get_object_or_404(Subject, subject_id=subject_id)
+        recruitment = subject.recruitment
+
+        subject_group = serializer.save()
+
+        UserRecruitment.objects.get_or_create(user=host_user, recruitment=recruitment)
+
+        out_serializer = SubjectGroupSerializer(subject_group)
+        return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class RecruitmentView(BaseCrudView):
