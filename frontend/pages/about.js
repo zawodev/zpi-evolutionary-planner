@@ -35,9 +35,9 @@ export default function About() {
             role: 'Frontend & UI/UX Designer',
             description: 'Twórca doświadczeń. Przekuł skomplikowaną logikę harmonogramów w przejrzysty i intuicyjny interfejs, dbając o każdy detal wizualny panelu użytkownika.',
             skills: ['React', 'Next.js', 'UI/UX', 'Design System'],
-            image: '/images/team/piotr.jpg',
+            image: '/images/team/piotr.png',
             github: 'https://github.com/pbonar',
-            linkedin: 'https://linkedin.com/in/YOUR_LINKEDIN' // todo: podmień te linki na własne
+            linkedin: 'https://www.linkedin.com/in/piotr-bonar/'
         },
         {
             name: 'Jakub Borsuk',

@@ -430,16 +430,11 @@ export default function PlanUzytkownika() {
       };
 
       try {
+        // Fetch recruitments
         const recRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/recruitments/`, { headers });
         if (recRes.ok) {
           const recData = await recRes.json();
           setRecruitments(recData);
-        }
-
-        const meetRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/`, { headers });
-        if (meetRes.ok) {
-          const meetData = await meetRes.json();
-          setMeetings(meetData);
         }
 
       } catch (error) {
@@ -463,7 +458,16 @@ export default function PlanUzytkownika() {
       };
 
       try {
-        const meetRes = await fetch(`http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/`, { headers });
+        // Calculate week boundaries
+        const week = getWeekDays(currentDate);
+        const startDate = week[0].toISOString().split('T')[0]; // YYYY-MM-DD format
+        const endDate = week[6].toISOString().split('T')[0];
+        
+        // Fetch meetings with date range
+        const meetRes = await fetch(
+          `http://127.0.0.1:8000/api/v1/identity/users/${user.id}/availability/?start_date=${startDate}&end_date=${endDate}`,
+          { headers }
+        );
         if (meetRes.ok) {
           const meetData = await meetRes.json();
           setMeetings(meetData);
