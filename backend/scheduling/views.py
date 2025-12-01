@@ -156,17 +156,46 @@ class SubjectTagView(BaseCrudView):
 User = get_user_model()
 
 class ActiveMeetingsByRoomView(APIView):
-    """Return all active meetings for a room (recruitment.plan_status == 'active') with full nested objects.
+    """Zwraca meetingi pokoju z aktywnych rekrutacji, w zadanym przedziale dat (format jak w ActiveMeetingsByUserView).
 
-    Uses MeetingDetailSerializer to include nested recruitment, room, group,
-    and subject_group (with subject, host_user, recruitment)."""
+    Query params (wymagane):
+    - start_date YYYY-MM-DD
+    - end_date YYYY-MM-DD
+    Jeśli brak któregoś z parametrów -> 400.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
+    def _parse_date(self, value, name):
+        from datetime import datetime
+        if not value:
+            raise ValueError(f'Missing {name}')
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            raise ValueError(f'Invalid {name} format, expected YYYY-MM-DD')
+
     def get(self, request, room_pk):
-        get_object_or_404(Room, **{'room_id': room_pk})
-        qs = get_active_meetings_for_room(room_pk)
+        room = get_object_or_404(Room, **{'room_id': room_pk})
+        start_raw = request.query_params.get('start_date')
+        end_raw = request.query_params.get('end_date')
+        try:
+            start_date = self._parse_date(start_raw, 'start_date')
+            end_date = self._parse_date(end_raw, 'end_date')
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if end_date < start_date:
+            return Response({'detail': 'end_date earlier than start_date'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = get_active_meetings_for_room(room_pk, start_date=start_date, end_date=end_date)
         serializer = MeetingDetailSerializer(qs, many=True)
-        return Response(serializer.data)
+        return Response({
+            'room_id': str(room.room_id),
+            'room_name': getattr(room, 'room_name', None),
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
 
 
 class UsersByRecruitmentView(APIView):
