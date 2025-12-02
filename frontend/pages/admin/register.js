@@ -1,7 +1,7 @@
 /* pages/admin/register.js */
 import React, { useState } from "react";
 import Link from "next/link";
-import AuthCard from "@/components/AuthCard";
+import AuthCard from "@/components/general/AuthCard";
 
 export default function RegisterPage() {
   const [orgName, setOrgName] = useState("");

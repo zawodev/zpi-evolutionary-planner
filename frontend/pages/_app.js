@@ -2,7 +2,7 @@
 
 // Components
 import Navbar from "@/components/navbar/Navbar.js";
-import Background from "@/components/Background.js";
+import Background from "@/components/general/Background.js";
 import { AuthProvider } from "@/contexts/AuthContext.js";
 
 
