@@ -1,6 +1,6 @@
 import React from "react";
 import ScheduleSlot from "./ScheduleSlot";
-import DragPreview from "./DragPreview";
+import DragPreview from "./user/DragPreview";
 import { calculateSlotPosition } from "@/utils/scheduleDisplay";
 
 export default function ScheduleColumn({
