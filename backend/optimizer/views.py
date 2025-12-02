@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from datetime import timedelta
 
 from .models import OptimizationJob, OptimizationProgress
 from .serializers import (
@@ -546,5 +547,65 @@ def recruitment_optimization_status(request, recruitment_id):
     except Exception as e:
         return Response(
             {'error': f'Failed to get recruitment optimization status: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@extend_schema(
+    summary="Force optimization for recruitment",
+    description="Force start optimization for a recruitment by setting it to draft, updating dates, and triggering optimization",
+    parameters=[
+        OpenApiParameter(
+            name='duration_seconds',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description='Duration of optimization in seconds (default: 120)',
+            required=False
+        ),
+    ],
+    responses={200: {'description': 'Optimization triggered successfully'}}
+)
+@api_view(['POST'])
+def force_recruitment_optimization(request, recruitment_id):
+    """
+    Force optimization for a recruitment.
+    Sets status to draft, updates optimization dates, and triggers optimization.
+    """
+    from scheduling.models import Recruitment
+    from scheduling.services import check_and_trigger_optimizations
+    
+    try:
+        recruitment = get_object_or_404(Recruitment, recruitment_id=recruitment_id)
+        
+        # Get duration from query params (default 120 seconds)
+        duration_seconds = int(request.query_params.get('duration_seconds', 120))
+        
+        # Update recruitment
+        now = timezone.now()
+        recruitment.plan_status = 'draft'
+        recruitment.optimization_start_date = now
+        recruitment.optimization_end_date = now + timedelta(seconds=duration_seconds)
+        recruitment.save()
+        
+        logger.info(f"Forced optimization setup for recruitment {recruitment_id}: "
+                   f"start={recruitment.optimization_start_date}, "
+                   f"end={recruitment.optimization_end_date}")
+        
+        # Trigger optimization
+        check_and_trigger_optimizations()
+        
+        return Response({
+            'message': 'Optimization forced successfully',
+            'recruitment_id': str(recruitment_id),
+            'status': 'draft',
+            'optimization_start_date': recruitment.optimization_start_date,
+            'optimization_end_date': recruitment.optimization_end_date,
+            'duration_seconds': duration_seconds
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to force optimization for recruitment {recruitment_id}: {str(e)}")
+        return Response(
+            {'error': f'Failed to force optimization: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

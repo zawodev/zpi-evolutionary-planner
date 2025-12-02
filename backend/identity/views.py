@@ -15,6 +15,7 @@ import secrets
 from django.conf import settings
 import json
 from scheduling.serializers import MeetingDetailSerializer, RecruitmentSerializer
+from datetime import datetime
 
 User = get_user_model()
 
@@ -280,17 +281,45 @@ class SetUserPasswordView(APIView):
 
 
 class ActiveMeetingsByUserView(APIView):
-    """Return all meetings (with full nested objects) where the given user is host_user or belongs to the meeting group and recruitment is active.
+    """Zwraca meetingi użytkownika (host lub participant) z aktywnych rekrutacji, w zadanym przedziale dat.
 
-    Response now contains nested recruitment, room, group, subject_group (with subject, host_user, recruitment) objects instead of only their IDs.
+    Query params (wymagane):
+    - start_date YYYY-MM-DD
+    - end_date YYYY-MM-DD
+    Jeśli brak któregoś z parametrów -> 400.
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    def _parse_date(self, value, name):
+        if not value:
+            raise ValueError(f'Missing {name}')
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            raise ValueError(f'Invalid {name} format, expected YYYY-MM-DD')
+
     def get(self, request, user_pk):
-        get_object_or_404(User, pk=user_pk)
-        qs = get_active_meetings_for_user(user_pk)
+        user = get_object_or_404(User, pk=user_pk)
+        start_raw = request.query_params.get('start_date')
+        end_raw = request.query_params.get('end_date')
+        try:
+            start_date = self._parse_date(start_raw, 'start_date')
+            end_date = self._parse_date(end_raw, 'end_date')
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if end_date < start_date:
+            return Response({'detail': 'end_date earlier than start_date'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = get_active_meetings_for_user(user, start_date=start_date, end_date=end_date)
         serializer = MeetingDetailSerializer(qs, many=True)
-        return Response(serializer.data)
+        return Response({
+            'user_id': str(user.id),
+            'role': user.role,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
 
 
 class UserRecruitmentAddView(APIView):
@@ -629,85 +658,6 @@ class BulkAddGroupUsersToRecruitmentView(APIView):
         return Response({
             "group": str(group.group_id),
             "recruitment": str(recruitment.recruitment_id),
-            "created_count": len(to_create),
-            "skipped_existing": len(existing_user_ids),
-            "users_added": to_create,
-            "total_users_in_group": len(user_ids_in_group)
-        }, status=status.HTTP_201_CREATED)
-
-
-class BulkAddGroupUsersToSubjectView(APIView):
-    """Bulk add all users belonging to a given group to a subject.
-
-    Request body must include:
-    - group: UUID of the group
-    - subject: UUID of the subject
-
-    Rules:
-    - Only admin or office (IsOfficeUser) may call this endpoint.
-    - Office users may only operate within their own organization.
-    - Group.organization must match Subject.recruitment.organization.
-
-    Response JSON:
-    {
-      "group": <group uuid>,
-      "subject": <subject uuid>,
-      "created_count": <number of new relations>,
-      "skipped_existing": <number of users already linked>,
-      "users_added": [list of user UUIDs added],
-      "total_users_in_group": <size of group>
-    }
-    """
-    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
-
-    def post(self, request):
-        from scheduling.models import Subject
-        group_id = request.data.get('group')
-        subject_id = request.data.get('subject')
-        if not group_id or not subject_id:
-            return Response({"detail": "Required fields: group, subject"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Fetch group
-        try:
-            group = Group.objects.select_related('organization').get(pk=group_id)
-        except Group.DoesNotExist:
-            return Response({"detail": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Fetch subject and its recruitment organization
-        try:
-            subject = Subject.objects.select_related('recruitment', 'recruitment__organization').get(pk=subject_id)
-        except Subject.DoesNotExist:
-            return Response({"detail": "Subject not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        subject_org_id = getattr(subject.recruitment.organization, 'organization_id', None)
-        if not subject_org_id:
-            return Response({"detail": "Subject recruitment lacks organization"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Organization consistency check
-        if group.organization_id != subject_org_id:
-            return Response({"detail": "Group and Subject must belong to the same organization"}, status=status.HTTP_400_BAD_REQUEST)
-
-        requester = request.user
-        if requester.role != 'admin':
-            if requester.organization_id != group.organization_id:
-                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
-
-        # Collect users in group
-        user_ids_in_group = list(UserGroup.objects.filter(group=group).values_list('user_id', flat=True))
-        if not user_ids_in_group:
-            return Response({"detail": "Group has no users"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Existing relations
-        existing_user_ids = set(UserSubjects.objects.filter(subject_id=subject_id, user_id__in=user_ids_in_group).values_list('user_id', flat=True))
-        to_create = [uid for uid in user_ids_in_group if uid not in existing_user_ids]
-
-        new_relations = [UserSubjects(user_id=uid, subject=subject) for uid in to_create]
-        if new_relations:
-            UserSubjects.objects.bulk_create(new_relations, ignore_conflicts=True)
-
-        return Response({
-            "group": str(group.group_id),
-            "subject": str(subject.subject_id),
             "created_count": len(to_create),
             "skipped_existing": len(existing_user_ids),
             "users_added": to_create,

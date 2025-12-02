@@ -114,5 +114,5 @@ class MeetingDetailSerializer(serializers.ModelSerializer):
         model = Meeting
         fields = [
             'meeting_id', 'recruitment', 'subject_group', 'group', 'room',
-            'start_timeslot', 'day_of_week', 'day_of_cycle', 'end_hour'
+            'start_timeslot', 'day_of_week', 'day_of_cycle', 'end_hour', 'start_time', 'end_time', 'duration'
         ]
