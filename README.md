@@ -28,7 +28,7 @@ Built with **React/Next.js**, **Django**, **C++**, **Redis**, and **Docker** for
 
 EvoPlanner follows a **microservice-based architecture** with several main components:
 
-### Frontend – `/frontend/evoplanner_frontend`
+### Frontend – `/frontend`
 A **Next.js (React)** application providing the user interface:
 - Users log in and manage their schedules.
 - Submit preferences visually on a grid.
