@@ -88,3 +88,27 @@
   color: #ef4444;
   border: 2px solid #ef4444;
 }
+
+.admin-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0, 0, 0, 0.7);
+    display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.admin-modal-dialog {
+  position: relative !important;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  width: 90%; 
+  padding: 20px; 
+}

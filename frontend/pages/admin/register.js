@@ -1,110 +1,133 @@
+/* pages/admin/register.js */
 import React, { useState } from "react";
 import Link from "next/link";
-import Navbar from "@/components/navbar/Navbar";
-import Image from "next/image";
-import styles from "@/styles/components/_admin.module.css";
+import AuthCard from "@/components/AuthCard";
 
-export default function LoginPage() {
-  const [login, setLogin] = useState("");
-  const [name, setName] = useState("");
+export default function RegisterPage() {
+  const [orgName, setOrgName] = useState("");
+  const [email, setEmail] = useState("");
   const [password1, setPassword1] = useState("");
   const [password2, setPassword2] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setError("");
     
-    // TODO: Replace with actual API call
+    // Walidacja
+    if (!orgName || !email || !password1 || !password2) {
+      setError("Wszystkie pola są wymagane");
+      return;
+    }
+    
+    if (password1 !== password2) {
+      setError("Hasła nie są identyczne");
+      return;
+    }
+    
+    if (password1.length < 8) {
+      setError("Hasło musi mieć minimum 8 znaków");
+      return;
+    }
+    
+    setIsLoading(true);
+    
     try {
-      // const response = await fetch('/api/login', {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/register', {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ login, password })
+      //   body: JSON.stringify({ orgName, email, password: password1 })
       // });
-      // if (response.ok) {
-      //   window.location.href = "/dashboard";
-      // }
       
-      console.log("Logging in with:", login, password);
-      window.location.href = "/check";
+      // Symulacja oczekiwania
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log("Registering:", { orgName, email, password1 });
+      // window.location.href = "/login";
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("Registration failed:", error);
+      setError("Rejestracja nie powiodła się. Spróbuj ponownie.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-
   return (
-    <div className={styles.background}>
-      <Navbar />
-      
-      <div className="login-frame">
-        <div className="card card--login">
-          <strong className="logo logo--login" style={{ 
-            position: 'static', 
-            display: 'block', 
-            textAlign: 'center', 
-            fontSize: 'clamp(32px, 4vh, 48px)',
-            marginBottom: '24px'
-          }}>
-            Rekruter+
-          </strong>
-          
-          <form onSubmit={handleRegister}>
-            <div className="login-input-wrapper" style={{ marginTop: '60px' }}>
-              <p className="info-text">Nazwa firmy</p>
-              <input
-                type="name"
-                placeholder="Firma LLM"
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                className="input input--login"
-                required
-              />
-            </div>
-
-            <div className="login-input-wrapper">
-              <p className="info-text">Adres e-mail</p>
-              <input
-                type="email"
-                placeholder="imienazwisko@email.com"
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                className="input input--login"
-                required
-              />
-            </div>
-
-            <div className="login-input-wrapper">
-              <p className="info-text">Hasło</p>
-              <input
-                type="password"
-                placeholder="*********"
-                value={password1}
-                onChange={(e) => setPassword1(e.target.value)}
-                className="input input--login"
-                required
-              />
-            </div>
-
-            <div className="login-input-wrapper">
-              <p className="info-text">Potwierdź hasło</p>
-              <input
-                type="password"
-                placeholder="*********"
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                className="input input--login"
-                required
-              />
-            </div>
-
-            <div className="login-button-wrapper">
-              <button type="submit" className={`btn btn--form ${styles.btn}`}>
-                Zarejestruj
-              </button>
-            </div>
-          </form>
+    <AuthCard 
+      title="Stwórz konto" 
+      subtitle="Rozpocznij swoją przygodę z OptiSlots"
+      error={error}
+    >
+      <form className="login-form" onSubmit={handleRegister}>
+        <div className="login-field">
+          <label className="method-label">Nazwa organizacji</label>
+          <input
+            type="text"
+            placeholder="Firma LLM Sp. z o.o."
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            className="admin-input"
+            disabled={isLoading}
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <div className="login-field">
+          <label className="method-label">Adres e-mail</label>
+          <input
+            type="email"
+            placeholder="kontakt@firma.pl"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="admin-input"
+            disabled={isLoading}
+            required
+          />
+        </div>
+
+        <div className="login-field">
+          <label className="method-label">Hasło</label>
+          <input
+            type="password"
+            placeholder="••••••••"
+            value={password1}
+            onChange={(e) => setPassword1(e.target.value)}
+            className="admin-input"
+            disabled={isLoading}
+            required
+          />
+        </div>
+
+        <div className="login-field">
+          <label className="method-label">Potwierdź hasło</label>
+          <input
+            type="password"
+            placeholder="••••••••"
+            value={password2}
+            onChange={(e) => setPassword2(e.target.value)}
+            className="admin-input"
+            disabled={isLoading}
+            required
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className={`btn btn--primary ${isLoading ? "btn--disabled" : ""}`}
+          disabled={isLoading}
+        >
+          {isLoading ? "Rejestrowanie..." : "Zarejestruj się"}
+        </button>
+
+        <div className="register-prompt">
+          <span className="register-text">Masz już konto?</span>
+          <Link href="/login">
+            <a className="register-link">Zaloguj się</a>
+          </Link>
+        </div>
+      </form>
+    </AuthCard>
   );
 }

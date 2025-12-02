@@ -36,6 +36,8 @@ import "@/styles/layout/_index.css";
 import "@/styles/layout/_login.css";
 import "@/styles/layout/_position.css";
 import "@/styles/layout/_schedule_grid.css";
+import "@/styles/layout/_admin.css";
+import "@/styles/layout/_tabs.css";
 
 // Temporary styles
 export default function App({ Component, pageProps }) {
