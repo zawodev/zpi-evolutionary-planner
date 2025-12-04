@@ -45,6 +45,7 @@ const RecruitmentsPage = () => {
   const [breakA, setBreakA] = useState(15);
   const [subTags, setSubTags] = useState([]);
   const [subTeachers, setTeachers] = useState([]);
+  const [subGroups, setSubGroups] = useState([]);
   const [editIndex, setEditIndex] = useState("");
 
   // ===== MODAL STATE =====
@@ -111,6 +112,7 @@ const RecruitmentsPage = () => {
     setBreakA(15);
     setSubTags([]);
     setTeachers([]);
+    setSubGroups([]);
     setEditIndex("");
     setSubjectMode('list');
   };
@@ -242,7 +244,7 @@ const RecruitmentsPage = () => {
   }, []);
 
   // ===== RECRUITMENT OPERATIONS =====
-  const createSubject = async (rec_id, sub_name, min_stu, cap, dur, tags, hosts, break_before, break_after) => {
+  const createSubject = async (rec_id, sub_name, min_stu, cap, dur, tags, hosts, break_before, break_after,groups) => {
     const token = localStorage.getItem("access_token");
     try {
       const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subjects/', {
@@ -285,8 +287,17 @@ const RecruitmentsPage = () => {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             subject: subjectId,
-            recruitment: rec_id,
-            host: host.id
+            host_user: host.id
+          })
+        }));
+      }
+      for (const group of groups) {
+        subTasks.push(fetch('http://127.0.0.1:8000/api/v1/identity/user-subjects/bulk_add_group/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            subject: subjectId,
+            group: group.group_id
           })
         }));
       }
@@ -302,6 +313,22 @@ const RecruitmentsPage = () => {
     const token = localStorage.getItem("access_token");
     try {
       const response = await fetch('http://127.0.0.1:8000/api/v1/identity/user-recruitments/bulk_add_group/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ group: group_id, recruitment: rec_id })
+      });
+       if (!response.ok) {
+           console.error("Error adding group to recruitment. Status:", response.status);
+       }
+    } catch (error) {
+      console.error("Error adding group to recruitment:", error);
+    }
+  };
+
+  const addGroupToSubject = async (rec_id, group_id) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/v1/identity/user-subjects/bulk_add_group/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ group: group_id, recruitment: rec_id })
@@ -390,7 +417,7 @@ const RecruitmentsPage = () => {
           createSubject(
             recId, sub.subject_name, sub.min_students,
             sub.capacity, sub.duration, sub.tags, sub.hosts,
-            sub.break_before, sub.break_after
+            sub.break_before, sub.break_after, sub.groups
           )
         );
       }
@@ -569,7 +596,10 @@ const RecruitmentsPage = () => {
       openModal("Co najmniej jeden prowadzący wymagany");
       return;
     }
-
+    if (groups.length === 0) {
+      openModal("Co najmniej jedna grupa wymagana");
+      return;
+    }
     const newSub = {
       subject_name: subName,
       capacity: capacity,
@@ -578,9 +608,13 @@ const RecruitmentsPage = () => {
       min_students: minParp,
       hosts: subTeachers,
       break_before: breakB,
-      break_after: breakA
+      break_after: breakA,
+      groups:subGroups
     };
-    
+    for (const g of newSub.groups)
+    {
+      addRecGroup(g.group_id);
+    }
     setSubjects([...subjects, newSub]);
     openModal(`Dodano przedmiot: ${newSub.subject_name}`);
     clearSubjectForm();
@@ -600,7 +634,8 @@ const RecruitmentsPage = () => {
       min_students: minParp,
       hosts: subTeachers,
       break_before: parseInt(breakB),
-      break_after: parseInt(breakA)
+      break_after: parseInt(breakA),
+      groups:subGroups
     };
 
     setSubjects(subjects.map((s, i) => i === editIndex ? updatedSub : s));
@@ -717,7 +752,7 @@ const RecruitmentsPage = () => {
 
   const addSubTeacher = (host_id) => {
     const host = hosts.find(h => h.id === host_id);
-    if (host && !subTeachers.some(t => t.id === host.id)) {
+    if (host) {
       setTeachers([...subTeachers, host]);
     }
   };
@@ -733,8 +768,18 @@ const RecruitmentsPage = () => {
     }
   };
 
+  const addSubGroup = (group_id) => {
+    const group = groups.find(g => g.group_id === group_id);
+    if (group && !subGroups.some(g => g.group_id === group.group_id)) {
+      setSubGroups([...subGroups, group]);
+    }
+  };
+
   const deleteRecGroup = (group_id) => {
     setRecGroups(recGroups.filter(g => g.group_id !== group_id));
+  };
+   const deleteSubGroup = (group_id) => {
+    setSubGroups(subGroups.filter(g => g.group_id !== group_id));
   };
 
   // ===== RENDER FUNCTIONS =====
@@ -1018,45 +1063,6 @@ const RecruitmentsPage = () => {
                 />
               </div>
             </div>
-
-            {groups.length > 0 && (
-              <div className="admin-form-group full-width">
-                <label className="admin-label">Dodaj grupy uczestników</label>
-                <select
-                  className="admin-select"
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      addRecGroup(e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                  defaultValue=""
-                >
-                  <option value="">Wybierz grupę...</option>
-                  {groups.map((g) => (
-                    <option key={g.group_id} value={g.group_id}>
-                      {g.group_name}
-                    </option>
-                  ))}
-                </select>
-                
-                {recGroups.length > 0 && (
-                  <div className="admin-tags">
-                    {recGroups.map((g) => (
-                      <span key={g.group_id} className="admin-tag">
-                        {g.group_name}
-                        <span
-                          className="admin-tag-remove"
-                          onClick={() => deleteRecGroup(g.group_id)}
-                        >
-                          ✕
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </form>
 
           <div className="admin-actions">
@@ -1338,6 +1344,45 @@ const RecruitmentsPage = () => {
             )}
           </div>
         )}
+
+        {groups.length > 0 && (
+              <div className="admin-form-group full-width">
+                <label className="admin-label">Dodaj grupy uczestników</label>
+                <select
+                  className="admin-select"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addSubGroup(e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Wybierz grupę...</option>
+                  {groups.map((g) => (
+                    <option key={g.group_id} value={g.group_id}>
+                      {g.group_name}
+                    </option>
+                  ))}
+                </select>
+                
+                {subGroups.length > 0 && (
+                  <div className="admin-tags">
+                    {subGroups.map((g) => (
+                      <span key={g.group_id} className="admin-tag">
+                        {g.group_name}
+                        <span
+                          className="admin-tag-remove"
+                          onClick={() => deleteSubGroup(g.group_id)}
+                        >
+                          ✕
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
       </form>
 
       <div className="admin-actions">
