@@ -779,7 +779,7 @@ const RecruitmentsPage = () => {
     setRecGroups(recGroups.filter(g => g.group_id !== group_id));
   };
    const deleteSubGroup = (group_id) => {
-    setRecGroups(subGroups.filter(g => g.group_id !== group_id));
+    setSubGroups(subGroups.filter(g => g.group_id !== group_id));
   };
 
   // ===== RENDER FUNCTIONS =====
