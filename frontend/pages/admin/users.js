@@ -338,7 +338,7 @@ const UsersPage = () => {
 
   // ===== GROUP OPERATIONS =====
   const addGroup = (group_id) => {
-    const group = groups.find(g => g.group_id === parseInt(group_id));
+    const group = groups.find(g => g.group_id === group_id);
     if (group && !selectedGroups.some(g => g.group_id === group.group_id)) {
       setSelectedGroups([...selectedGroups, group]);
     }
