@@ -470,7 +470,8 @@ export default function PlanUzytkownika() {
         );
         if (meetRes.ok) {
           const meetData = await meetRes.json();
-          setMeetings(meetData);
+          setMeetings(meetData.results || []);
+          console.log("Fetched meetings:", meetData);
         }
       } catch (error) {
         console.error("Błąd odświeżania danych tygodnia:", error);
