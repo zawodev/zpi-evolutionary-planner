@@ -585,6 +585,7 @@ def force_recruitment_optimization(request, recruitment_id):
         recruitment.plan_status = 'draft'
         recruitment.optimization_start_date = now
         recruitment.optimization_end_date = now + timedelta(seconds=duration_seconds)
+        recruitment.max_round_execution_time = duration_seconds
         recruitment.save()
         
         logger.info(f"Forced optimization setup for recruitment {recruitment_id}: "
