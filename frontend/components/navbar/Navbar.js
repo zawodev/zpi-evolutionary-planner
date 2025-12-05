@@ -30,6 +30,9 @@ export default function Navbar() {
             <Link href="/admin/rooms">
               <button className="header-nav nav-func">Pokoje</button>
             </Link>
+            <Link href="/admin/latestjobspotlight">
+              <button className="header-nav nav-func">Wyniki</button>
+            </Link>
           </>
         ) : (
           <>
