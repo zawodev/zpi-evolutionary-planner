@@ -24,8 +24,7 @@ const DetailedMetric = ({ label, valuePair }) => {
 
     // Color logic: Red for low, Green for high
     const getColor = (p) => {
-        p = Number(p);
-        console.log(p , typeof p);  
+        p = Number(p); 
         if (p < 0.5) return '#ef4444'; // red-500
         if (p < 0.8) return '#f59e0b'; // amber-500
         return '#10b981'; // emerald-500
@@ -62,7 +61,8 @@ const PersonCard = ({
     weightedFitness,
     details,
     isExpanded,
-    onToggle
+    onToggle,
+    overallWeight
 }) => {
     return (
         <div className={styles["card"]}>
@@ -72,14 +72,14 @@ const PersonCard = ({
                     <span className={styles["person-name"]}>{title}</span>
                 </div>
                 <div className={styles["header-score"]}>
-                    Wynik: <span className={styles["score-val"]}>{overallFitness.toFixed(2)} / 1.00</span>
+                    Wynik: <span className={styles["score-val"]}>{overallFitness.toFixed(2)* 100}%</span>
                 </div>
             </div>
 
             {isExpanded && (
                 <div className={styles["card-body"]}>
                     <div className={styles["summary-stat"]}>
-                        <strong>Wynik ważony:</strong> {weightedFitness}
+                        <strong>Wynik ważony:</strong> {((Number(weightedFitness)/Number(overallWeight))*100).toFixed(2)}%
                     </div>
                     <div className="detailed-list">
                         {details.map((pair, idx) => (
@@ -103,7 +103,8 @@ const SolutionColumn = ({
     expandedStudents,
     toggleStudent,
     expandedTeachers,
-    toggleTeacher
+    toggleTeacher,
+    overallWeight
 }) => {
     return (
         <div className={styles["solution-column"]}>
@@ -134,6 +135,7 @@ const SolutionColumn = ({
                             details={solutionData.teacher_detailed_fitnesses[idx]}
                             isExpanded={expandedTeachers.has(idx)}
                             onToggle={() => toggleTeacher(idx)}
+                            overallWeight={overallWeight}
                         />
                     ))}
                 </div>
@@ -149,6 +151,7 @@ const SolutionColumn = ({
                             details={solutionData.student_detailed_fitnesses[idx]}
                             isExpanded={expandedStudents.has(idx)}
                             onToggle={() => toggleStudent(idx)}
+                            overallWeight={overallWeight}
                         />
                     ))}
                 </div>
@@ -243,7 +246,7 @@ export default function ScheduleComparisonPage() {
             </div>
         );
     }
-
+    console.log(data)
     const { first_solution, final_solution } = data;
 
     return (
@@ -266,8 +269,8 @@ export default function ScheduleComparisonPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="admin-main">
-                    <main className="admin-content">
+                <div>
+                    <main>
                         <div className={styles['comparison-grid']}>
                             <SolutionColumn
                                 title="First Solution"
@@ -276,6 +279,7 @@ export default function ScheduleComparisonPage() {
                                 toggleStudent={toggleStudent}
                                 expandedTeachers={expandedTeachers}
                                 toggleTeacher={toggleTeacher}
+                                overallWeight={Number(data.first_solution.total_student_weight)+Number(data.first_solution.total_teacher_weight)}
                             />
 
                             <SolutionColumn
@@ -285,6 +289,7 @@ export default function ScheduleComparisonPage() {
                                 toggleStudent={toggleStudent}
                                 expandedTeachers={expandedTeachers}
                                 toggleTeacher={toggleTeacher}
+                                overallWeight={Number(data.final_solution.total_student_weight)+Number(data.final_solution.total_teacher_weight)}
                             />
                         </div>
                     </main>
