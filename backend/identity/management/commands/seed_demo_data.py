@@ -345,12 +345,12 @@ class Command(BaseCommand):
                 'PreferredTimeslots': rand_list(timeslots_in_cycle, -3, 8),
             }
 
-        for u in participants_alpha[:5]:
+        for u in participants_alpha[:10]:
             UserPreferences.objects.get_or_create(
                 user=u, recruitment=rec_alpha_active,
                 defaults={'preferences_data': default_user_preferences(rec_alpha_active)}
             )
-        for u in participants_beta[:5]:
+        for u in participants_beta[:10]:
             UserPreferences.objects.get_or_create(
                 user=u, recruitment=rec_beta_active,
                 defaults={'preferences_data': default_user_preferences(rec_beta_active)}
