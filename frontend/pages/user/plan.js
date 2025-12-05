@@ -57,16 +57,108 @@ const getWeekNumber = (date) => {
   return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
 };
 
-const getEventVisuals = (type) => {
-  const typeLower = type ? type.toLowerCase() : '';
+const COLOR_PALETTES = {
+  type: [
+    { bg: '#fee2e2', text: '#991b1b' }, // red
+    { bg: '#dbeafe', text: '#1e40af' }, // blue
+    { bg: '#d1fae5', text: '#065f46' }, // green
+    { bg: '#fef3c7', text: '#92400e' }, // yellow
+    { bg: '#f3e8ff', text: '#6b21a8' }, // purple
+    { bg: '#fce7f3', text: '#9f1239' }, // pink
+    { bg: '#e0e7ff', text: '#3730a3' }, // indigo
+    { bg: '#f3f4f6', text: '#374151' }, // gray
+  ],
+  subject: [
+    { bg: '#dbeafe', text: '#1e40af' }, // blue
+    { bg: '#d1fae5', text: '#065f46' }, // green
+    { bg: '#fef3c7', text: '#92400e' }, // yellow
+    { bg: '#f3e8ff', text: '#6b21a8' }, // purple
+    { bg: '#fce7f3', text: '#9f1239' }, // pink
+    { bg: '#fed7aa', text: '#9a3412' }, // orange
+    { bg: '#e0e7ff', text: '#3730a3' }, // indigo
+    { bg: '#fecaca', text: '#991b1b' }, // light red
+    { bg: '#bef3daff', text: '#065f46' }, // light green
+    { bg: '#fde68a', text: '#78350f' }, // light yellow
+  ],
+  room: [
+    { bg: '#e0e7ff', text: '#3730a3' }, // indigo
+    { bg: '#dbeafe', text: '#1e40af' }, // blue
+    { bg: '#d1fae5', text: '#065f46' }, // green
+    { bg: '#fed7aa', text: '#9a3412' }, // orange
+    { bg: '#f3e8ff', text: '#6b21a8' }, // purple
+    { bg: '#fef3c7', text: '#92400e' }, // yellow
+    { bg: '#fce7f3', text: '#9f1239' }, // pink
+    { bg: '#f3f4f6', text: '#374151' }, // gray
+  ],
+  host: [
+    { bg: '#fce7f3', text: '#9f1239' }, // pink
+    { bg: '#dbeafe', text: '#1e40af' }, // blue
+    { bg: '#d1fae5', text: '#065f46' }, // green
+    { bg: '#f3e8ff', text: '#6b21a8' }, // purple
+    { bg: '#fed7aa', text: '#9a3412' }, // orange
+    { bg: '#e0e7ff', text: '#3730a3' }, // indigo
+    { bg: '#fef3c7', text: '#92400e' }, // yellow
+    { bg: '#f3f4f6', text: '#374151' }, // gray
+  ],
+  group: [
+    { bg: '#fed7aa', text: '#9a3412' }, // orange
+    { bg: '#dbeafe', text: '#1e40af' }, // blue
+    { bg: '#d1fae5', text: '#065f46' }, // green
+    { bg: '#f3e8ff', text: '#6b21a8' }, // purple
+    { bg: '#fce7f3', text: '#9f1239' }, // pink
+    { bg: '#fef3c7', text: '#92400e' }, // yellow
+    { bg: '#e0e7ff', text: '#3730a3' }, // indigo
+    { bg: '#f3f4f6', text: '#374151' }, // gray
+  ]
+};
+
+const getColorByValue = (value, coloringMode) => {
+  if (!value) return COLOR_PALETTES[coloringMode][7]; // default gray
   
-  if (typeLower.includes('egzamin')) return { className: 'type-egzamin', icon: FileText };
-  if (typeLower.includes('wykład') || typeLower.includes('wyklad')) return { className: 'type-wyklad', icon: BookOpen };
-  if (typeLower.includes('lab') || typeLower.includes('proj')) return { className: 'type-laboratorium', icon: FlaskConical };
-  if (typeLower.includes('sem') || typeLower.includes('ćw')) return { className: 'type-spotkanie', icon: Users };
-  if (typeLower.includes('rozmowa')) return { className: 'type-rozmowa', icon: MessageCircle };
+  let hash = 0;
+  const str = String(value);
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % COLOR_PALETTES[coloringMode].length;
+  return COLOR_PALETTES[coloringMode][index];
+};
+
+const getEventVisuals = (item, coloringMode = 'type') => {
+  const typeLower = item.type ? item.type.toLowerCase() : '';
+  let icon = FileText;
   
-  return { className: 'type-default', icon: FileText };
+  if (typeLower.includes('egzamin')) icon = FileText;
+  else if (typeLower.includes('wykład') || typeLower.includes('wyklad')) icon = BookOpen;
+  else if (typeLower.includes('lab') || typeLower.includes('proj')) icon = FlaskConical;
+  else if (typeLower.includes('sem') || typeLower.includes('ćw')) icon = Users;
+  else if (typeLower.includes('rozmowa')) icon = MessageCircle;
+
+  let colors;
+  switch (coloringMode) {
+    case 'type':
+      colors = getColorByValue(item.type, 'type');
+      break;
+    case 'subject':
+      colors = getColorByValue(item.title, 'subject');
+      break;
+    case 'room':
+      colors = getColorByValue(item.room, 'room');
+      break;
+    case 'host':
+      colors = getColorByValue(item.hostName, 'host');
+      break;
+    case 'group':
+      colors = getColorByValue(item.group, 'group');
+      break;
+    default:
+      colors = COLOR_PALETTES.type[7]; // default
+  }
+  
+  return { 
+    colors,
+    icon 
+  };
 };
 
 // --- Styles Component ---
@@ -123,16 +215,27 @@ const PlanStyles = () => (
       margin: 0 0 0.25rem 0;
     }
     
+    .plan-filter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    
     .plan-filter-box {
       display: flex;
       align-items: center;
       gap: 0.75rem;
+      flex-wrap: wrap;
     }
     
     .plan-filter-label {
       font-size: 0.875rem;
       font-weight: 600;
       color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
     
     .plan-filter-select {
@@ -147,6 +250,16 @@ const PlanStyles = () => (
       transition: all 0.2s;
     }
     
+    .plan-filter-select:hover {
+      background-color: #dbeafe;
+      border-color: #bfdbfe;
+    }
+    
+    .plan-filter-select:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
     /* --- Week Navigation --- */
     .plan-nav-wrapper {
       margin-bottom: 1.5rem;
@@ -277,11 +390,12 @@ const PlanStyles = () => (
       padding: 0.75rem;
       cursor: pointer;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
     
     .schedule-item:hover {
       transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
     }
     
     .schedule-item-header {
@@ -309,17 +423,10 @@ const PlanStyles = () => (
       gap: 0.5rem;
     }
 
-    /* --- Colors --- */
-    .type-egzamin { background: #fee2e2; color: #991b1b; }
-    .type-spotkanie { background: #dbeafe; color: #1e40af; }
-    .type-wyklad { background: #d1fae5; color: #065f46; }
-    .type-laboratorium { background: #fef3c7; color: #92400e; }
-    .type-rozmowa { background: #f3e8ff; color: #6b21a8; }
-    .type-default { background: #f3f4f6; color: #374151; }
-
     /* --- Responsive --- */
     @media (min-width: 640px) {
       .calendar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .plan-filter-container { flex-direction: row; align-items: center; }
     }
     @media (min-width: 768px) {
       .plan-header-content { flex-direction: row; }
@@ -331,12 +438,18 @@ const PlanStyles = () => (
   `}</style>
 );
 
-const ScheduleItem = ({ item }) => {
-  const visuals = getEventVisuals(item.type);
+const ScheduleItem = ({ item, coloringMode }) => {
+  const visuals = getEventVisuals(item, coloringMode);
   const IconComponent = visuals.icon;
 
   return (
-    <div className={`schedule-item ${visuals.className}`}>
+    <div 
+      className="schedule-item"
+      style={{
+        backgroundColor: visuals.colors.bg,
+        color: visuals.colors.text
+      }}
+    >
       <div className="schedule-item-header">
         <div className="schedule-item-icon-wrapper">
           <IconComponent size={16} />
@@ -373,7 +486,7 @@ const ScheduleItem = ({ item }) => {
   );
 };
 
-const DayColumn = ({ day, events }) => {
+const DayColumn = ({ day, events, coloringMode }) => {
   const isToday = new Date().toDateString() === day.toDateString();
   const dayFormat = day.getDate();
   const monthFormat = day.toLocaleDateString('pl-PL', { month: '2-digit' });
@@ -394,7 +507,7 @@ const DayColumn = ({ day, events }) => {
       
       <div className="day-column-body">
         {events.length > 0 ? (
-          events.map(item => <ScheduleItem key={item.id} item={item} />)
+          events.map(item => <ScheduleItem key={item.id} item={item} coloringMode={coloringMode} />)
         ) : (
           <div className="day-column-empty">
             <div className="day-column-empty-icon">
@@ -412,6 +525,7 @@ export default function PlanUzytkownika() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRecruitmentId, setSelectedRecruitmentId] = useState('all');
+  const [coloringMode, setColoringMode] = useState('type');
   
   // Data states
   const [recruitments, setRecruitments] = useState([]);
@@ -490,7 +604,6 @@ export default function PlanUzytkownika() {
       const eventDate = weekDays[meeting.day_of_week];
       const dateStr = eventDate ? eventDate.toISOString().split('T')[0] : 'Unknown';
 
-      // Use start_time and end_time directly from the API
       const startT = meeting.start_time ? meeting.start_time.substring(0, 5) : '00:00';
       const endT = meeting.end_time ? meeting.end_time.substring(0, 5) : '00:15';
 
@@ -542,7 +655,7 @@ export default function PlanUzytkownika() {
     });
   }, [meetings, weekDays, recruitments]);
 
-  // Appying Filters
+  // Applying Filters
   const filteredSchedule = useMemo(() => {
     let data = scheduleEvents;
     if (selectedRecruitmentId !== 'all') {
@@ -571,6 +684,10 @@ export default function PlanUzytkownika() {
     setSelectedRecruitmentId(e.target.value);
   };
 
+  const handleColoringModeChange = (e) => {
+    setColoringMode(e.target.value);
+  };
+
   return (
     <div className="plan-container">
       <PlanStyles />
@@ -587,21 +704,45 @@ export default function PlanUzytkownika() {
                   {isLoading && <p style={{fontSize: '0.9rem', color: '#6b7280'}}>Ładowanie danych z bazy...</p>}
                 </div>
                 
-                <div className="plan-filter-box">
-                  <span className="plan-filter-label">Filtruj:</span>
-                  <select
-                    value={selectedRecruitmentId}
-                    onChange={handleRecruitmentChange}
-                    className="plan-filter-select"
-                    disabled={isLoading}
-                  >
-                    <option value="all">Wszystkie rekrutacje</option>
-                    {recruitments.map(rec => (
-                      <option key={rec.recruitment_id} value={rec.recruitment_id}>
-                        {rec.recruitment_name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="plan-filter-container">
+                  {/* Recruitment Filter */}
+                  <div className="plan-filter-box">
+                    <span className="plan-filter-label">
+                      <Filter size={16} />
+                      Rekrutacja:
+                    </span>
+                    <select
+                      value={selectedRecruitmentId}
+                      onChange={handleRecruitmentChange}
+                      className="plan-filter-select"
+                      disabled={isLoading}
+                    >
+                      <option value="all">Wszystkie rekrutacje</option>
+                      {recruitments.map(rec => (
+                        <option key={rec.recruitment_id} value={rec.recruitment_id}>
+                          {rec.recruitment_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Color Mode Filter */}
+                  <div className="plan-filter-box">
+                    <span className="plan-filter-label">
+                      Koloruj według:
+                    </span>
+                    <select
+                      value={coloringMode}
+                      onChange={handleColoringModeChange}
+                      className="plan-filter-select"
+                    >
+                      <option value="type">Typ zajęć</option>
+                      <option value="subject">Przedmiot</option>
+                      <option value="room">Sala</option>
+                      <option value="host">Prowadzący</option>
+                      <option value="group">Grupa</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -643,6 +784,7 @@ export default function PlanUzytkownika() {
                 key={dateStr}
                 day={day}
                 events={eventsForDay}
+                coloringMode={coloringMode}
               />
             );
           })}
