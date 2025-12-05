@@ -223,3 +223,22 @@
     display: flex;
     align-items: center;
   }
+.not-applicable-overlay {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+    background: 
+        repeating-linear-gradient(
+            45deg,
+            #ef4444 0,      
+            #ef4444 4px,    
+            transparent 4px, 
+            transparent 10px 
+        ) !important;
+        
+    background-size: 10px 10px; 
+    opacity: 0.8; 
+    
+    width: 100% !important; 
+}

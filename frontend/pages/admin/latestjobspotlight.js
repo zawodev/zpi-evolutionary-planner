@@ -12,7 +12,7 @@ const PREFERENCE_LABELS = [
     "Pref. Start Time",
     "Pref. End Time",
     "Tag Order",
-    "Pref. Groups / Other",
+    "Pref. Groups",
     "Pref. Timeslots"
 ];
 
@@ -30,14 +30,16 @@ const DetailedMetric = ({ label, valuePair }) => {
         if (p < 0.8) return '#f59e0b'; // amber-500
         return '#10b981'; // emerald-500
     };
+    const isZeroWeight = Number(weight) === 0;
 
+    
     return (
         <div className={styles["metric-row"]}>
             <div className={styles["metric-label"]}>{label}</div>
             <div className={styles["metric-viz"]}>
                 <div className={styles["progress-bg"]}>
                     <div
-                        className={styles["progress-fill"]}
+                        className={isZeroWeight ? styles["not-applicable-overlay"] : styles["progress-fill"]}
                         style={{
                             width: `${percentage * 100}%`,
                             background: getColor(percentage)
@@ -45,8 +47,8 @@ const DetailedMetric = ({ label, valuePair }) => {
                     />
                 </div>
                 <div className={styles["metric-values"]}>
-                    <span className={styles["val-pct"]}>{(percentage * 100).toFixed(0)}%</span>
-                    <span className={styles["val-wgt"]}>Punkty: {weight}</span>
+                    {!isZeroWeight ? (<span className={styles["val-pct"]}>{(percentage * 100).toFixed(0)}%</span>) : (<></>)}
+                    {!isZeroWeight ? (<span className={styles["val-wgt"]}>Punkty: {weight}</span>) : (<span className={styles["val-wgt"]}>Brak preferencji</span>)}
                 </div>
             </div>
         </div>
@@ -111,7 +113,7 @@ const SolutionColumn = ({
             <div className={styles["global-stats"]}>
                 <div className={styles["stat-box"]}>
                     <span className={styles["stat-label"]}>Ogólne przystosowanie</span>
-                    <span className={styles["stat-value"]}>{solutionData.fitness.toFixed(4)}</span>
+                    <span className={styles["stat-value"]}>{(solutionData.fitness.toFixed(2) * 100).toFixed(0)}%</span>
                 </div>
                 <div className={styles["stat-box"]}>
                     <span className={styles["stat-label"]}>Dni w cyklu</span>
