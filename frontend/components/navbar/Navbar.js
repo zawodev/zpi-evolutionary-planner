@@ -18,14 +18,17 @@ export default function Navbar() {
       <nav>
         {user ? (user.role === 'office' ? (
           <>
+            <Link href="/admin/recruitments">
+              <button className="header-nav nav-contact">Rekrutacje</button>
+            </Link>
             <Link href="/admin/users">
               <button className="header-nav nav-home">Użytkownicy</button>
             </Link>
+            <Link href="/admin/groups">
+              <button className="header-nav nav-func">Grupy</button>
+            </Link>
             <Link href="/admin/rooms">
               <button className="header-nav nav-func">Pokoje</button>
-            </Link>
-            <Link href="/admin/recruitments">
-              <button className="header-nav nav-contact">Rekrutacje</button>
             </Link>
           </>
         ) : (
