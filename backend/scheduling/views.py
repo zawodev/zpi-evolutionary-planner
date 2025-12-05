@@ -80,6 +80,17 @@ class SubjectGroupView(BaseCrudView):
     lookup_field = 'subject_group_id'
 
 
+class SubjectGroupsBySubjectView(APIView):
+    """Zwraca wszystkie SubjectGroup powiązane z danym Subject."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, subject_pk):
+        subject = get_object_or_404(Subject, **{'subject_id': subject_pk})
+        sgroups_qs = SubjectGroup.objects.filter(subject=subject).order_by('subject__subject_name')
+        serializer = SubjectGroupSerializer(sgroups_qs, many=True)
+        return Response(serializer.data)
+
+
 class SubjectGroupCreateWithRecruitmentView(APIView):
     """Create SubjectGroup and automatically link the host user to the subject's recruitment.
 
@@ -235,4 +246,15 @@ class TagsBySubjectView(APIView):
         get_object_or_404(Subject, **{'subject_id': subject_pk})
         tags_qs = Tag.objects.filter(tagged_subjects__subject_id=subject_pk).distinct().order_by('tag_name')
         serializer = TagSerializer(tags_qs, many=True)
+        return Response(serializer.data)
+
+
+class RecruitmentSubjectsView(APIView):
+    """Zwraca wszystkie subjecty powiązane z daną rekrutacją."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, recruitment_pk):
+        recruitment = get_object_or_404(Recruitment, **{'recruitment_id': recruitment_pk})
+        subjects_qs = Subject.objects.filter(recruitment=recruitment).order_by('subject_name')
+        serializer = SubjectSerializer(subjects_qs, many=True)
         return Response(serializer.data)

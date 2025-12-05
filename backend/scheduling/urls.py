@@ -14,12 +14,15 @@ from .views import (
     RoomRecruitmentView,
     SubjectTagView,
     TagsBySubjectView,
+    RecruitmentSubjectsView,
+    SubjectGroupsBySubjectView,
 )
 
 urlpatterns = [
     path('subjects/', SubjectView.as_view(), name='subjects'),
     path('subjects/<uuid:pk>/', SubjectView.as_view(), name='subject-detail'),
     path('subjects/<uuid:subject_pk>/tags/', TagsBySubjectView.as_view(), name='subject-tags'),
+    path('subjects/<uuid:subject_pk>/groups/', SubjectGroupsBySubjectView.as_view(), name='subject-groups-by-subject'),
 
     path('subject-groups/', SubjectGroupView.as_view(), name='subject-groups'),
     path('subject-groups/<uuid:pk>/', SubjectGroupView.as_view(), name='subject-group-detail'),
@@ -28,6 +31,7 @@ urlpatterns = [
     path('recruitments/', RecruitmentView.as_view(), name='recruitments'),
     path('recruitments/<uuid:pk>/', RecruitmentView.as_view(), name='recruitment-detail'),
     path('recruitments/<uuid:recruitment_pk>/users/', UsersByRecruitmentView.as_view(), name='recruitment-users'),
+    path('recruitments/<uuid:recruitment_pk>/subjects/', RecruitmentSubjectsView.as_view(), name='recruitment-subjects'),
 
     path('rooms/', RoomView.as_view(), name='rooms'),
     path('rooms/<uuid:pk>/', RoomView.as_view(), name='room-detail'),
