@@ -209,18 +209,34 @@ class Command(BaseCommand):
             return sub
 
         subjects_alpha_active = [
-            ensure_subject(rec_alpha_active, 'Math 101'),
-            ensure_subject(rec_alpha_active, 'Physics 101'),
-            ensure_subject(rec_alpha_active, 'Chemistry 101'),
+            ensure_subject(rec_alpha_active, 'Math Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Physics Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Chemistry Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Biology Alpha 101'),
+            ensure_subject(rec_alpha_active, 'History Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Literature Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Computer Science Alpha 101'),
+            ensure_subject(rec_alpha_active, 'Philosophy Alpha 101'),
         ]
         subjects_alpha_draft = [
-            ensure_subject(rec_alpha_draft, 'Math 101 Draft'),
-            ensure_subject(rec_alpha_draft, 'Physics 101 Draft'),
+            ensure_subject(rec_alpha_draft, 'Math 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Physics 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Chemistry 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Biology 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'History 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Literature 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Computer Science 101 Alpha Draft'),
+            ensure_subject(rec_alpha_draft, 'Philosophy 101 Alpha Draft'),
         ]
         subjects_beta_active = [
-            ensure_subject(rec_beta_active, 'Biology 101'),
-            ensure_subject(rec_beta_active, 'History 101'),
-            ensure_subject(rec_beta_active, 'Literature 101'),
+            ensure_subject(rec_beta_active, 'Biology Beta 101'),
+            ensure_subject(rec_beta_active, 'History Beta 101'),
+            ensure_subject(rec_beta_active, 'Literature Beta 101'),
+            ensure_subject(rec_beta_active, 'Math Beta 101'),
+            ensure_subject(rec_beta_active, 'Physics Beta 101'),
+            ensure_subject(rec_beta_active, 'Chemistry Beta 101'),
+            ensure_subject(rec_beta_active, 'Computer Science Beta 101'),
+            ensure_subject(rec_beta_active, 'Philosophy Beta 101'),
         ]
 
         # 9) SubjectGroups (model już nie zawiera recruitment FK; relacja przez Subject.recruitment)
