@@ -385,6 +385,43 @@ class GroupsByUserView(APIView):
         return Response(serializer.data)
 
 
+class GroupsBulkLinkedToSubjectView(APIView):
+    """Zwraca grupy, których wszyscy członkowie są przypisani do danego subjectu (na podstawie UserSubjects).
+
+    Algorytm:
+    - pobierz wszystkich UserSubjects dla subjectu
+    - pobierz grupy w organizacji subjectu (przez organization użytkowników lub bezpośrednio po Subject->Recruitment->Organization)
+    - dla każdej grupy sprawdź, czy każdy jej użytkownik ma wpis w UserSubjects dla subjectu
+    - zwróć listę takich grup
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, subject_pk):
+        from scheduling.models import Subject
+        subject = get_object_or_404(Subject, subject_id=subject_pk)
+
+        # Użytkownicy przypisani do subjectu
+        user_ids_assigned = set(UserSubjects.objects.filter(subject_id=subject_pk).values_list('user_id', flat=True))
+
+        # Kandydatami są grupy w tej samej organizacji co subject.recruitment.organization
+        org = subject.recruitment.organization
+        groups_qs = Group.objects.filter(organization=org).order_by('group_name')
+
+        fully_linked_groups = []
+        for grp in groups_qs:
+            member_ids = list(UserGroup.objects.filter(group=grp).values_list('user_id', flat=True))
+            # Pusta grupa nie jest traktowana jako w pełni przypisana
+            if not member_ids:
+                continue
+            # Czy wszyscy członkowie mają wpis w UserSubjects dla subjectu?
+            if set(member_ids).issubset(user_ids_assigned):
+                fully_linked_groups.append(grp)
+
+        from .serializers import GroupSerializer
+        serializer = GroupSerializer(fully_linked_groups, many=True)
+        return Response(serializer.data)
+
+
 class OrganizationUsersView(APIView):
     """Return all users that belong to a given organization.
 
@@ -742,3 +779,24 @@ class BulkAddGroupUsersToSubjectView(APIView):
             "users_added": to_create,
             "total_users_in_group": len(user_ids_in_group)
         }, status=status.HTTP_201_CREATED)
+
+
+class BulkUnlinkGroupFromSubjectView(APIView):
+    """Usuwa przypisanie subjectu dla wszystkich użytkowników z danej grupy.
+
+    Wymagane parametry ścieżki: subject_pk, group_id
+    Działanie: usuń wszystkie rekordy UserSubjects dla użytkowników należących do tej grupy i danego subjectu.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsOfficeUser]
+
+    def delete(self, request, subject_pk, group_id):
+        from scheduling.models import Subject
+        subject = get_object_or_404(Subject, subject_id=subject_pk)
+        group = get_object_or_404(Group, pk=group_id)
+
+        member_ids = list(UserGroup.objects.filter(group=group).values_list('user_id', flat=True))
+        if member_ids:
+            UserSubjects.objects.filter(subject=subject, user_id__in=member_ids).delete()
+
+        return Response({"detail": "Groups users unlinked from subject"}, status=status.HTTP_204_NO_CONTENT)
+
