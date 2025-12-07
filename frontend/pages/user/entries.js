@@ -425,21 +425,43 @@ const EntriesStyles = () => (
       position: absolute;
       left: 4px;
       right: 4px;
-      border-radius: 0.5rem;
-      padding: 0.75rem;
+      border-radius: 0.35rem;
+      padding: 0.5rem;
       font-size: 0.75rem;
       cursor: pointer;
       transition: all 0.2s;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-height: 0;
+    }
+
+    /* Style dla średnich slotów (np. 30-45 min) */
+    .new-entries-schedule-slot.compact {
+        padding: 2px 6px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5px;
+    }
+
+    /* Style dla bardzo małych slotów (np. 15 min) */
+    .new-entries-schedule-slot.tiny {
+        padding: 0 4px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: 0.2rem;
     }
 
     .new-entries-schedule-slot:hover:not(.read-only) {
-      transform: translateX(-2px);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      transform: scale(1.02);
+      z-index: 50; 
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      height: auto !important;
+      min-height: fit-content;
     }
     
     .new-entries-schedule-slot.read-only {
@@ -453,9 +475,18 @@ const EntriesStyles = () => (
 
     .new-entries-slot-label {
       font-weight: 600;
-      line-height: 1.3;
+      line-height: 1.2;
       display: block;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .new-entries-schedule-slot.compact .new-entries-slot-label,
+    .new-entries-schedule-slot.tiny .new-entries-slot-label {
+        font-size: 0.7rem;
+        margin-bottom: 0;
     }
 
     .new-entries-slot-details {
@@ -466,6 +497,29 @@ const EntriesStyles = () => (
       margin-top: auto;
       padding-top: 0.5rem;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
+      width: 100%;
+    }
+
+    .new-entries-schedule-slot.compact .new-entries-slot-details {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+        width: auto;
+        gap: 5px;
+        flex-shrink: 0;
+    }
+    
+    .new-entries-schedule-slot.compact .new-entries-slot-time {
+        display: none;
+    }
+
+    .new-entries-schedule-slot.tiny .new-entries-slot-details {
+        display: none;
+    }
+    
+    .new-entries-schedule-slot.tiny .new-entries-slot-points {
+        font-size: 0.65rem;
+        padding: 0 2px;
     }
 
     .new-entries-slot-time {
@@ -1774,7 +1828,6 @@ const ScheduleHeader = ({
   const isOptimizationActive = status === 'optimizing';
   const isStatusAvailable = optimizationStatus && !isLoadingStatus;
 
-  // Live countdown timer and progress
   const [liveCountdown, setLiveCountdown] = React.useState({
     totalRemaining: 0,
     currentJobRemaining: 0
@@ -1785,13 +1838,12 @@ const ScheduleHeader = ({
 
   React.useEffect(() => {
     if (isStatusAvailable) {
-      // Initialize countdown and progress from API data
       setLiveCountdown({
         totalRemaining: optimizationStatus.estimates.total_remaining_seconds,
         currentJobRemaining: optimizationStatus.estimates.current_job_remaining_seconds
       });
       setLiveProgress(optimizationStatus.meta.now_progress);
-      setLastApiUpdate(Date.now()); // Mark that we received new data
+      setLastApiUpdate(Date.now());
     }
   }, [optimizationStatus, isStatusAvailable]);
 
@@ -2057,21 +2109,43 @@ const ScheduleSlot = ({ slot, position, onClick, isEditable }) => {
     return `${time.toString().padStart(2, '0')}:00`;
   };
 
+  // Ustalanie klasy na podstawie wysokości
+  // 60px to 1 godzina. 
+  // < 45px to mniej niż 45 min (tryb kompaktowy)
+  // < 22px to mniej niż 20 min (tryb tiny - np. 15 min)
+  const isCompact = position.height < 45;
+  const isTiny = position.height < 22;
+
+  let sizeClass = '';
+  if (isTiny) sizeClass = 'tiny';
+  else if (isCompact) sizeClass = 'compact';
+
   return (
     <div
-      className={`new-entries-schedule-slot ${slot.type} ${!isEditable ? 'read-only' : ''}`}
+      className={`new-entries-schedule-slot ${slot.type} ${!isEditable ? 'read-only' : ''} ${sizeClass}`}
       style={{
         top: `${position.top}px`,
         height: `${position.height}px`
       }}
       onClick={isEditable ? onClick : (e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
+      title={`${slot.label} (${formatTime(slot.start)} - ${formatTime(slot.end)}) - ${slot.priority}pt`}
     >
-      <span className="new-entries-slot-label">{slot.label}</span>
-      <div className="new-entries-slot-details">
-        <span className="new-entries-slot-time">{formatTime(slot.start)} - {formatTime(slot.end)}</span>
-        <span className="new-entries-slot-points">{slot.priority}pt</span>
-      </div>
+      <span className="new-entries-slot-label">
+          {slot.label}
+          {/* W trybie tiny pokazujemy punkty obok nazwy, bo details są ukryte */}
+          {isTiny && <span style={{marginLeft: '4px', opacity: 0.8, fontSize: '0.65rem'}}>({slot.priority})</span>}
+      </span>
+      
+      {/* Sekcja details renderuje się normalnie tylko jeśli nie jest tiny */}
+      {!isTiny && (
+          <div className="new-entries-slot-details">
+            <span className="new-entries-slot-time">
+                {formatTime(slot.start)} - {formatTime(slot.end)}
+            </span>
+            <span className="new-entries-slot-points">{slot.priority}pt</span>
+          </div>
+      )}
     </div>
   );
 };
@@ -2516,7 +2590,7 @@ const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour, gridEn
     const y = e.clientY - rect.top;
     
     const hourHeight = 60;
-    const gridStart = gridStartHour;   
+    const gridStart = gridStartHour;    
     const gridEnd = gridEndHour;
     const totalHeight = (gridEnd - gridStart) * hourHeight; 
     
