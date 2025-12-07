@@ -8,7 +8,7 @@ const RecruitmentsPage = () => {
   // ===== NAVIGATION STATE =====
   const [activeView, setActiveView] = useState('list'); // 'list', 'create', 'edit'
   const [selectedRecruitment, setSelectedRecruitment] = useState(null);
-  
+
   // ===== INTERNAL TABS STATE (for create/edit) =====
   const [activeTab, setActiveTab] = useState('recruitment'); // 'recruitment', 'subjects'
   const [subjectMode, setSubjectMode] = useState('list'); // 'list', 'add', 'edit'
@@ -85,7 +85,7 @@ const RecruitmentsPage = () => {
     setSubjects([]); // Resetuj, jeśli nie jest w trybie edycji
     setRecGroups([]); // Resetuj, jeśli nie jest w trybie edycji
   };
-  
+
   const clearRecruitmentFormForEdit = () => {
     // Używane do czyszczenia głównej części formularza, ale pozostawienia subjects/groups
     setRecruitmentName("");
@@ -101,6 +101,7 @@ const RecruitmentsPage = () => {
     setRoundBreakLength(10);
     setActiveTab('recruitment');
     setSubjectMode('list');
+    setSubjects([]);
   }
 
   const clearSubjectForm = () => {
@@ -120,20 +121,110 @@ const RecruitmentsPage = () => {
   const formatDisplayDate = (isoString) => {
     if (!isoString) return 'N/A';
     try {
-        const date = new Date(isoString);
-        if (isNaN(date)) return isoString.split('T')[0] || 'N/A'; 
-        return date.toLocaleDateString('pl-PL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const date = new Date(isoString);
+      if (isNaN(date)) return isoString.split('T')[0] || 'N/A';
+      return date.toLocaleDateString('pl-PL', { year: 'numeric', month: '2-digit', day: '2-digit' });
     } catch (e) {
-        return isoString.split('T')[0] || 'N/A';
+      return isoString.split('T')[0] || 'N/A';
     }
   };
-  
+
   const formatTime = (timeString) => {
     return timeString ? timeString.substring(0, 5) : 'N/A';
   };
 
 
   // ===== API CALLS =====
+  const fetchHostsForSub = async (sub_id) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/subjects/${sub_id}/groups/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+
+        const results = data.map(d => {
+          return hosts.find(h => h.id === d.host_user) || null;
+        });
+
+        return results;
+
+      }
+    } catch (error) {
+      console.error("Error fetching recruitments:", error);
+    }
+  };
+  const fetchTagsForSub = async (sub_id) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/subjects/${sub_id}/tags/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.error("Error fetching hosts:", error);
+    }
+  };
+  const fetchGroupsForSub = async (sub_id) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/identity/user-subjects/bulk_add_group/linked_groups/${sub_id}/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.error("Error fetching recruitments:", error);
+    }
+  };
+  const fetchSubjectsForRec = async (rec_id) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/recruitments/${rec_id}/subjects/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+
+        const subjectPromises = data.map(async (sub) => {
+          const [tags, hosts, groups] = await Promise.all([
+            fetchTagsForSub(sub.subject_id),
+            fetchHostsForSub(sub.subject_id),
+            fetchGroupsForSub(sub.subject_id),
+          ]);
+
+          return {
+            subject_id: sub.subject_id,
+            subject_name: sub.subject_name,
+            capacity: sub.capacity,
+            duration: Number(sub.duration_blocks) * 15,
+            tags,
+            min_students: sub.min_students,
+            hosts,
+            break_before: sub.break_before,
+            break_after: sub.break_after,
+            groups,
+          };
+        });
+
+        const newSubjects = await Promise.all(subjectPromises);
+
+        setSubjects(prev => [...prev, ...newSubjects]);
+      }
+    } catch (error) {
+      console.error("Error fetching recruitments:", error);
+    }
+  };
   const fetchRecruitments = async () => {
     const token = localStorage.getItem("access_token");
     try {
@@ -244,7 +335,7 @@ const RecruitmentsPage = () => {
   }, []);
 
   // ===== RECRUITMENT OPERATIONS =====
-  const createSubject = async (rec_id, sub_name, min_stu, cap, dur, tags, hosts, break_before, break_after,groups) => {
+  const createSubject = async (rec_id, sub_name, min_stu, cap, dur, tags, hosts, break_before, break_after, groups) => {
     const token = localStorage.getItem("access_token");
     try {
       const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subjects/', {
@@ -260,11 +351,11 @@ const RecruitmentsPage = () => {
           break_after: break_after
         })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         console.error("Error creating subject:", response.status, errorData);
-        return; 
+        return;
       }
 
       const data = await response.json();
@@ -317,9 +408,9 @@ const RecruitmentsPage = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ group: group_id, recruitment: rec_id })
       });
-       if (!response.ok) {
-           console.error("Error adding group to recruitment. Status:", response.status);
-       }
+      if (!response.ok) {
+        console.error("Error adding group to recruitment. Status:", response.status);
+      }
     } catch (error) {
       console.error("Error adding group to recruitment:", error);
     }
@@ -333,9 +424,9 @@ const RecruitmentsPage = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ group: group_id, recruitment: rec_id })
       });
-       if (!response.ok) {
-           console.error("Error adding group to recruitment. Status:", response.status);
-       }
+      if (!response.ok) {
+        console.error("Error adding group to recruitment. Status:", response.status);
+      }
     } catch (error) {
       console.error("Error adding group to recruitment:", error);
     }
@@ -350,7 +441,7 @@ const RecruitmentsPage = () => {
         body: JSON.stringify({ room: room_id, recruitment: rec_id })
       });
       if (!response.ok) {
-          console.error("Error posting room recruitment. Status:", response.status);
+        console.error("Error posting room recruitment. Status:", response.status);
       }
     } catch (error) {
       console.error("Error posting room recruitment:", error);
@@ -370,13 +461,13 @@ const RecruitmentsPage = () => {
     }
 
     if (subjects.length === 0) {
-        openModal("Wymagany jest co najmniej jeden przedmiot do rekrutacji");
-        return;
+      openModal("Wymagany jest co najmniej jeden przedmiot do rekrutacji");
+      return;
     }
 
     const token = localStorage.getItem("access_token");
     const org = localStorage.getItem("org_id");
-    
+
     try {
       // 1. UTWORZENIE REKRUTACJI
       const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/recruitments/', {
@@ -397,14 +488,14 @@ const RecruitmentsPage = () => {
           max_round_execution_time: roundBreakLength
         })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         console.error("API Error creating recruitment:", response.status, errorData);
         openModal(`Błąd podczas dodawania rekrutacji: ${errorData.detail || 'Nieznany błąd.'}`);
         return;
       }
-      
+
       const data = await response.json();
       const recId = data.recruitment_id;
 
@@ -421,164 +512,165 @@ const RecruitmentsPage = () => {
           )
         );
       }
-      
+
       // B. Dodaj Grupy
       for (const g of recGroups) {
         tasks.push(addGroupToRecruitment(recId, g.group_id));
       }
-      
+
       // C. Dodaj Pokoje (wszystkie załadowane pokoje)
       for (const r of rooms) {
-          tasks.push(postRoomRecruitment(recId, r.room_id));
+        tasks.push(postRoomRecruitment(recId, r.room_id));
       }
 
 
       // 3. POCZEKAJ NA UKOŃCZENIE WSZYSTKICH ZADAŃ (i loguj błędy, ale kontynuuj)
       await Promise.all(tasks.map(p => p.catch(e => console.error("Error in post-creation task:", e))));
-        
+
       openModal(`Dodano rekrutację: ${data.recruitment_name}`);
       fetchRecruitments();
       fetchPrevSubjects();
       clearRecruitmentForm();
       setActiveView('list');
-      
+
     } catch (error) {
       console.error("Error adding recruitment:", error);
       openModal("Błąd podczas dodawania rekrutacji (błąd sieci lub serwera)");
     }
   };
-  
+
   // NOWA: Logika aktualizacji istniejącej rekrutacji
   const updateRecruitment = async () => {
-      if (!selectedRecruitment || !selectedRecruitment.recruitment_id) {
-          openModal("Błąd: Brak ID rekrutacji do aktualizacji.", "error");
-          return;
+    if (!selectedRecruitment || !selectedRecruitment.recruitment_id) {
+      openModal("Błąd: Brak ID rekrutacji do aktualizacji.", "error");
+      return;
+    }
+
+    // Wymagane pola (jak w addRecruitment)
+    if (!recruitmentName || !dayStartTime || !dayEndTime || !startDate || !endDate || !prefDate || !prefDateEnd) {
+      openModal("Wypełnij wszystkie wymagane pola", "error");
+      return;
+    }
+
+    if (subjects.length === 0) {
+      openModal("Wymagany jest co najmniej jeden przedmiot do rekrutacji", "error");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    const recId = selectedRecruitment.recruitment_id;
+
+    try {
+      // 1. AKTUALIZACJA REKRUTACJI (PATCH)
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/recruitments/${recId}/`, {
+        method: 'PATCH', // Używamy PATCH dla częściowej aktualizacji
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          recruitment_name: recruitmentName,
+          day_start_time: dayStartTime,
+          day_end_time: dayEndTime,
+          user_prefs_start_date: prefDate,
+          plan_start_date: startDate,
+          user_prefs_end_date: prefDateEnd,
+          expiration_date: endDate,
+          cycle_type: cycleType,
+          plan_status: planStatus,
+          default_token_count: defaultTokenCount,
+          max_round_execution_time: roundBreakLength
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        openModal(`Błąd podczas aktualizacji: ${errorData.detail || 'Nieznany błąd.'}`, "error");
+        return;
       }
 
-      // Wymagane pola (jak w addRecruitment)
-      if (!recruitmentName || !dayStartTime || !dayEndTime || !startDate || !endDate || !prefDate || !prefDateEnd) {
-          openModal("Wypełnij wszystkie wymagane pola", "error");
-          return;
-      }
+      // 2. SYNCHRONIZACJA PODRZĘDNYCH OBIEKTÓW (Subjects, Groups, Rooms)
+      // UWAGA: Pełna logika synchronizacji (usuwanie starych, dodawanie nowych)
+      // jest złożona i wymaga oddzielnych endpointów lub logiki.
+      // W tej wersji oprogramowania, skupimy się na ponownym dodaniu/nadpisaniu.
 
-      if (subjects.length === 0) {
-          openModal("Wymagany jest co najmniej jeden przedmiot do rekrutacji", "error");
-          return;
-      }
+      // Na razie pomijamy automatyczną synchronizację,
+      // zakładając, że to użytkownik ręcznie zaktualizuje przedmioty/grupy.
+      // Aby zachować funkcjonalność tworzenia przedmiotów w tej sesji,
+      // należy wdrożyć API do edycji przedmiotów (nie tylko ich tworzenia).
 
-      const token = localStorage.getItem("access_token");
-      const recId = selectedRecruitment.recruitment_id;
+      // Prawidłowa implementacja wymaga:
+      // a) Pobrania istniejących subjects/groups/rooms powiązanych z recId
+      // b) Porównania ich ze stanem subjects/recGroups/rooms
+      // c) Wywołania DELETE dla usuniętych i POST/PATCH dla dodanych/zmienionych.
 
-      try {
-          // 1. AKTUALIZACJA REKRUTACJI (PATCH)
-          const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/recruitments/${recId}/`, {
-              method: 'PATCH', // Używamy PATCH dla częściowej aktualizacji
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                  recruitment_name: recruitmentName,
-                  day_start_time: dayStartTime,
-                  day_end_time: dayEndTime,
-                  user_prefs_start_date: prefDate,
-                  plan_start_date: startDate,
-                  user_prefs_end_date: prefDateEnd,
-                  expiration_date: endDate,
-                  cycle_type: cycleType,
-                  plan_status: planStatus,
-                  default_token_count: defaultTokenCount,
-                  max_round_execution_time: roundBreakLength
-              })
-          });
+      openModal(`Rekrutacja zaktualizowana: ${recruitmentName}`, "success");
+      fetchRecruitments();
+      setActiveView('list');
+      clearRecruitmentForm(); // Wyczyść formularz i wróć do widoku listy
 
-          if (!response.ok) {
-              const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-              openModal(`Błąd podczas aktualizacji: ${errorData.detail || 'Nieznany błąd.'}`, "error");
-              return;
-          }
-          
-          // 2. SYNCHRONIZACJA PODRZĘDNYCH OBIEKTÓW (Subjects, Groups, Rooms)
-          // UWAGA: Pełna logika synchronizacji (usuwanie starych, dodawanie nowych)
-          // jest złożona i wymaga oddzielnych endpointów lub logiki.
-          // W tej wersji oprogramowania, skupimy się na ponownym dodaniu/nadpisaniu.
-          
-          // Na razie pomijamy automatyczną synchronizację,
-          // zakładając, że to użytkownik ręcznie zaktualizuje przedmioty/grupy.
-          // Aby zachować funkcjonalność tworzenia przedmiotów w tej sesji,
-          // należy wdrożyć API do edycji przedmiotów (nie tylko ich tworzenia).
-          
-          // Prawidłowa implementacja wymaga:
-          // a) Pobrania istniejących subjects/groups/rooms powiązanych z recId
-          // b) Porównania ich ze stanem subjects/recGroups/rooms
-          // c) Wywołania DELETE dla usuniętych i POST/PATCH dla dodanych/zmienionych.
-
-          openModal(`Rekrutacja zaktualizowana: ${recruitmentName}`, "success");
-          fetchRecruitments();
-          setActiveView('list');
-          clearRecruitmentForm(); // Wyczyść formularz i wróć do widoku listy
-
-      } catch (error) {
-          console.error("Error updating recruitment:", error);
-          openModal("Błąd sieci podczas aktualizacji rekrutacji", "error");
-      }
+    } catch (error) {
+      console.error("Error updating recruitment:", error);
+      openModal("Błąd sieci podczas aktualizacji rekrutacji", "error");
+    }
   };
 
   // Logika usuwania rekrutacji
   const deleteRecruitment = async (rec_id) => {
     const token = localStorage.getItem("access_token");
     setIsConfirmModalOpen(false); // Zamknij modal potwierdzenia
-    
-    try {
-        const response = await fetch(
-            `http://127.0.0.1:8000/api/v1/scheduling/recruitments/${rec_id}/`,
-            {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            }
-        );
 
-        if (response.ok || response.status === 204) {
-            openModal(`Rekrutacja usunięta pomyślnie!`, "success");
-            fetchRecruitments(); // Odśwież listę
-        } else {
-            let errorData;
-            try {
-                errorData = await response.json();
-                openModal(`Błąd usuwania rekrutacji: ${errorData.detail || JSON.stringify(errorData)}`, "error");
-            } catch (e) {
-                openModal(`Błąd usuwania rekrutacji (Status: ${response.status})`, "error");
-            }
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/scheduling/recruitments/${rec_id}/`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         }
+      );
+
+      if (response.ok || response.status === 204) {
+        openModal(`Rekrutacja usunięta pomyślnie!`, "success");
+        fetchRecruitments(); // Odśwież listę
+      } else {
+        let errorData;
+        try {
+          errorData = await response.json();
+          openModal(`Błąd usuwania rekrutacji: ${errorData.detail || JSON.stringify(errorData)}`, "error");
+        } catch (e) {
+          openModal(`Błąd usuwania rekrutacji (Status: ${response.status})`, "error");
+        }
+      }
     } catch (error) {
-        console.error("Error deleting recruitment:", error);
-        openModal("Błąd sieci podczas usuwania rekrutacji", "error");
+      console.error("Error deleting recruitment:", error);
+      openModal("Błąd sieci podczas usuwania rekrutacji", "error");
     }
   };
-  
+
   // Funckja do ładowania danych rekrutacji do edycji
   const loadRecruitmentForEdit = (recruitment) => {
-      // Wyczyść formularz (bez resetowania subjects i recGroups)
-      clearRecruitmentFormForEdit(); 
+    // Wyczyść formularz (bez resetowania subjects i recGroups)
+    clearRecruitmentFormForEdit();
 
-      // Ustawienie głównego obiektu rekrutacji
-      setSelectedRecruitment(recruitment);
-      
-      // Ustawienie głównych pól do formularza
-      setRecruitmentName(recruitment.recruitment_name);
-      setDayStartTime(formatTime(recruitment.day_start_time));
-      setDayEndTime(formatTime(recruitment.day_end_time));
-      setStartDate(recruitment.plan_start_date ? recruitment.plan_start_date.substring(0, 16) : "");
-      setEndDate(recruitment.expiration_date ? recruitment.expiration_date.substring(0, 16) : "");
-      setPrefDate(recruitment.user_prefs_start_date ? recruitment.user_prefs_start_date.substring(0, 16) : "");
-      setPrefDateEnd(recruitment.user_prefs_end_date ? recruitment.user_prefs_end_date.substring(0, 16) : "");
-      setCycleType(recruitment.cycle_type);
-      setPlanStatus(recruitment.plan_status);
-      setDefaultTokenCount(recruitment.default_token_count);
-      setRoundBreakLength(recruitment.max_round_execution_time);
+    // Ustawienie głównego obiektu rekrutacji
+    setSelectedRecruitment(recruitment);
 
-      // TODO: Wymagana jest logika pobierania i ustawiania subjects, recGroups i rooms
-      // Wymaga oddzielnych endpointów API do pobrania tych podrzędnych zasobów na podstawie rec_id.
-      
-      setActiveView('create'); 
-      setActiveTab('recruitment');
+    // Ustawienie głównych pól do formularza
+    setRecruitmentName(recruitment.recruitment_name);
+    setDayStartTime(formatTime(recruitment.day_start_time));
+    setDayEndTime(formatTime(recruitment.day_end_time));
+    setStartDate(recruitment.plan_start_date ? recruitment.plan_start_date.substring(0, 16) : "");
+    setEndDate(recruitment.expiration_date ? recruitment.expiration_date.substring(0, 16) : "");
+    setPrefDate(recruitment.user_prefs_start_date ? recruitment.user_prefs_start_date.substring(0, 16) : "");
+    setPrefDateEnd(recruitment.user_prefs_end_date ? recruitment.user_prefs_end_date.substring(0, 16) : "");
+    setCycleType(recruitment.cycle_type);
+    setPlanStatus(recruitment.plan_status);
+    setDefaultTokenCount(recruitment.default_token_count);
+    setRoundBreakLength(recruitment.max_round_execution_time);
+    fetchSubjectsForRec(recruitment.recruitment_id);
+    console.log(subjects)
+    // TODO: Wymagana jest logika pobierania i ustawiania subjects, recGroups i rooms
+    // Wymaga oddzielnych endpointów API do pobrania tych podrzędnych zasobów na podstawie rec_id.
+
+    setActiveView('create');
+    setActiveTab('recruitment');
   };
 
   const addSubject = () => {
@@ -586,12 +678,12 @@ const RecruitmentsPage = () => {
       openModal("Wypełnij wszystkie wymagane pola");
       return;
     }
-    
+
     if (Number(capacity) < Number(minParp)) {
       openModal("Minimalna liczba studentów nie może przekraczać maksymalnej");
       return;
     }
-    
+
     if (subTeachers.length === 0) {
       openModal("Co najmniej jeden prowadzący wymagany");
       return;
@@ -609,10 +701,9 @@ const RecruitmentsPage = () => {
       hosts: subTeachers,
       break_before: breakB,
       break_after: breakA,
-      groups:subGroups
+      groups: subGroups
     };
-    for (const g of newSub.groups)
-    {
+    for (const g of newSub.groups) {
       addRecGroup(g.group_id);
     }
     setSubjects([...subjects, newSub]);
@@ -635,7 +726,7 @@ const RecruitmentsPage = () => {
       hosts: subTeachers,
       break_before: parseInt(breakB),
       break_after: parseInt(breakA),
-      groups:subGroups
+      groups: subGroups
     };
 
     setSubjects(subjects.map((s, i) => i === editIndex ? updatedSub : s));
@@ -658,6 +749,7 @@ const RecruitmentsPage = () => {
     setSubTags(subject.tags);
     setParp(subject.min_students);
     setTeachers(subject.hosts);
+    setSubGroups(subject.groups)
     setBreakB(subject.break_before);
     setBreakA(subject.break_after);
     setEditIndex(index);
@@ -688,29 +780,29 @@ const RecruitmentsPage = () => {
     const subjectsWithDetails = await Promise.all(
       copiedSubjects.map(async (sub) => {
         const fetchTasks = [];
-        const headers = { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${token}` 
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         };
-        
+
         // 1. Fetch Tags
         fetchTasks.push(
           fetch(
             `http://127.0.0.1:8000/api/v1/scheduling/subjects/${sub.subject_id}/tags/`,
             {
               method: 'GET',
-              headers: headers, 
+              headers: headers,
             }
           ).then(res => res.ok ? res.json() : []).catch(() => [])
         );
-        
+
         // 2. Fetch Hosts (SubjectGroups for this subject)
         fetchTasks.push(
           fetch(
             `http://127.0.0.1:8000/api/v1/scheduling/subject-groups/?subject=${sub.subject_id}`,
             {
               method: 'GET',
-              headers: headers, 
+              headers: headers,
             }
           ).then(res => res.ok ? res.json() : []).catch(() => [])
         );
@@ -718,7 +810,7 @@ const RecruitmentsPage = () => {
         const [tagsData, subjectGroups] = await Promise.all(fetchTasks);
 
         const hostIds = subjectGroups.map(sg => sg.host);
-        const subjectHosts = hosts.filter(h => hostIds.includes(h.id)); 
+        const subjectHosts = hosts.filter(h => hostIds.includes(h.id));
 
         return {
           subject_name: sub.subject_name,
@@ -778,7 +870,7 @@ const RecruitmentsPage = () => {
   const deleteRecGroup = (group_id) => {
     setRecGroups(recGroups.filter(g => g.group_id !== group_id));
   };
-   const deleteSubGroup = (group_id) => {
+  const deleteSubGroup = (group_id) => {
     setSubGroups(subGroups.filter(g => g.group_id !== group_id));
   };
 
@@ -819,9 +911,9 @@ const RecruitmentsPage = () => {
             </thead>
             <tbody>
               {recruitments.map((rec) => (
-                <tr 
-                  key={rec.recruitment_id} 
-                  style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }} 
+                <tr
+                  key={rec.recruitment_id}
+                  style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
                   onClick={() => {
                     setSelectedRecruitment(rec);
                     setActiveView('edit');
@@ -846,26 +938,26 @@ const RecruitmentsPage = () => {
                   </td>
                   <td style={{ padding: '16px', textAlign: 'right' }}>
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation(); // Zapobiega przejściu do widoku edycji po kliknięciu przycisku
-                            loadRecruitmentForEdit(rec);
-                        }}
-                        className="admin-btn-icon"
-                        style={{ marginRight: '8px' }}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Zapobiega przejściu do widoku edycji po kliknięciu przycisku
+                        loadRecruitmentForEdit(rec);
+                      }}
+                      className="admin-btn-icon"
+                      style={{ marginRight: '8px' }}
                     >
-                        ✏️
+                      ✏️
                     </button>
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation(); // Zapobiega przejściu do widoku edycji
-                            openConfirmModal(
-                                `Czy na pewno chcesz usunąć rekrutację: ${rec.recruitment_name}?`,
-                                () => deleteRecruitment(rec.recruitment_id)
-                            );
-                        }}
-                        className="admin-btn-icon danger"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Zapobiega przejściu do widoku edycji
+                        openConfirmModal(
+                          `Czy na pewno chcesz usunąć rekrutację: ${rec.recruitment_name}?`,
+                          () => deleteRecruitment(rec.recruitment_id)
+                        );
+                      }}
+                      className="admin-btn-icon danger"
                     >
-                        🗑️
+                      🗑️
                     </button>
                   </td>
                 </tr>
@@ -1097,7 +1189,7 @@ const RecruitmentsPage = () => {
               ➕ Dodaj Przedmiot
             </button>
           </div>
-          
+
           {subjectMode === 'list' && (
             <>
               {subjects.length > 0 ? (
@@ -1346,43 +1438,43 @@ const RecruitmentsPage = () => {
         )}
 
         {groups.length > 0 && (
-              <div className="admin-form-group full-width">
-                <label className="admin-label">Dodaj grupy uczestników</label>
-                <select
-                  className="admin-select"
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      addSubGroup(e.target.value);
-                      e.target.value = "";
-                    }
-                  }}
-                  defaultValue=""
-                >
-                  <option value="">Wybierz grupę...</option>
-                  {groups.map((g) => (
-                    <option key={g.group_id} value={g.group_id}>
-                      {g.group_name}
-                    </option>
-                  ))}
-                </select>
-                
-                {subGroups.length > 0 && (
-                  <div className="admin-tags">
-                    {subGroups.map((g) => (
-                      <span key={g.group_id} className="admin-tag">
-                        {g.group_name}
-                        <span
-                          className="admin-tag-remove"
-                          onClick={() => deleteSubGroup(g.group_id)}
-                        >
-                          ✕
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                )}
+          <div className="admin-form-group full-width">
+            <label className="admin-label">Dodaj grupy uczestników</label>
+            <select
+              className="admin-select"
+              onChange={(e) => {
+                if (e.target.value) {
+                  addSubGroup(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+              defaultValue=""
+            >
+              <option value="">Wybierz grupę...</option>
+              {groups.map((g) => (
+                <option key={g.group_id} value={g.group_id}>
+                  {g.group_name}
+                </option>
+              ))}
+            </select>
+
+            {subGroups.length > 0 && (
+              <div className="admin-tags">
+                {subGroups.map((g) => (
+                  <span key={g.group_id} className="admin-tag">
+                    {g.group_name}
+                    <span
+                      className="admin-tag-remove"
+                      onClick={() => deleteSubGroup(g.group_id)}
+                    >
+                      ✕
+                    </span>
+                  </span>
+                ))}
               </div>
             )}
+          </div>
+        )}
       </form>
 
       <div className="admin-actions">
