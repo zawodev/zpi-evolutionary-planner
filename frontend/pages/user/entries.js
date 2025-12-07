@@ -2655,7 +2655,6 @@ export default function EntriesPage() {
   } = useRecruitments(user?.id);
   
   const isEditable = selectedRecruitment?.plan_status === 'draft' || 
-                     selectedRecruitment?.plan_status === 'active' || 
                      selectedRecruitment?.plan_status === 'optimizing';
 
   const {
