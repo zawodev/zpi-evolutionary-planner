@@ -1,8 +1,8 @@
 /* pages/admin/users.js */
 
 import React, { useState, useEffect } from 'react';
-import MsgModal from '@/components/admin/MsgModal';
-import ConfirmModal from '@/components/admin/ConfirmModal';
+import MsgModal from '@/components/admin/NotificationModal';
+import ConfirmModal from '@/components/admin/ConfirmationModal';
 
 const UsersPage = () => {
   // ===== NAVIGATION STATE =====
