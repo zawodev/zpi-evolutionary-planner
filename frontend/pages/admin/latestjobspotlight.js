@@ -12,8 +12,8 @@ const PREFERENCE_LABELS = [
     "Pref. Start Time",
     "Pref. End Time",
     "Tag Order",
-    "Pref. Groups",
-    "Pref. Timeslots"
+    "Pref. Timeslots",
+    "Pref. Groups"
 ];
 
 
