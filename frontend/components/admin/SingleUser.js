@@ -1,11 +1,10 @@
 /* components/admin/SingleUser.js */
 
 import { useState, useEffect } from "react";
-import MsgModal from "./MsgModal";
-import ConfirmModal from "./ConfirmModal";
+import MsgModal from "./NotificationModal";
+import ConfirmModal from "./ConfirmationModal";
 
 export default function SingleUser({ user, onBack, onUpdate }) {
-  // ZMIANA 1: Bezpieczne parsowanie wagi przy inicjalizacji
   const [firstName, setFName] = useState(user.first_name || "");
   const [surName, setSName] = useState(user.last_name || "");
   const [userEmail, setUserEmail] = useState(user.email || "");
@@ -154,7 +153,6 @@ export default function SingleUser({ user, onBack, onUpdate }) {
             first_name: firstName,
             last_name: surName,
             role: userRole,
-            // ZMIANA 2: Najbezpieczniejsza konwersja na liczbę całkowitą
             weight: parseInt(userWeight || 5)
           })
         }
@@ -284,7 +282,6 @@ export default function SingleUser({ user, onBack, onUpdate }) {
             <button
               type="button"
               className="admin-range-btn"
-              // ZMIANA 3: Użycie bezpiecznego parseInt(prev) dla arytmetyki
               onClick={() => setUserWeight(prev => Math.max(1, (parseInt(prev) || 5) - 1))}
             >
               −
@@ -295,7 +292,6 @@ export default function SingleUser({ user, onBack, onUpdate }) {
               max="10"
               step="1"
               value={userWeight || 5}
-              // ZMIANA 4: Parsowanie wartości z suwaka na liczbę całkowitą
               onChange={(e) => setUserWeight(parseInt(e.target.value) || 5)}
               className="admin-range-slider"
               style={{ flex: 1 }}
@@ -303,7 +299,6 @@ export default function SingleUser({ user, onBack, onUpdate }) {
             <button
               type="button"
               className="admin-range-btn"
-              // ZMIANA 3: Użycie bezpiecznego parseInt(prev) dla arytmetyki
               onClick={() => setUserWeight(prev => Math.min(10, (parseInt(prev) || 5) + 1))}
             >
               +
