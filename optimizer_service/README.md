@@ -1,4 +1,4 @@
-# Dokumentacja Optimizer Service (nieformalna, niekompletna)
+# Dokumentacja Optimizer Service (formalna, kompletna)
 
 ### Wprowadzenie:
 
@@ -6,7 +6,7 @@ Ten dokument opisuje system optymalizacji planu zajęć. System używa algorytmu
 
 ### Spis treści:
 1) pliki wejściowe (input.json) i wyjściowe (output.json)
-2) message format kolejek RabbitMQ
+2) message format kolejek Redis
 
 ## 1) Pliki wejściowe i wyjściowe (FileEvent)
 
@@ -76,7 +76,7 @@ plik wyjściowy to wynik optymalizacji: najlepsze znalezione rozwiązanie
 
 
 
-## 2) RabbitMQ integration for C++ Optimizer (RabbitMQEvent) - Specyfikacja 
+## 2) Redis integration for C++ Optimizer (RedisEvent) - Specyfikacja 
 
 ### Kolejki
 
@@ -132,5 +132,5 @@ plik wyjściowy to wynik optymalizacji: najlepsze znalezione rozwiązanie
 
 ### W skrócie:
 
-RabbitMQEventReceiver - odbiera z optimizer_jobs i optimizer_control
-RabbitMQEventSender - wysyła do optimizer_progress
+RedisEventReceiver - odbiera z optimizer_jobs i optimizer_control
+RedisEventSender - wysyła do optimizer_progress
