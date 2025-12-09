@@ -482,47 +482,24 @@ export default function ScheduleComparisonPage() {
 
     const [teachersSectionExpanded, setTeachersSectionExpanded] = useState(true);
     const [studentsSectionExpanded, setStudentsSectionExpanded] = useState(true);
-
-    const fetchWithBackoff = async (url, options, maxRetries = 5) => {
-        let lastError = null;
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const response = await fetch(url, options);
-                if (response.ok) {
-                    return await response.json();
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            } catch (error) {
-                lastError = error;
-                const delay = Math.pow(2, i) * 1000;
-                if (i < maxRetries - 1) {
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        }
-        throw lastError;
-    };
+    
+    const fetchData = async () => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/optimizer/jobs/latest/?status=completed`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const dataJob = await response.json();
+        setData(dataJob);
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
 
     useEffect(() => {
-        const fetchLastData = async () => {
-            const apiUrl = 'http://127.0.0.1:8000/api/v1/optimizer/jobs/latest/?status=completed';
-
-            const options = {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            };
-
-            try {
-                const dataJob = await fetchWithBackoff(apiUrl, options);
-                setData(dataJob);
-            } catch (error) {
-                console.error("Error fetching optimization results after all retries:", error);
-            }
-        };
-
-        fetchLastData();
+        fetchData();
     }, []);
 
     const toggleStudent = (index) => {
