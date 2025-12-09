@@ -1204,6 +1204,9 @@ const RecruitmentsPage = () => {
                           Pojemność
                         </th>
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
+                          Min. studentów
+                        </th>
+                        <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
                           Czas (min)
                         </th>
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
@@ -1220,8 +1223,11 @@ const RecruitmentsPage = () => {
                           <td style={{ padding: '12px', fontWeight: 600 }}>
                             {sub.subject_name}
                           </td>
+]                          <td style={{ padding: '12px', color: '#6b7280' }}>
+                            {sub.capacity}
+                          </td>
                           <td style={{ padding: '12px', color: '#6b7280' }}>
-                            {sub.capacity} ({sub.min_students} min)
+                            {sub.min_students}
                           </td>
                           <td style={{ padding: '12px', color: '#6b7280' }}>
                             {sub.duration}
