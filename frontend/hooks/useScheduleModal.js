@@ -21,19 +21,17 @@ export const useScheduleModal = (setScheduleData, resetDrag, isEditable) => {
         setShowModal(true);
     };
 
-    // ZMIANA TUTAJ: Dodajemy parametr scheduleData
     const openForEdit = (e, day, slotIndex, scheduleData) => {
-        if (e) e.stopPropagation(); // Zatrzymujemy propagację kliknięcia
+        if (e) e.stopPropagation();
         if (!isEditable) return;
 
-        // Pobieramy slot z danych na podstawie przekazanego indeksu
         const daySlots = scheduleData[day];
         if (!daySlots) return;
 
         const slot = daySlots[slotIndex];
         if (!slot) return;
         
-        console.log("Edycja slotu:", slot); // Log dla debugowania
+        console.log("Edycja slotu:", slot); 
 
         setEditingSlot({ ...slot, priority: slot.priority || 1, day, index: slotIndex });
         setModalMode('edit');
