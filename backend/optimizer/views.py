@@ -582,15 +582,20 @@ def force_recruitment_optimization(request, recruitment_id):
         
         # Update recruitment
         now = timezone.now()
+        
         recruitment.plan_status = 'draft'
         recruitment.optimization_start_date = now
-        recruitment.optimization_end_date = now + timedelta(seconds=duration_seconds)
+        recruitment.optimization_end_date = now + timedelta(seconds=duration_seconds * 2.1)
+        
         recruitment.max_round_execution_time = duration_seconds
         recruitment.save()
         
         logger.info(f"Forced optimization setup for recruitment {recruitment_id}: "
                    f"start={recruitment.optimization_start_date}, "
                    f"end={recruitment.optimization_end_date}")
+        
+        # archive all existing jobs for this recruitment
+        OptimizationJob.objects.filter(recruitment_id=recruitment_id).update(status='archived')
         
         # Trigger optimization
         check_and_trigger_optimizations()
