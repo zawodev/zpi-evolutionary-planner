@@ -1,8 +1,8 @@
 /* components/admin/SingleRoom.js */
 
 import { useState, useEffect } from "react";
-import MsgModal from "./NotificationModal";
-import ConfirmModal from "./ConfirmationModal";
+import MsgModal from "./modals/NotificationModal";
+import ConfirmModal from "./modals/ConfirmationModal";
 
 export default function SingleRoom({ room, onBack, onUpdate }) {
   const [roomTags, setRoomTags] = useState([]);

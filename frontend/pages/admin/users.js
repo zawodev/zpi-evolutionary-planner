@@ -1,8 +1,8 @@
 /* pages/admin/users.js */
 
 import React, { useState, useEffect } from 'react';
-import MsgModal from '@/components/admin/NotificationModal';
-import ConfirmModal from '@/components/admin/ConfirmationModal';
+import MsgModal from '@/components/admin/modals/NotificationModal';
+import ConfirmModal from '@/components/admin/modals/ConfirmationModal';
 
 const UsersPage = () => {
   // ===== NAVIGATION STATE =====
@@ -67,13 +67,11 @@ const UsersPage = () => {
       );
       if (response.ok) {
         let data = await response.json();
-        // Normalizacja danych wagi i ID podczas pobierania
         data = data.map(u => {
           const parsedWeight = parseInt(u.weight);
           return {
             ...u,
             id: u.id ?? u.user_id ?? u.userId ?? null,
-            // Waga musi być liczbą, fallback do 5 (backend używa małej skali)
             weight: Number.isFinite(parsedWeight) ? parsedWeight : 5
           };
         });
@@ -158,12 +156,10 @@ const UsersPage = () => {
             first_name: firstName,
             last_name: lastName,
             role: role,
-            // WAGA: Zapewnienie, że waga jest liczbą całkowitą z fallbackiem do 5
             weight: parseInt(weight) || 5, 
             organization: org_id
       };
       
-      // Use random-creation endpoint which generates username/password server-side
       const response = await fetch(
         'http://127.0.0.1:8000/api/v1/identity/users/create/random/',
         {
@@ -175,10 +171,8 @@ const UsersPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Random create returns { user: <user_data>, password: <pwd> }
         const createdUser = data.user ?? data;
 
-        // Add user to selected groups (only if participant)
         if (role === "participant") {
           for (const group of selectedGroups) {
             await fetch('http://127.0.0.1:8000/api/v1/identity/user-groups/add/', {
@@ -228,7 +222,6 @@ const UsersPage = () => {
         first_name: firstName,
         last_name: lastName,
         role: role,
-        // WAGA: Zapewnienie, że waga jest liczbą całkowitą z fallbackiem do 5
         weight: parseInt(weight) || 5
       };
       
@@ -243,12 +236,10 @@ const UsersPage = () => {
       );
 
       if (response.ok) {
-        // Sync groups (only for participants)
         if (role === "participant") {
           const currentGroupIds = userGroups.map(g => g.group_id);
           const newGroupIds = selectedGroups.map(g => g.group_id);
 
-          // Remove groups that are no longer selected
             for (const group of userGroups) {
               if (!newGroupIds.includes(group.group_id)) {
                 await fetch('http://127.0.0.1:8000/api/v1/identity/user-groups/delete/', {
@@ -259,7 +250,6 @@ const UsersPage = () => {
               }
             }
 
-          // Add new groups
           for (const group of selectedGroups) {
             if (!currentGroupIds.includes(group.group_id)) {
               await fetch('http://127.0.0.1:8000/api/v1/identity/user-groups/add/', {
@@ -328,7 +318,6 @@ const UsersPage = () => {
     setLastName(user.last_name || "");
     setEmail(user.email || "");
     setRole(user.role || "participant");
-    // WAGA: Ładowanie wagi z bezpiecznym parsowaniem
     setWeight(parseInt(user.weight) || 5);
     const uid = user.id ?? user.user_id ?? user.userId ?? null;
     if (uid) fetchUserGroups(uid);
@@ -555,7 +544,6 @@ const UsersPage = () => {
             <button
               type="button"
               className="admin-range-btn"
-              // Poprawka: Zapewnienie, że wartość jest traktowana jako liczba
               onClick={() => setWeight(prev => Math.max(1, (parseInt(prev) || 5) - 1))}
             >
               −
@@ -566,7 +554,6 @@ const UsersPage = () => {
               max="10"
               step="1"
               value={weight || 5}
-              // Poprawka: Zapewnienie, że wartość jest zawsze liczbą całkowitą
               onChange={(e) => setWeight(parseInt(e.target.value) || 5)}
               className="admin-range-slider"
               style={{ flex: 1 }}
@@ -574,7 +561,6 @@ const UsersPage = () => {
             <button
               type="button"
               className="admin-range-btn"
-              // Poprawka: Zapewnienie, że wartość jest traktowana jako liczba
               onClick={() => setWeight(prev => Math.min(10, (parseInt(prev) || 5) + 1))}
             >
               +
@@ -659,7 +645,6 @@ const UsersPage = () => {
   return (
     <div className="admin-container">
       <div className="admin-wrapper">
-        {/* Header */}
         <div className="admin-header-section">
           <div className="admin-header-wrapper">
             <div className="admin-header-gradient">
@@ -677,7 +662,6 @@ const UsersPage = () => {
 
         {/* Main Content */}
         <div className="admin-main">
-          {/* Sidebar */}
           <aside className="admin-sidebar">
             <div className="admin-sidebar-section">
               <h3 className="admin-sidebar-title">Nawigacja</h3>
@@ -725,7 +709,6 @@ const UsersPage = () => {
             )}
           </aside>
 
-          {/* Content Area */}
           <main className="admin-content">
             {activeView === 'list' && renderUsersList()}
             {activeView === 'create' && renderUserForm(false)}
@@ -734,7 +717,6 @@ const UsersPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
       <MsgModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

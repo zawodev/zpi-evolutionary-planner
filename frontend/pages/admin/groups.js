@@ -1,8 +1,8 @@
 /* pages/admin/groups.js */
 
 import React, { useState, useEffect } from 'react';
-import MsgModal from '@/components/admin/NotificationModal';
-import ConfirmModal from '@/components/admin/ConfirmationModal';
+import MsgModal from '@/components/admin/modals/NotificationModal';
+import ConfirmModal from '@/components/admin/modals/ConfirmationModal';
 
 import GroupsList from '@/components/admin/groups/GroupsList';
 import GroupForm from '@/components/admin/groups/GroupForm';

@@ -1,8 +1,8 @@
 /* pages/admin/rooms.js */
 
 import React, { useState, useEffect } from 'react';
-import MsgModal from '@/components/admin/NotificationModal';
-import ConfirmModal from '@/components/admin/ConfirmationModal';
+import MsgModal from '@/components/admin/modals/NotificationModal';
+import ConfirmModal from '@/components/admin/modals/ConfirmationModal';
 
 const RoomsPage = () => {
   // ===== NAVIGATION STATE =====
@@ -81,11 +81,9 @@ const RoomsPage = () => {
     }
   };
 
-  // POPRAWIONA: pobiera klucz relacji RoomTag dla poprawnego usuwania
   const fetchRoomTags = async (room_id) => {
     const token = localStorage.getItem("access_token");
     try {
-      // 1. Pobierz wszystkie relacje RoomTag (lub z filtrem, jeśli backend wspiera)
       const relationsResponse = await fetch(
         'http://127.0.0.1:8000/api/v1/scheduling/room-tags/',
         {
@@ -96,15 +94,13 @@ const RoomsPage = () => {
 
       if (relationsResponse.ok) {
         const allRelations = await relationsResponse.json();
-        // 2. Filtruj tylko relacje dla bieżącego pokoju
         const roomRelations = allRelations.filter(rel => rel.room === room_id);
         
-        // 3. Wzbogać dane o nazwę tagu, używając stanu tags
         const tagMap = new Map(tags.map(tag => [tag.tag_id, tag.tag_name]));
 
         const detailedTags = roomRelations.map(rel => ({
-            id: rel.id,             // Klucz relacji RoomTag (niezbędny do usunięcia)
-            tag_id: rel.tag,        // Klucz Tag (niezbędny do porównania)
+            id: rel.id, 
+            tag_id: rel.tag,
             tag_name: tagMap.get(rel.tag) || 'Nieznana Cechą',
         }));
 
@@ -157,7 +153,6 @@ const RoomsPage = () => {
             console.error("API Error: Room created but missing room_id in response data.", data);
             openModal("Pokój utworzony, ale wystąpił błąd przy pobieraniu ID. Nie można dodać cech.", "warning");
         } else {
-            // Dodanie tagów do pokoju
             for (const tag of selectedTags) {
               const tagResponse = await fetch('http://127.0.0.1:8000/api/v1/scheduling/room-tags/', {
                 method: 'POST',
@@ -215,11 +210,9 @@ const RoomsPage = () => {
       );
 
       if (response.ok) {
-        // Sync tags - remove old ones, add new ones
         const currentTagIds = roomTags.map(t => t.tag_id);
         const newTagIds = selectedTags.map(t => t.tag_id);
 
-        // Usuń tagi, które nie są już wybrane. Używa 'tag.id' (ID relacji RoomTag).
         for (const tag of roomTags) {
           if (!newTagIds.includes(tag.tag_id)) {
             await fetch(
@@ -232,7 +225,6 @@ const RoomsPage = () => {
           }
         }
 
-        // Dodaj nowe tagi, których nie było wcześniej.
         for (const tag of selectedTags) {
           if (!currentTagIds.includes(tag.tag_id)) {
             await fetch('http://127.0.0.1:8000/api/v1/scheduling/room-tags/', {
@@ -310,7 +302,6 @@ const RoomsPage = () => {
 
   // ===== TAG OPERATIONS =====
   const addTag = (tag_id) => {
-    // Poprawka: Użycie stringowego UUID
     const tag = tags.find(t => t.tag_id === tag_id);
     if (tag && !selectedTags.some(t => t.tag_id === tag.tag_id)) {
       setSelectedTags([...selectedTags, tag]);
@@ -526,7 +517,6 @@ const RoomsPage = () => {
   return (
     <div className="admin-container">
       <div className="admin-wrapper">
-        {/* Header */}
         <div className="admin-header-section">
           <div className="admin-header-wrapper">
             <div className="admin-header-gradient">
@@ -544,7 +534,6 @@ const RoomsPage = () => {
 
         {/* Main Content */}
         <div className="admin-main">
-          {/* Sidebar */}
           <aside className="admin-sidebar">
             <div className="admin-sidebar-section">
               <h3 className="admin-sidebar-title">Nawigacja</h3>
@@ -584,7 +573,6 @@ const RoomsPage = () => {
             )}
           </aside>
 
-          {/* Content Area */}
           <main className="admin-content">
             {activeView === 'list' && renderRoomsList()}
             {activeView === 'create' && renderRoomForm(false)}
@@ -593,7 +581,6 @@ const RoomsPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
       <MsgModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
