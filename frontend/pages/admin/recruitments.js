@@ -1200,6 +1200,7 @@ const RecruitmentsPage = () => {
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
                           Przedmiot
                         </th>
+                        {/* ZMIANA: Rozdzielono kolumny */}
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
                           Pojemność
                         </th>
@@ -1223,7 +1224,8 @@ const RecruitmentsPage = () => {
                           <td style={{ padding: '12px', fontWeight: 600 }}>
                             {sub.subject_name}
                           </td>
-]                          <td style={{ padding: '12px', color: '#6b7280' }}>
+                          {/* ZMIANA: Wyświetlanie w dwóch kolumnach */}
+                          <td style={{ padding: '12px', color: '#6b7280' }}>
                             {sub.capacity}
                           </td>
                           <td style={{ padding: '12px', color: '#6b7280' }}>
