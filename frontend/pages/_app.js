@@ -5,7 +5,6 @@ import Navbar from "@/components/general/Navbar.js";
 import Background from "@/components/general/Background.js";
 import { AuthProvider } from "@/contexts/AuthContext.js";
 
-
 // Base styles
 import "@/styles/base/_reset.css";
 import "@/styles/base/_typography.css";

@@ -50,7 +50,7 @@ const ScheduleColumn = ({
                         height: `${hourHeight}px`,
                         left: 0,
                         right: 0,
-                        backgroundColor: `rgba(248, 113, 113, ${intensity * 0.8})`, // Zwiększyłem nieco krycie (0.8) dla lepszej widoczności
+                        backgroundColor: `rgba(248, 113, 113, ${intensity * 0.8})`,
                         pointerEvents: 'none',
                         zIndex: 1
                     }}

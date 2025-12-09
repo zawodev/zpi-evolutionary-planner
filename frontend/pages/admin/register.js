@@ -1,4 +1,5 @@
 /* pages/admin/register.js */
+
 import React, { useState } from "react";
 import Link from "next/link";
 import AuthCard from "@/components/general/AuthCard";
@@ -15,7 +16,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     
-    // Walidacja
     if (!orgName || !email || !password1 || !password2) {
       setError("Wszystkie pola są wymagane");
       return;
@@ -34,18 +34,9 @@ export default function RegisterPage() {
     setIsLoading(true);
     
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ orgName, email, password: password1 })
-      // });
-      
-      // Symulacja oczekiwania
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       console.log("Registering:", { orgName, email, password1 });
-      // window.location.href = "/login";
     } catch (error) {
       console.error("Registration failed:", error);
       setError("Rejestracja nie powiodła się. Spróbuj ponownie.");

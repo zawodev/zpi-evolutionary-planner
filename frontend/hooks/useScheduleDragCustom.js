@@ -64,7 +64,6 @@ export const useScheduleDragCustom = (onDragComplete, isEditable, gridStartHour,
   
   const handleMouseMove = (e, days) => {
     if (!isDragging || !dragDay) return;
-    // Ważne: Odwołujemy się do klasy, która musi być nadana w komponencie ScheduleColumn
     const columns = document.querySelectorAll('.new-entries-schedule-column');
     const dayIndex = days.indexOf(dragDay);
     const column = columns[dayIndex];
