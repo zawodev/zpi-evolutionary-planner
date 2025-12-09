@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import MsgModal from '@/components/admin/NotificationModal';
-import ConfirmModal from '@/components/admin/ConfirmationModal';
+import ConfirmModal from '@/components/admin/ConfirmModal';
 
 const GroupsPage = () => {
   // ===== NAVIGATION STATE =====

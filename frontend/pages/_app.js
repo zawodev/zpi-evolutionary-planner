@@ -1,7 +1,7 @@
 /* pages/_app.js */
 
 // Components
-import Navbar from "@/components/navbar/Navbar.js";
+import Navbar from "@/components/general/Navbar.js";
 import Background from "@/components/general/Background.js";
 import { AuthProvider } from "@/contexts/AuthContext.js";
 
@@ -34,6 +34,7 @@ import "@/styles/layout/_header.css";
 import "@/styles/layout/_hero.css";
 import "@/styles/layout/_index.css";
 import "@/styles/layout/_login.css";
+import "@/styles/layout/_plan.css";
 import "@/styles/layout/_position.css";
 import "@/styles/layout/_schedule_grid.css";
 import "@/styles/layout/_admin.css";

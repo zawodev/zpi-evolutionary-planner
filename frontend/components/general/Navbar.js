@@ -49,9 +49,6 @@ export default function Navbar() {
             <Link href="/">
               <button className="header-nav nav-home">Strona główna</button>
             </Link>
-            <Link href="/features">
-              <button className="header-nav nav-func">Funkcjonalności</button>
-            </Link>
             <Link href="/about">
               <button className="header-nav nav-about">O nas</button>
             </Link>
