@@ -1,16 +1,17 @@
 /* components/admin/MsgModal.js */
-
 import React from 'react';
+import { CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 
 export default function MsgModal({ isOpen, onClose, message, type = 'info' }) {
   if (!isOpen) return null;
 
   const getIcon = () => {
+    const iconProps = { size: 32, strokeWidth: 2.5 };
     switch (type) {
-      case 'success': return '✓';
-      case 'error': return '✕';
-      case 'warning': return '⚠️';
-      default: return 'ℹ️';
+      case 'success': return <CheckCircle {...iconProps} />;
+      case 'error': return <XCircle {...iconProps} />;
+      case 'warning': return <AlertTriangle {...iconProps} />;
+      default: return <Info {...iconProps} />;
     }
   };
 
@@ -23,16 +24,23 @@ export default function MsgModal({ isOpen, onClose, message, type = 'info' }) {
     }
   };
 
+  const getTitle = () => {
+    switch (type) {
+      case 'success': return 'Sukces!';
+      case 'error': return 'Błąd';
+      case 'warning': return 'Uwaga';
+      default: return 'Informacja';
+    }
+  };
+
   return (
-    // Zaktualizowano: Kliknięcie na overlay zamyka modal
     <div className="admin-modal-overlay" onClick={onClose}>
-      {/* DODANO: Zatrzymanie propagacji, aby kliknięcie w dialog nie zamykało modala */}
       <div className="admin-modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="admin-modal-header">
           <div className={`admin-modal-icon ${getIconClass()}`}>
             {getIcon()}
           </div>
-          <h3 className="admin-modal-title">Powiadomienie</h3>
+          <h3 className="admin-modal-title">{getTitle()}</h3>
         </div>
 
         <div className="admin-modal-body">

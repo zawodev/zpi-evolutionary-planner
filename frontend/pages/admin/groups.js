@@ -1,8 +1,8 @@
 /* pages/admin/groups.js */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import MsgModal from '@/components/admin/MsgModal';
-import ConfirmModal from '@/components/admin/ConfirmModal';
+import MsgModal from '@/components/admin/NotificationModal';
+import ConfirmModal from '@/components/admin/ConfirmationModal';
 
 const GroupsPage = () => {
   // ===== NAVIGATION STATE =====
