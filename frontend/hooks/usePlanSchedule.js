@@ -5,10 +5,9 @@ import { getWeekDays } from '@/utils/planUtils';
 export const usePlanSchedule = (user) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRecruitmentId, setSelectedRecruitmentId] = useState('all');
-  const [coloringMode, setColoringMode] = useState('type');
+  const [coloringMode, setColoringMode] = useState('host');
   const [selectedEvent, setSelectedEvent] = useState(null);
   
-  // Data states
   const [recruitments, setRecruitments] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -175,7 +174,6 @@ export const usePlanSchedule = (user) => {
   };
 
   return {
-    // State values
     currentDate,
     weekDays,
     filteredSchedule,
@@ -186,7 +184,6 @@ export const usePlanSchedule = (user) => {
     selectedEvent,
     selectedMeetingData,
     
-    // Handlers
     handleNextWeek,
     handlePrevWeek,
     handleRecruitmentChange,
