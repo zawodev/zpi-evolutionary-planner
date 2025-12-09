@@ -8,7 +8,6 @@ const UsersPage = () => {
   // ===== NAVIGATION STATE =====
   const [activeView, setActiveView] = useState('list');
   const [selectedUser, setSelectedUser] = useState(null);
-
   // ===== DATA STATE =====
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -411,7 +410,7 @@ const UsersPage = () => {
                     >
                       ✏️
                     </button>
-                    <button
+                    {user.id!==localStorage.getItem('id') ? (<button
                       onClick={() => {
                         setSelectedUser(user);
                         setModalMessage(`Czy na pewno chcesz usunąć użytkownika ${user.first_name} ${user.last_name}?`);
@@ -450,7 +449,7 @@ const UsersPage = () => {
                       className="admin-btn-icon danger"
                     >
                       🗑️
-                    </button>
+                    </button>) : (<></>)}
                   </td>
                 </tr>
               ))}
