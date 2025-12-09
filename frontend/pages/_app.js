@@ -34,6 +34,7 @@ import "@/styles/layout/_header.css";
 import "@/styles/layout/_hero.css";
 import "@/styles/layout/_index.css";
 import "@/styles/layout/_login.css";
+import "@/styles/layout/_plan.css";
 import "@/styles/layout/_position.css";
 import "@/styles/layout/_schedule_grid.css";
 import "@/styles/layout/_admin.css";
