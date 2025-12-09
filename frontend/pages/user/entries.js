@@ -1,6 +1,6 @@
 /* frontend/pages/user/entries.js */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from '../../contexts/AuthContext';
 
 // Hooks
@@ -22,6 +22,7 @@ import PreferenceModal from '../../components/user/entries/PreferenceModal';
 import ScheduleHeader from '../../components/user/entries/schedule/ScheduleHeader';
 import ScheduleColumn from '../../components/user/entries/schedule/ScheduleColumn';
 import HeatmapLegend from '../../components/user/entries/heatmap/HeatmapLegend';
+import OptimizationProgressPanel from '../../components/user/entries/OptimizationProgressPanel';
 
 export default function EntriesPage() {
     const { user } = useAuth();
@@ -32,6 +33,83 @@ export default function EntriesPage() {
 
     const [selectedRecruitment, setSelectedRecruitment] = useState(null);
     
+    const [optimizationStatus, setOptimizationStatus] = useState(null);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+
+    useEffect(() => {
+        if (!selectedRecruitment) {
+            setOptimizationStatus(null);
+            return;
+        }
+
+        const recruitmentId = selectedRecruitment.recruitment_id;
+        const status = selectedRecruitment.plan_status;
+
+        if (status === 'draft' || status === 'active' || status === 'archived') {
+            setOptimizationStatus(null);
+            return;
+        }
+
+        const token = localStorage.getItem('access_token');
+        const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+        const url = `${baseUrl}/api/v1/optimizer/jobs/recruitment/${recruitmentId}/status/`;
+
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
+        const fetchStatus = async (isBackgroundRefresh = false) => {
+            if (!isBackgroundRefresh) setIsLoadingStatus(true);
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    signal: signal
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setOptimizationStatus(data);
+                } else if (response.status === 404) {
+                     setOptimizationStatus({
+                         plan_status: status,
+                         jobs_count: 0,
+                         max_round_execution_time: selectedRecruitment.max_round_execution_time || 300,
+                         estimated_to_end_time: 0,
+                         pessimistic_progress_text: '0/0',
+                         optimization_start_date: selectedRecruitment.optimization_start_date
+                     });
+                } else {
+                    console.warn(`Status fetch error: ${response.statusText}`);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error fetching optimization status:', error);
+                }
+            } finally {
+                if (!isBackgroundRefresh) setIsLoadingStatus(false);
+            }
+        };
+
+        fetchStatus(false);
+
+        let intervalId;
+        if (status === 'optimizing') {
+            intervalId = setInterval(() => {
+                fetchStatus(true);
+            }, 5000);
+        }
+
+        return () => {
+            abortController.abort();
+            if (intervalId) clearInterval(intervalId);
+        };
+
+    }, [selectedRecruitment?.recruitment_id, selectedRecruitment?.plan_status]);
+
     const { gridStartHour, gridEndHour, gridHeightPx, hours } = useGridDimensions(selectedRecruitment);
 
     const isEditable = selectedRecruitment?.plan_status === 'draft' || selectedRecruitment?.plan_status === 'optimizing';
@@ -89,7 +167,7 @@ export default function EntriesPage() {
         
         const s = Math.min(dragStart.minutes, dragEnd.minutes);
         const e = Math.max(dragStart.minutes, dragEnd.minutes);
-        const h = 60; // hourHeight
+        const h = 60;
         const offset = s - (gridStartHour * 60);
         
         return {
@@ -101,6 +179,8 @@ export default function EntriesPage() {
     };
 
     const displayError = recruitmentsError || preferencesError || saveError;
+    
+    const showProgressPanel = selectedRecruitment?.plan_status === 'optimizing';
 
     // --- RENDER ---
     return (
@@ -145,6 +225,15 @@ export default function EntriesPage() {
                                 onHeatmapMouseUp={heatmapLogic.handleHeatmapToggle.up}
                                 showingHeatmap={heatmapLogic.showingHeatmap}
                             />
+
+                            {showProgressPanel && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <OptimizationProgressPanel 
+                                        optimizationStatus={optimizationStatus}
+                                        isLoadingStatus={isLoadingStatus}
+                                    />
+                                </div>
+                            )}
                             
                             <div className={`schedule-grid ${!isEditable ? 'read-only' : ''}`}>
                                 <div className="time-labels" style={{height: `${gridHeightPx + 40}px`}}>

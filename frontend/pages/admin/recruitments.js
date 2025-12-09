@@ -1,15 +1,15 @@
 /* pages/admin/recruitments.js */
 
 import React, { useState, useEffect } from 'react';
-import MsgModal from '@/components/admin/NotificationModal';
-import ConfirmModal from '@/components/admin/ConfirmationModal';
+import MsgModal from '@/components/admin/modals/NotificationModal';
+import ConfirmModal from '@/components/admin/modals/ConfirmationModal';
 
 const RecruitmentsPage = () => {
   // ===== NAVIGATION STATE =====
   const [activeView, setActiveView] = useState('list'); // 'list', 'create', 'edit'
   const [selectedRecruitment, setSelectedRecruitment] = useState(null);
 
-  // ===== INTERNAL TABS STATE (for create/edit) =====
+  // ===== INTERNAL TABS STATE =====
   const [activeTab, setActiveTab] = useState('recruitment'); // 'recruitment', 'subjects'
   const [subjectMode, setSubjectMode] = useState('list'); // 'list', 'add', 'edit'
 
@@ -67,7 +67,6 @@ const RecruitmentsPage = () => {
   };
 
   const clearRecruitmentForm = () => {
-    // Uwaga: nie resetujemy subjects i recGroups, ponieważ są ładowane do edycji
     setRecruitmentName("");
     setDayStartTime("08:00");
     setDayEndTime("16:00");
@@ -81,13 +80,12 @@ const RecruitmentsPage = () => {
     setRoundBreakLength(10);
     setActiveTab('recruitment');
     setSubjectMode('list');
-    setSelectedRecruitment(null); // Ważne dla powrotu do trybu "create"
-    setSubjects([]); // Resetuj, jeśli nie jest w trybie edycji
-    setRecGroups([]); // Resetuj, jeśli nie jest w trybie edycji
+    setSelectedRecruitment(null); 
+    setSubjects([]);
+    setRecGroups([]);
   };
 
   const clearRecruitmentFormForEdit = () => {
-    // Używane do czyszczenia głównej części formularza, ale pozostawienia subjects/groups
     setRecruitmentName("");
     setDayStartTime("08:00");
     setDayEndTime("16:00");
@@ -244,7 +242,6 @@ const RecruitmentsPage = () => {
   const fetchPrevSubjects = async () => {
     const token = localStorage.getItem("access_token");
     try {
-      // Pobieranie wszystkich przedmiotów dla kopiowania
       const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/subjects/', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -362,7 +359,6 @@ const RecruitmentsPage = () => {
       const subjectId = data.subject_id;
       const subTasks = [];
 
-      // Add tags
       for (const tag of tags) {
         subTasks.push(fetch('http://127.0.0.1:8000/api/v1/scheduling/subject-tags/', {
           method: 'POST',
@@ -371,7 +367,6 @@ const RecruitmentsPage = () => {
         }));
       }
 
-      // Add hosts (SubjectGroups)
       for (const host of hosts) {
         subTasks.push(fetch('http://127.0.0.1:8000/api/v1/scheduling/subject-groups/create-with-recruitment/', {
           method: 'POST',
@@ -448,7 +443,6 @@ const RecruitmentsPage = () => {
     }
   };
 
-  // Logika tworzenia nowej rekrutacji
   const addRecruitment = async () => {
     if (!recruitmentName || !dayStartTime || !dayEndTime || !startDate || !endDate || !prefDate || !prefDateEnd) {
       openModal("Wypełnij wszystkie wymagane pola");
@@ -469,7 +463,6 @@ const RecruitmentsPage = () => {
     const org = localStorage.getItem("org_id");
 
     try {
-      // 1. UTWORZENIE REKRUTACJI
       const response = await fetch('http://127.0.0.1:8000/api/v1/scheduling/recruitments/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -499,10 +492,8 @@ const RecruitmentsPage = () => {
       const data = await response.json();
       const recId = data.recruitment_id;
 
-      // 2. TWORZENIE ASYNCHRONICZNYCH ZADAŃ
       const tasks = [];
 
-      // A. Dodaj Przedmioty
       for (const sub of subjects) {
         tasks.push(
           createSubject(
@@ -513,18 +504,15 @@ const RecruitmentsPage = () => {
         );
       }
 
-      // B. Dodaj Grupy
       for (const g of recGroups) {
         tasks.push(addGroupToRecruitment(recId, g.group_id));
       }
 
-      // C. Dodaj Pokoje (wszystkie załadowane pokoje)
       for (const r of rooms) {
         tasks.push(postRoomRecruitment(recId, r.room_id));
       }
 
 
-      // 3. POCZEKAJ NA UKOŃCZENIE WSZYSTKICH ZADAŃ (i loguj błędy, ale kontynuuj)
       await Promise.all(tasks.map(p => p.catch(e => console.error("Error in post-creation task:", e))));
 
       openModal(`Dodano rekrutację: ${data.recruitment_name}`);
@@ -539,14 +527,12 @@ const RecruitmentsPage = () => {
     }
   };
 
-  // NOWA: Logika aktualizacji istniejącej rekrutacji
   const updateRecruitment = async () => {
     if (!selectedRecruitment || !selectedRecruitment.recruitment_id) {
       openModal("Błąd: Brak ID rekrutacji do aktualizacji.", "error");
       return;
     }
 
-    // Wymagane pola (jak w addRecruitment)
     if (!recruitmentName || !dayStartTime || !dayEndTime || !startDate || !endDate || !prefDate || !prefDateEnd) {
       openModal("Wypełnij wszystkie wymagane pola", "error");
       return;
@@ -561,9 +547,8 @@ const RecruitmentsPage = () => {
     const recId = selectedRecruitment.recruitment_id;
 
     try {
-      // 1. AKTUALIZACJA REKRUTACJI (PATCH)
       const response = await fetch(`http://127.0.0.1:8000/api/v1/scheduling/recruitments/${recId}/`, {
-        method: 'PATCH', // Używamy PATCH dla częściowej aktualizacji
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           recruitment_name: recruitmentName,
@@ -586,36 +571,20 @@ const RecruitmentsPage = () => {
         return;
       }
 
-      // 2. SYNCHRONIZACJA PODRZĘDNYCH OBIEKTÓW (Subjects, Groups, Rooms)
-      // UWAGA: Pełna logika synchronizacji (usuwanie starych, dodawanie nowych)
-      // jest złożona i wymaga oddzielnych endpointów lub logiki.
-      // W tej wersji oprogramowania, skupimy się na ponownym dodaniu/nadpisaniu.
-
-      // Na razie pomijamy automatyczną synchronizację,
-      // zakładając, że to użytkownik ręcznie zaktualizuje przedmioty/grupy.
-      // Aby zachować funkcjonalność tworzenia przedmiotów w tej sesji,
-      // należy wdrożyć API do edycji przedmiotów (nie tylko ich tworzenia).
-
-      // Prawidłowa implementacja wymaga:
-      // a) Pobrania istniejących subjects/groups/rooms powiązanych z recId
-      // b) Porównania ich ze stanem subjects/recGroups/rooms
-      // c) Wywołania DELETE dla usuniętych i POST/PATCH dla dodanych/zmienionych.
-
+ 
       openModal(`Rekrutacja zaktualizowana: ${recruitmentName}`, "success");
       fetchRecruitments();
       setActiveView('list');
-      clearRecruitmentForm(); // Wyczyść formularz i wróć do widoku listy
-
+      clearRecruitmentForm();
     } catch (error) {
       console.error("Error updating recruitment:", error);
       openModal("Błąd sieci podczas aktualizacji rekrutacji", "error");
     }
   };
 
-  // Logika usuwania rekrutacji
   const deleteRecruitment = async (rec_id) => {
     const token = localStorage.getItem("access_token");
-    setIsConfirmModalOpen(false); // Zamknij modal potwierdzenia
+    setIsConfirmModalOpen(false); 
 
     try {
       const response = await fetch(
@@ -628,7 +597,7 @@ const RecruitmentsPage = () => {
 
       if (response.ok || response.status === 204) {
         openModal(`Rekrutacja usunięta pomyślnie!`, "success");
-        fetchRecruitments(); // Odśwież listę
+        fetchRecruitments();
       } else {
         let errorData;
         try {
@@ -644,15 +613,11 @@ const RecruitmentsPage = () => {
     }
   };
 
-  // Funckja do ładowania danych rekrutacji do edycji
   const loadRecruitmentForEdit = (recruitment) => {
-    // Wyczyść formularz (bez resetowania subjects i recGroups)
     clearRecruitmentFormForEdit();
 
-    // Ustawienie głównego obiektu rekrutacji
     setSelectedRecruitment(recruitment);
 
-    // Ustawienie głównych pól do formularza
     setRecruitmentName(recruitment.recruitment_name);
     setDayStartTime(formatTime(recruitment.day_start_time));
     setDayEndTime(formatTime(recruitment.day_end_time));
@@ -666,8 +631,6 @@ const RecruitmentsPage = () => {
     setRoundBreakLength(recruitment.max_round_execution_time);
     fetchSubjectsForRec(recruitment.recruitment_id);
     console.log(subjects)
-    // TODO: Wymagana jest logika pobierania i ustawiania subjects, recGroups i rooms
-    // Wymaga oddzielnych endpointów API do pobrania tych podrzędnych zasobów na podstawie rec_id.
 
     setActiveView('create');
     setActiveTab('recruitment');
@@ -772,7 +735,7 @@ const RecruitmentsPage = () => {
     setPrefDate("");
     setPrefDateEnd("");
     setRecGroups([]);
-    setSelectedRecruitment(null); // Upewnij się, że jesteśmy w trybie tworzenia
+    setSelectedRecruitment(null);
 
     const copiedSubjects = prevSubjects.filter(s => s.recruitment === rec_id);
     const token = localStorage.getItem("access_token");
@@ -785,7 +748,6 @@ const RecruitmentsPage = () => {
           'Authorization': `Bearer ${token}`
         };
 
-        // 1. Fetch Tags
         fetchTasks.push(
           fetch(
             `http://127.0.0.1:8000/api/v1/scheduling/subjects/${sub.subject_id}/tags/`,
@@ -796,7 +758,6 @@ const RecruitmentsPage = () => {
           ).then(res => res.ok ? res.json() : []).catch(() => [])
         );
 
-        // 2. Fetch Hosts (SubjectGroups for this subject)
         fetchTasks.push(
           fetch(
             `http://127.0.0.1:8000/api/v1/scheduling/subject-groups/?subject=${sub.subject_id}`,
@@ -830,7 +791,6 @@ const RecruitmentsPage = () => {
     setActiveView('create');
   };
 
-  // ===== TAG & GROUP OPERATIONS =====
   const addTagToSubject = (tag_id) => {
     const tag = tags.find(t => t.tag_id === tag_id);
     if (tag && !subTags.some(t => t.tag_id === tag.tag_id)) {
@@ -874,7 +834,6 @@ const RecruitmentsPage = () => {
     setSubGroups(subGroups.filter(g => g.group_id !== group_id));
   };
 
-  // ===== RENDER FUNCTIONS =====
   const renderRecruitmentsList = () => (
     <>
       <div className="admin-content-header">
@@ -939,7 +898,7 @@ const RecruitmentsPage = () => {
                   <td style={{ padding: '16px', textAlign: 'right' }}>
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); // Zapobiega przejściu do widoku edycji po kliknięciu przycisku
+                        e.stopPropagation();
                         loadRecruitmentForEdit(rec);
                       }}
                       className="admin-btn-icon"
@@ -949,7 +908,7 @@ const RecruitmentsPage = () => {
                     </button>
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); // Zapobiega przejściu do widoku edycji
+                        e.stopPropagation();
                         openConfirmModal(
                           `Czy na pewno chcesz usunąć rekrutację: ${rec.recruitment_name}?`,
                           () => deleteRecruitment(rec.recruitment_id)
@@ -1180,7 +1139,6 @@ const RecruitmentsPage = () => {
       {/* Tab Content: Subjects Management */}
       {activeTab === 'subjects' && (
         <>
-          {/* Przycisk "Dodaj Przedmiot" przeniesiony na górę i wyrównany do prawej */}
           <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={() => setSubjectMode('add')}
@@ -1200,7 +1158,6 @@ const RecruitmentsPage = () => {
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
                           Przedmiot
                         </th>
-                        {/* ZMIANA: Rozdzielono kolumny */}
                         <th style={{ textAlign: 'left', padding: '12px', borderBottom: '2px solid #e5e7eb' }}>
                           Pojemność
                         </th>
@@ -1224,7 +1181,6 @@ const RecruitmentsPage = () => {
                           <td style={{ padding: '12px', fontWeight: 600 }}>
                             {sub.subject_name}
                           </td>
-                          {/* ZMIANA: Wyświetlanie w dwóch kolumnach */}
                           <td style={{ padding: '12px', color: '#6b7280' }}>
                             {sub.capacity}
                           </td>
@@ -1583,7 +1539,6 @@ const RecruitmentsPage = () => {
   return (
     <div className="admin-container">
       <div className="admin-wrapper">
-        {/* Header */}
         <div className="admin-header-section">
           <div className="admin-header-wrapper">
             <div className="admin-header-gradient">
