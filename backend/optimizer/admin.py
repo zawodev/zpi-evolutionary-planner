@@ -22,7 +22,7 @@ class OptimizationJobAdmin(admin.ModelAdmin):
             'fields': ('current_iteration',)
         }),
         ('Results', {
-            'fields': ('final_solution', 'error_message'),
+            'fields': ('final_solution', 'first_solution', 'error_message'),
             'classes': ('collapse',)
         }),
         ('Problem Data', {

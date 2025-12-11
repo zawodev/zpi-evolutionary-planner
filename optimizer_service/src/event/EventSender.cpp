@@ -150,7 +150,7 @@ void RedisEventSender::sendProgress(const RawProgressData& progress) {
         
         Logger::info("Successfully sent progress for job: " + progress.job_id + 
                     " (notified " + std::to_string(subscribers) + " subscribers)");
-        Logger::info("Progress message: " + messageBody);
+        //Logger::info("Progress message: " + messageBody);
                     
     } catch (const std::exception& e) {
         throw std::runtime_error("Redis operation failed: " + std::string(e.what()));

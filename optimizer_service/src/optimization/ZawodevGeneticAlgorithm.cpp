@@ -40,13 +40,14 @@ Individual ZawodevGeneticAlgorithm::Init(const ProblemData& data, const Evaluato
         //std::cout << i << ": " << ind.fitness << "\n";
     }
 
-    // debug info
-    Logger::debug("Start fitness: " + std::to_string(bestIndividual.fitness));
-    // exit(1);
-
     //0th iteration return
     Individual dummy;
     InitRandomInd(dummy);
+
+    // debug info
+    Logger::debug("Start fitness: " + std::to_string(dummy.fitness));
+    // exit(1);
+
     return dummy;
 }
 
@@ -90,7 +91,7 @@ void ZawodevGeneticAlgorithm::RunInnerIteration(int currentInnerIteration) {
     //Logger::debug("3/3 FIHC done.");
 
     //SortSelection();
-    UpdateBestIndividual(population[0]);
+    //UpdateBestIndividual(population[0]);
 
     // no fstrings in cpp??? me saddy :c
     Logger::debug("Iteration: " + std::to_string(currentInnerIteration) + "/" + std::to_string(INNER_LOOP_COUNT));
@@ -121,43 +122,46 @@ void ZawodevGeneticAlgorithm::InitRandomInd(Individual& individual) {
 }
 
 void ZawodevGeneticAlgorithm::FihcInd(Individual &individual) {
-    // to be improved, very basic very bad definition of FIHC
-    // now with random order of genes
-    //Logger::debug("Before FIHC: ");
-    //individual.printDebugInfo();
-    InitRandomInd(individual); // re-initialize to random valid individual
+    bool improved = true;
+    bool everImproved = false;
+    while (improved) {
+        improved = false;
+        
+        std::vector<int> geneIndices(evaluator->getTotalGenes());
+        std::iota(geneIndices.begin(), geneIndices.end(), 0);
+        std::shuffle(geneIndices.begin(), geneIndices.end(), rng);
 
-    // Create a vector of gene indices and shuffle it for random order
-    std::vector<size_t> geneIndices(individual.genotype.size());
-    std::iota(geneIndices.begin(), geneIndices.end(), 0);
-    std::shuffle(geneIndices.begin(), geneIndices.end(), rng);
+        for (int geneIdx : geneIndices) {
+            int originalValue = individual.genotype[geneIdx];
+            bool localImproved = false;
 
-    for (size_t geneIdx : geneIndices) {
-        int originalValue = individual.genotype[geneIdx];
-        // double originalFitness = individual.fitness; // unused
+            for (int val = 0; val <= evaluator->getMaxGeneValue(geneIdx); ++val) {
+                if (val == originalValue) continue;
 
-        Individual bestInd = individual;
-        double bestFitness = individual.fitness;
+                individual.genotype[geneIdx] = val;
+                double newFitness = evaluator->evaluate(individual);
 
-        for (int val = 0; val <= evaluator->getMaxGeneValue((int)geneIdx); ++val) {
-            if (val == originalValue) continue;
+                if (newFitness > individual.fitness) {
+                    individual.fitness = newFitness;
+                    improved = true;
+                    everImproved = true;
+                    localImproved = true;
+                    UpdateBestIndividual(individual);
+                    break; // break the for loop to restart from first gene
+                }
+            }
 
-            Individual tempInd = individual;
-            tempInd.genotype[geneIdx] = val;
-            double newFitness = evaluator->evaluate(tempInd);
-            UpdateBestIndividual(tempInd);
-            
-            if (newFitness > bestFitness) {
-                bestFitness = newFitness;
-                bestInd = tempInd;
+            if (!localImproved) {
+                individual.genotype[geneIdx] = originalValue; // revert change
             }
         }
-
-        // Set to the best found individual (which might be repaired)
-        individual = bestInd;
     }
-    //Logger::debug("After FIHC: ");
-    //individual.printDebugInfo();
+    
+    // jeśli nie znaleziono żadnej poprawy, zainicjuj osobnika losowo
+    if (!everImproved) {
+        //Logger::debug("FIHC: No improvement found, reinitializing individual.");
+        InitRandomInd(individual);
+    }
 }
 
 void ZawodevGeneticAlgorithm::SortSelection() {
