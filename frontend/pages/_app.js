@@ -28,7 +28,6 @@ import "@/styles/components/_slots.css";
 import "@/styles/layout/_about.css";
 import "@/styles/layout/_auth.css";
 import "@/styles/layout/_contact.css";
-import "@/styles/layout/_features.css";
 import "@/styles/layout/_header.css";
 import "@/styles/layout/_hero.css";
 import "@/styles/layout/_index.css";

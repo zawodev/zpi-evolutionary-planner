@@ -3,7 +3,6 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background: linear-gradient(to bottom right, #e0e7ff, #ffffff, #f3e8ff);
-    /* Zmiana: Utrzymuje tło w stałej pozycji, niezależnie od przewijania treści */
     background-attachment: fixed;
     min-height: 100vh;
     overflow-x: hidden;

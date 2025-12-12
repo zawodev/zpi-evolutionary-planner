@@ -1,6 +1,6 @@
-/* Dodaj te style do _admin-modern.css */
+/* frontend/styles/layout/_tabs.css */
 
-/* ===== TABS SYSTEM ===== */
+/* Tabs System */
 .admin-tabs {
   display: flex;
   gap: 0.5rem;
@@ -34,7 +34,6 @@
   background: transparent;
 }
 
-/* Icon buttons for table actions */
 .admin-btn-icon {
   background: transparent;
   border: none;
