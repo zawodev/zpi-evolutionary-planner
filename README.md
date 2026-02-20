@@ -3,7 +3,7 @@
 **OptiSlots** is a web-based timetabling system designed for complex organizations such as universities and large enterprises.  
 It uses a high-performance **C++ evolutionary algorithm** to automatically generate optimal schedules based on multiple constraints and user preferences.
 
-
+**How it works (video):** https://www.youtube.com/watch?v=0c0IGObz01k
 
 ## Key Features
 
